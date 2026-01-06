@@ -1,1 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Daily Plant Checks</title>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 16px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { font-size: 12px; color: #444; }
+    input, select, textarea, button { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; }
+    textarea { min-height: 80px; }
+    button { border: 0; background: #111; color: #fff; font-weight: 700; }
+    button:disabled { opacity: 0.5; }
+    .topBtns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .pill { background: #f3f3f3; border: 1px solid #ddd; color: #111; }
+    .checks { display: grid; gap: 10px; }
+    .check { border: 1px solid #eee; border-radius: 10px; padding: 10px; }
+    .small { font-size: 12px; color: #666; }
+    canvas { width: 100%; height: 180px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
+  </style>
+
+  <!-- jsPDF (makes the PDF in the browser) -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <h2>Daily Plant Checks</h2>
+  <p class="small">Scan QR → choose plant → fill → sign → submit → emailed automatically.</p>
+
+  <div class="card">
+    <div class="topBtns">
+      <button class="pill" id="btnExc" type="button">Excavator</button>
+      <button class="pill" id="btnCrane" type="button">Crane</button>
+      <button class="pill" id="btnDump" type="button">Dumper</button>
+    </div>
+    <p class="small" id="selectedType" style="margin:10px 0 0;">Selected: —</p>
+  </div>
+
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <label>Site</label>
+        <input id="site" placeholder="e.g. Hinckley" />
+      </div>
+      <div>
+        <label>Date</label>
+        <input id="date" type="date" />
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:10px;">
+      <div>
+        <label>Plant / Reg / ID</label>
+        <input id="plantId" placeholder="e.g. EXC-12 / AB12CDE" />
+      </div>
+      <div>
+        <label>Operator name</label>
+        <input id="operator" placeholder="Name" />
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <label>Hours / Shift</label>
+      <input id="hours" placeholder="e.g. 06:00–18:00" />
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Checks</h3>
+    <div id="checks" class="checks"></div>
+    <p class="small">Choose OK / Defect / N/A. Add comment if Defect.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Signature</h3>
+    <canvas id="sig"></canvas>
+    <div class="grid2" style="margin-top:10px;">
+      <button class="pill" id="clearSig" type="button">Clear</button>
+      <button class="pill" id="fillToday" type="button">Today</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <button id="submitBtn" type="button">Submit (email PDF)</button>
+    <p class="small" id="status"></p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
 
