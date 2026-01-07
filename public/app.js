@@ -482,7 +482,7 @@ if (!ab) throw new Error("PDF export failed (arraybuffer empty)");
 
 const bytes = new Uint8Array(ab);
 let binary = "";
-const chunk = 0x8000; // 32KB chunks
+const chunk = 0x8000;
 
 for (let i = 0; i < bytes.length; i += chunk) {
   binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
