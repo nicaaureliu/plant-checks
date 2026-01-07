@@ -347,150 +347,215 @@ async function fetchAsDataUrl(url) {
 }
 
 async function makePdfBase64(payload) {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    throw new Error("jsPDF not loaded");
-  }
+  if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("jsPDF not loaded");
   const { jsPDF } = window.jspdf;
 
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  if (!doc.autoTable) throw new Error("jsPDF AutoTable not loaded (missing script tag)");
+
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 40;
 
-  // logos
-  let atlLogo = null;
-  let tpLogo = null;
-  try {
-    atlLogo = await fetchAsDataUrl("/assets/atl-logo.png");
-    tpLogo = await fetchAsDataUrl("/assets/tp.png");
-  } catch { /* ignore */ }
+  // ---- load logos (best effort) ----
+  let atlLogo = null, tpLogo = null;
+  try { atlLogo = await fetchAsDataUrl("/assets/atl-logo.png"); } catch {}
+  try { tpLogo  = await fetchAsDataUrl("/assets/tp.png"); } catch {}
 
-  // header
-  if (atlLogo) doc.addImage(atlLogo, "PNG", margin, 30, 160, 45);
-  if (tpLogo) doc.addImage(tpLogo, "PNG", pageW - margin - 55, 25, 55, 55);
+  // ---- HEADER ----
+  const headerY = 30;
+
+  if (atlLogo) doc.addImage(atlLogo, "PNG", margin, headerY, 160, 45);
+  if (tpLogo)  doc.addImage(tpLogo,  "PNG", pageW - margin - 55, headerY - 5, 55, 55);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(14);
-  doc.text("QPFPL5.2", pageW / 2, 40, { align: "center" });
+  doc.text("QPFPL5.2", pageW / 2, headerY + 10, { align: "center" });
 
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text(payload.title, pageW / 2, 60, { align: "center" });
+  doc.text(payload.title || "Plant Pre-Use Inspection Checklist", pageW / 2, headerY + 30, { align: "center" });
 
+  // Machine + Week
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("Machine No:", margin, 85);
+  doc.text("Machine No:", margin, headerY + 55);
   doc.setFont("helvetica", "normal");
-  doc.text(payload.plantId || "—", margin + 70, 85);
+  doc.text(payload.plantId || "—", margin + 75, headerY + 55);
 
   doc.setFont("helvetica", "bold");
-  doc.text("Week commencing:", pageW - margin - 160, 85);
+  doc.text("Week commencing:", pageW - margin - 170, headerY + 55);
   doc.setFont("helvetica", "normal");
-  doc.text(formatDDMMYYYY(payload.weekCommencingISO), pageW - margin, 85, { align: "right" });
+  doc.text(formatDDMMYYYY(payload.weekCommencingISO), pageW - margin, headerY + 55, { align: "right" });
 
-  // yellow bar
+  // Yellow bar
   doc.setFillColor(255, 214, 0);
-  doc.rect(margin, 95, pageW - margin * 2, 20, "F");
+  doc.rect(margin, headerY + 68, pageW - margin * 2, 22, "F");
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW / 2, 108, { align: "center" });
+  doc.text(
+    "All checks must be carried out in line with Specific Manufacturer’s instructions",
+    pageW / 2,
+    headerY + 83,
+    { align: "center" }
+  );
 
-  // meta (site/date/operator/hours)
+  // Meta row
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(`Site: ${payload.site || ""}`, margin, 135);
-  doc.text(`Date: ${formatDDMMYYYY(payload.date)}`, margin + 220, 135);
-  doc.text(`Operator: ${payload.operator || ""}`, margin + 420, 135);
-  doc.text(`Hours/Shift: ${payload.hours || ""}`, margin + 620, 135);
+  const metaY = headerY + 108;
+  doc.text(`Site: ${payload.site || ""}`, margin, metaY);
+  doc.text(`Date: ${formatDDMMYYYY(payload.date)}`, margin + 260, metaY);
+  doc.text(`Operator: ${payload.operator || ""}`, margin + 460, metaY);
+  doc.text(`Hours/Shift: ${payload.hours || ""}`, margin + 660, metaY);
 
-  // table geometry
-  const y0 = 155;
-  const rowH = 16;
-  const itemW = 380;
-  const dayW = (pageW - margin * 2 - itemW) / 7;
+  // ---- TABLE (AutoTable) ----
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  // header row
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setFillColor(255, 214, 0);
-  doc.rect(margin, y0, itemW, rowH, "F");
-  doc.setTextColor(0, 0, 0);
-  doc.rect(margin, y0, pageW - margin * 2, rowH);
+  // We draw ✓ and X ourselves. Keep raw values as "OK" / "DEFECT" / "NA" / null.
+  const bodyRows = (payload.labels || []).map((label, r) => {
+    const row = [label];
+    for (let d = 0; d < 7; d++) row.push(payload.statuses?.[r]?.[d] || "");
+    return row;
+  });
 
-  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-  for (let d = 0; d < 7; d++) {
-    const x = margin + itemW + d * dayW;
-    doc.rect(x, y0, dayW, rowH);
-    doc.text(days[d], x + dayW / 2, y0 + 11, { align: "center" });
-  }
+  doc.autoTable({
+    startY: metaY + 18,
+    theme: "grid",
+    margin: { left: margin, right: margin },
+    head: [[ "", ...days ]],
+    body: bodyRows,
 
-  // rows
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+    styles: {
+      font: "helvetica",
+      fontSize: 8,
+      cellPadding: 4,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.7,
+      textColor: [0, 0, 0],
+      valign: "middle",
+    },
 
-  let y = y0 + rowH;
-  for (let r = 0; r < payload.labels.length; r++) {
-    doc.rect(margin, y, itemW, rowH);
-    doc.text(payload.labels[r], margin + 6, y + 11);
+    headStyles: {
+      fontStyle: "bold",
+      fillColor: [255, 255, 255],
+    },
 
-    for (let d = 0; d < 7; d++) {
-      const x = margin + itemW + d * dayW;
-      doc.rect(x, y, dayW, rowH);
+    columnStyles: {
+      0: { cellWidth: 420, halign: "left" },
+      1: { cellWidth: 55, halign: "center" },
+      2: { cellWidth: 55, halign: "center" },
+      3: { cellWidth: 55, halign: "center" },
+      4: { cellWidth: 55, halign: "center" },
+      5: { cellWidth: 55, halign: "center" },
+      6: { cellWidth: 55, halign: "center" },
+      7: { cellWidth: 55, halign: "center" },
+    },
 
-      const st = payload.statuses[r]?.[d] || null;
-      const sym = markToSymbol(st);
-      if (sym) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text(sym, x + dayW / 2, y + 12, { align: "center" });
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
+    didParseCell: function (data) {
+      // Make first header cell yellow like your form
+      if (data.section === "head" && data.column.index === 0) {
+        data.cell.styles.fillColor = [255, 214, 0];
       }
-    }
 
-    y += rowH;
-    if (y > pageH - 160) break; // keep it safe on one page
+      // For body day cells: remove text for OK/DEFECT so we draw marks nicely
+      if (data.section === "body" && data.column.index > 0) {
+        const v = (data.cell.raw || "").toString();
+        if (v === "OK" || v === "DEFECT") data.cell.text = [""];
+        if (v === "NA") data.cell.text = ["N/A"];
+        if (!v) data.cell.text = [""];
+      }
+    },
+
+    didDrawCell: function (data) {
+      // Draw ✓ and X ourselves (font-proof)
+      if (data.section !== "body") return;
+      if (data.column.index <= 0) return;
+
+      const v = (data.cell.raw || "").toString();
+      const x = data.cell.x;
+      const y = data.cell.y;
+      const w = data.cell.width;
+      const h = data.cell.height;
+
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+
+      doc.setDrawColor(0);
+
+      if (v === "OK") {
+        // tick: two lines
+        doc.setLineWidth(1.4);
+        doc.line(cx - 8, cy + 1, cx - 2, cy + 7);
+        doc.line(cx - 2, cy + 7, cx + 10, cy - 6);
+      } else if (v === "DEFECT") {
+        // cross
+        doc.setLineWidth(1.4);
+        doc.line(cx - 8, cy - 6, cx + 8, cy + 6);
+        doc.line(cx + 8, cy - 6, cx - 8, cy + 6);
+      }
+    },
+  });
+
+  // ---- FOOTER / BOXES ----
+  let y = doc.lastAutoTable.finalY + 16;
+
+  // If not enough space, go to new page
+  const need = 140;
+  if (y + need > pageH - 30) {
+    doc.addPage();
+    y = margin;
   }
-
-  // footer boxes
-  const footerY = Math.max(y + 10, pageH - 150);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text("Defects identified:", margin, footerY);
-  doc.rect(margin, footerY + 8, pageW - margin * 2, 35);
+  doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
 
-  doc.text("Reported to / action taken:", margin, footerY + 60);
-  doc.rect(margin, footerY + 68, pageW - margin * 2, 35);
-
+  // Defects box
+  y += 10;
+  doc.text("Defects identified:", margin, y);
+  y += 8;
+  doc.rect(margin, y, pageW - margin * 2, 45);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  if (payload.defectsText) doc.text(payload.defectsText, margin + 6, footerY + 28);
-  if (payload.actionTaken) doc.text(payload.actionTaken, margin + 6, footerY + 88);
+  if (payload.defectsText) doc.text(payload.defectsText, margin + 6, y + 16, { maxWidth: pageW - margin * 2 - 12 });
 
+  // Action box
+  y += 65;
   doc.setFont("helvetica", "bold");
-  doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, footerY - 6);
+  doc.setFontSize(10);
+  doc.text("Reported to / action taken:", margin, y);
+  y += 8;
+  doc.rect(margin, y, pageW - margin * 2, 45);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  if (payload.actionTaken) doc.text(payload.actionTaken, margin + 6, y + 16, { maxWidth: pageW - margin * 2 - 12 });
 
-  // signature
+  // Signature image (right side above bottom)
   if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
     try {
-      doc.addImage(payload.signatureDataUrl, "PNG", pageW - margin - 170, footerY - 35, 170, 55);
+      const sigW = 200, sigH = 60;
+      const sigX = pageW - margin - sigW;
+      const sigY = y - 80;
+      doc.addImage(payload.signatureDataUrl, "PNG", sigX, sigY, sigW, sigH);
     } catch {}
   }
 
-  // submitted stamp
+  // Submitted footer
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 20);
-  doc.text(`BUILD: ${BUILD}`, margin + 260, pageH - 20);
+  doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 18);
+  doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 18, { align: "center" });
 
+  // Return Base64
   const dataUri = doc.output("datauristring");
   if (!dataUri || typeof dataUri !== "string" || !dataUri.includes(",")) {
     throw new Error("PDF export failed (bad data URI)");
   }
   return dataUri.split(",")[1];
 }
+
 
 // ---------- Submit ----------
 async function submitForm(sigApi) {
