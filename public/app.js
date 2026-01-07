@@ -471,12 +471,20 @@ async function makePdfBase64(payload) {
     throw new Error("PDF export failed (jsPDF output returned empty)");
   }
 
-  const parts = dataUri.split(",");
-  if (parts.length < 2) {
-    throw new Error("PDF export failed (bad data URI)");
-  }
+// Convert PDF to base64 safely (NO dataUri split)
+const ab = doc.output("arraybuffer");
+if (!ab) throw new Error("PDF export failed (arraybuffer empty)");
 
-  return parts[1];
+const bytes = new Uint8Array(ab);
+let binary = "";
+const chunk = 0x8000; // 32KB chunks
+
+for (let i = 0; i < bytes.length; i += chunk) {
+  binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+}
+
+return btoa(binary);
+
 }
 
 // --- submit ---
