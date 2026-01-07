@@ -226,7 +226,11 @@ el("submitBtn").addEventListener("click", async () => {
   try {
     el("submitBtn").disabled = true;
     statusEl.textContent = "Creating PDF and sending…";
-
+if ((window.__logosLoaded || 0) < 2) {
+  statusEl.textContent = "Loading logos… wait 1 second and press Submit again.";
+  el("submitBtn").disabled = false;
+  return;
+}
     const pdfBase64 = makePdf(payload);
 
     const res = await fetch("/api/submit", {
