@@ -277,10 +277,21 @@ function renderChecksTable() {
 // ====== TYPE SELECT ======
 function selectType(type) {
   selectedType = type;
+
+  // Show the checklist immediately (even before Plant ID is entered)
+  labels = (CHECKLISTS[selectedType] || []);
+  statuses = labels.map(() => Array(7).fill(null));
+  activeDayIndex = getDayIndexMon0(el("date").value);
+  defaultActiveDayToOK();
+  renderChecksTable();
+
   updateHeaderText();
   updatePreviews();
+
+  // If Plant ID + date exist, pull saved week from KV
   loadWeek().catch(e => (statusEl.textContent = `❌ ${e.message}`));
 }
+
 
 el("btnExc").addEventListener("click", () => selectType("excavator"));
 el("btnCrane").addEventListener("click", () => selectType("crane"));
