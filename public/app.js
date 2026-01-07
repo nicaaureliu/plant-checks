@@ -59,17 +59,17 @@ const CHECKLISTS = {
 };
 
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-const MARKS = ["✓", "X", "N/A"]; // OK, DEFECT, NA
 const STATUSES = ["OK", "DEFECT", "NA"];
+
+const el = (id) => document.getElementById(id);
+const statusEl = el("status");
 
 // ====== STATE ======
 let selectedType = null;
-let checksState = []; // array of { label, status }
+let labels = [];
+let statuses = []; // statuses[row][day] = "OK"|"DEFECT"|"NA"|null
 let activeDayIndex = 0;
-
-// ====== DOM HELPERS ======
-const el = (id) => document.getElementById(id);
-const statusEl = el("status");
+let lastWeekKey = null;
 
 // ====== DATE HELPERS ======
 function setToday() {
@@ -86,7 +86,7 @@ function formatDateUK(yyyy_mm_dd) {
   return `${d}/${m}/${y}`;
 }
 
-// Week commencing Monday
+// Week commencing Monday (UK)
 function getWeekCommencing(yyyy_mm_dd) {
   if (!yyyy_mm_dd) return "";
   const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
@@ -100,15 +100,29 @@ function getWeekCommencing(yyyy_mm_dd) {
   return formatDateUK(`${yy}-${mm}-${dd}`);
 }
 
+// Mon=0 ... Sun=6
 function getDayIndexMon0(yyyy_mm_dd) {
   if (!yyyy_mm_dd) return 0;
   const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   const day = dt.getDay(); // Sun=0
-  return day === 0 ? 6 : day - 1; // Mon=0..Sun=6
+  return day === 0 ? 6 : day - 1;
 }
 
-// ====== LOGOS for PDF (fetch as dataURL) ======
+function markForStatus(s) {
+  if (s === "OK") return "✓";
+  if (s === "DEFECT") return "X";
+  if (s === "NA") return "N/A";
+  return "";
+}
+
+function cycleStatus(current) {
+  const idx = STATUSES.indexOf(current);
+  if (idx === -1) return "OK";
+  return STATUSES[(idx + 1) % STATUSES.length];
+}
+
+// ====== LOGOS for PDF ======
 let __logoCache = null;
 
 async function fetchAsDataUrl(path) {
@@ -133,7 +147,7 @@ async function getLogos() {
   return __logoCache;
 }
 
-// ====== UI: HEADER + PREVIEWS ======
+// ====== HEADER / PREVIEWS ======
 function updateHeaderText() {
   const type = selectedType || "";
   el("selectedType").textContent = type ? `Selected: ${type.toUpperCase()}` : "Selected: —";
@@ -145,8 +159,6 @@ function updateHeaderText() {
     "Pre use Inspection Checklist";
 
   el("sheetTitle").textContent = title;
-
-  // You can change ref per form if you want later
   el("formRef").textContent = "QPFPL5.2";
 }
 
@@ -155,51 +167,104 @@ function updatePreviews() {
   el("weekCommencingPreview").textContent = getWeekCommencing(el("date").value) || "—";
 }
 
-// ====== UI: TABLE RENDER ======
-function initChecksForType(type) {
-  checksState = (CHECKLISTS[type] || []).map(label => ({ label, status: "OK" }));
+// ====== WEEK LOAD FROM KV ======
+function getTokenFromUrl() {
+  const url = new URL(window.location.href);
+  return url.searchParams.get("t") || "";
 }
 
-function cycleStatus(current) {
-  const idx = STATUSES.indexOf(current);
-  const next = (idx + 1) % STATUSES.length;
-  return STATUSES[next];
+function ensureMatrix() {
+  if (!labels.length) return;
+  if (!statuses.length || statuses.length !== labels.length) {
+    statuses = labels.map(() => Array(7).fill(null));
+  }
+  for (let r = 0; r < labels.length; r++) {
+    if (!Array.isArray(statuses[r]) || statuses[r].length !== 7) {
+      statuses[r] = Array(7).fill(null);
+    }
+  }
 }
 
+function defaultActiveDayToOK() {
+  // makes the active day ready to submit (like your old app)
+  ensureMatrix();
+  for (let r = 0; r < labels.length; r++) {
+    if (!statuses[r][activeDayIndex]) statuses[r][activeDayIndex] = "OK";
+  }
+}
+
+async function loadWeek() {
+  const plantId = el("plantId").value.trim();
+  const date = el("date").value;
+  if (!selectedType || !plantId || !date) return;
+
+  activeDayIndex = getDayIndexMon0(date);
+
+  const token = getTokenFromUrl();
+  const qs = new URLSearchParams({
+    t: token,
+    type: selectedType,
+    plantId,
+    date
+  });
+
+  const res = await fetch(`/api/week?${qs.toString()}`, { cache: "no-store" });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out?.error || "Failed to load week");
+
+  lastWeekKey = out.key || null;
+
+  if (out.record) {
+    labels = out.record.labels || (CHECKLISTS[selectedType] || []);
+    statuses = out.record.statuses || labels.map(() => Array(7).fill(null));
+  } else {
+    labels = (CHECKLISTS[selectedType] || []);
+    statuses = labels.map(() => Array(7).fill(null));
+  }
+
+  ensureMatrix();
+  defaultActiveDayToOK();
+  renderChecksTable();
+}
+
+// ====== TABLE RENDER ======
 function renderChecksTable() {
   const tbody = el("checksBody");
   tbody.innerHTML = "";
 
   activeDayIndex = getDayIndexMon0(el("date").value);
+  ensureMatrix();
 
-  checksState.forEach((row, rIndex) => {
+  labels.forEach((label, rIndex) => {
     const tr = document.createElement("tr");
 
     const tdItem = document.createElement("td");
     tdItem.className = "item";
-    tdItem.textContent = row.label;
+    tdItem.textContent = label;
     tr.appendChild(tdItem);
 
     for (let d = 0; d < 7; d++) {
       const td = document.createElement("td");
       td.className = "day " + (d === activeDayIndex ? "active" : "inactive");
 
+      const st = statuses[rIndex]?.[d] || null;
+      const mark = markForStatus(st);
+
       if (d === activeDayIndex) {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "markBtn";
-
-        const mark = row.status === "OK" ? "✓" : (row.status === "DEFECT" ? "X" : "N/A");
-        btn.textContent = mark;
+        btn.textContent = mark || "✓"; // default look
 
         btn.addEventListener("click", () => {
-          row.status = cycleStatus(row.status);
+          const cur = statuses[rIndex][d];
+          statuses[rIndex][d] = cycleStatus(cur);
           renderChecksTable();
         });
 
         td.appendChild(btn);
       } else {
-        td.textContent = "";
+        td.textContent = mark;
       }
 
       tr.appendChild(td);
@@ -209,14 +274,19 @@ function renderChecksTable() {
   });
 }
 
+// ====== TYPE SELECT ======
 function selectType(type) {
   selectedType = type;
   updateHeaderText();
-  initChecksForType(type);
-  renderChecksTable();
+  updatePreviews();
+  loadWeek().catch(e => (statusEl.textContent = `❌ ${e.message}`));
 }
 
-// ====== SIGNATURE PAD ======
+el("btnExc").addEventListener("click", () => selectType("excavator"));
+el("btnCrane").addEventListener("click", () => selectType("crane"));
+el("btnDump").addEventListener("click", () => selectType("dumper"));
+
+// ====== SIGNATURE ======
 const canvas = el("sig");
 const ctx = canvas.getContext("2d");
 
@@ -265,7 +335,7 @@ canvas.addEventListener("touchend", end);
 
 el("clearSig").addEventListener("click", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
 
-// ====== PDF (ATL-style) ======
+// ====== PDF (prints the WHOLE WEEK from `statuses`) ======
 async function makePdf(payload) {
   const logos = await getLogos();
   const { jsPDF } = window.jspdf;
@@ -273,15 +343,12 @@ async function makePdf(payload) {
 
   const pageW = 595, pageH = 842, margin = 30;
 
-  // Header line
   doc.setLineWidth(0.8);
   doc.line(margin, 115, pageW - margin, 115);
 
-  // Logos
   doc.addImage(logos.left, "PNG", margin, 18, 150, 55);
   doc.addImage(logos.right, "PNG", pageW - margin - 55, 18, 55, 55);
 
-  // Ref + title
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.text("QPFPL5.2", pageW / 2, 35, { align: "center" });
@@ -296,15 +363,12 @@ async function makePdf(payload) {
 
   doc.text(title, pageW / 2, 75, { align: "center" });
 
-  // Machine + week commencing
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
 
-  const weekComm = getWeekCommencing(payload.date);
   doc.text(`Machine No: ${payload.plantId || ""}`, margin, 105);
-  doc.text(`Week commencing: ${weekComm}`, pageW - margin, 105, { align: "right" });
+  doc.text(`Week commencing: ${getWeekCommencing(payload.date)}`, pageW - margin, 105, { align: "right" });
 
-  // Yellow instruction bar
   doc.setFillColor(255, 214, 0);
   doc.rect(margin, 125, pageW - margin * 2, 20, "F");
   doc.setTextColor(0, 0, 0);
@@ -317,19 +381,17 @@ async function makePdf(payload) {
     { align: "center" }
   );
 
-  // Table
   const itemColW = 330;
   const dayColW = (pageW - margin * 2 - itemColW) / 7;
   const rowH = 16;
 
   let y = 153;
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
 
-  // Header row
   doc.setFillColor(255, 214, 0);
   doc.rect(margin, y, itemColW, rowH, "F");
-  doc.setDrawColor(0);
   doc.rect(margin, y, itemColW, rowH);
 
   for (let i = 0; i < 7; i++) {
@@ -339,25 +401,23 @@ async function makePdf(payload) {
   }
   y += rowH;
 
-  const dayIndex = getDayIndexMon0(payload.date);
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
 
-  for (const row of (payload.checks || [])) {
+  for (let r = 0; r < labels.length; r++) {
     if (y + rowH > pageH - 160) { doc.addPage(); y = margin; }
 
     doc.rect(margin, y, itemColW, rowH);
-    const text = (row.label || "").toUpperCase();
-    doc.text(doc.splitTextToSize(text, itemColW - 8)[0] || "", margin + 4, y + 11);
+    const t = (labels[r] || "").toUpperCase();
+    doc.text(doc.splitTextToSize(t, itemColW - 8)[0] || "", margin + 4, y + 11);
 
-    for (let i = 0; i < 7; i++) {
-      const x = margin + itemColW + i * dayColW;
+    for (let d = 0; d < 7; d++) {
+      const x = margin + itemColW + d * dayColW;
       doc.rect(x, y, dayColW, rowH);
 
-      if (i === dayIndex) {
-        const s = row.status || "OK";
-        const mark = s === "OK" ? "✓" : (s === "DEFECT" ? "X" : "N/A");
+      const st = statuses[r]?.[d] || null;
+      if (st) {
+        const mark = st === "OK" ? "✓" : (st === "DEFECT" ? "X" : "N/A");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
         doc.text(mark, x + dayColW / 2, y + 12, { align: "center" });
@@ -365,10 +425,10 @@ async function makePdf(payload) {
         doc.setFontSize(8);
       }
     }
+
     y += rowH;
   }
 
-  // Footer boxes
   const footerY = Math.max(y + 10, pageH - 150);
 
   doc.setFont("helvetica", "bold");
@@ -381,19 +441,9 @@ async function makePdf(payload) {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  if (payload.defectsText) {
-    const lines = doc.splitTextToSize(payload.defectsText, pageW - margin * 2 - 10);
-    doc.text(lines.slice(0, 4), margin + 5, footerY + 28);
-  } else {
-    doc.text("None", margin + 5, footerY + 28);
-  }
+  doc.text(payload.defectsText ? payload.defectsText : "None", margin + 5, footerY + 28);
+  if (payload.actionTaken) doc.text(payload.actionTaken, margin + 5, footerY + 88);
 
-  if (payload.actionTaken) {
-    const lines2 = doc.splitTextToSize(payload.actionTaken, pageW - margin * 2 - 10);
-    doc.text(lines2.slice(0, 4), margin + 5, footerY + 88);
-  }
-
-  // Checks carried out by + signature
   doc.setFont("helvetica", "bold");
   doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, footerY - 8);
 
@@ -401,28 +451,40 @@ async function makePdf(payload) {
     doc.addImage(payload.signatureDataUrl, "PNG", pageW - margin - 160, footerY - 35, 160, 50);
   }
 
-  // Build tag
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("BUILD: v4", 40, 835);
+  doc.text("BUILD: v5", 40, 835);
 
   const dataUri = doc.output("datauristring");
   return dataUri.split(",")[1];
 }
 
-// ====== EVENTS ======
-el("btnExc").addEventListener("click", () => selectType("excavator"));
-el("btnCrane").addEventListener("click", () => selectType("crane"));
-el("btnDump").addEventListener("click", () => selectType("dumper"));
+// ====== INPUT EVENTS ======
+let loadTimer = null;
 
-el("fillToday").addEventListener("click", () => { setToday(); updatePreviews(); renderChecksTable(); });
+function scheduleLoadWeek() {
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(() => {
+    statusEl.textContent = "";
+    loadWeek().catch(e => (statusEl.textContent = `❌ ${e.message}`));
+  }, 400);
+}
 
 el("date").addEventListener("change", () => {
   updatePreviews();
-  renderChecksTable(); // moves the active column
+  scheduleLoadWeek();
 });
 
-el("plantId").addEventListener("input", updatePreviews);
+el("plantId").addEventListener("input", () => {
+  updatePreviews();
+  scheduleLoadWeek();
+});
+
+el("fillToday").addEventListener("click", () => {
+  setToday();
+  updatePreviews();
+  scheduleLoadWeek();
+});
 
 // ====== SUBMIT ======
 el("submitBtn").addEventListener("click", async () => {
@@ -439,8 +501,16 @@ el("submitBtn").addEventListener("click", async () => {
     return (statusEl.textContent = "Fill Site, Date, Machine/Plant ID, and Operator.");
   }
 
-  const url = new URL(window.location.href);
-  const token = url.searchParams.get("t") || "";
+  activeDayIndex = getDayIndexMon0(date);
+  defaultActiveDayToOK();
+
+  const token = getTokenFromUrl();
+
+  // send only TODAY’s checks to the backend (backend saves it into the weekly record)
+  const todaysChecks = labels.map((label, i) => ({
+    label,
+    status: statuses[i][activeDayIndex] || "OK",
+  }));
 
   const payload = {
     equipmentType: selectedType,
@@ -449,7 +519,7 @@ el("submitBtn").addEventListener("click", async () => {
     plantId,
     operator,
     hours: el("hours").value.trim(),
-    checks: checksState.map(x => ({ label: x.label, status: x.status })),
+    checks: todaysChecks,
     defectsText: el("defectsText").value.trim(),
     actionTaken: el("actionTaken").value.trim(),
     signatureDataUrl: canvas.toDataURL("image/png"),
@@ -457,7 +527,7 @@ el("submitBtn").addEventListener("click", async () => {
 
   try {
     el("submitBtn").disabled = true;
-    statusEl.textContent = "Creating PDF and sending…";
+    statusEl.textContent = "Saving week + creating PDF + sending…";
 
     const pdfBase64 = await makePdf(payload);
 
@@ -468,18 +538,4 @@ el("submitBtn").addEventListener("click", async () => {
     });
 
     const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out?.error || "Submit failed");
-
-    statusEl.textContent = "✅ Sent successfully.";
-  } catch (e) {
-    statusEl.textContent = `❌ ${e.message}`;
-  } finally {
-    el("submitBtn").disabled = false;
-  }
-});
-
-// ====== INIT ======
-setToday();
-resizeCanvas();
-updatePreviews();
-selectType("excavator"); // default
+    if (!res.ok) throw new Error(out?.
