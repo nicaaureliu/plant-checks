@@ -19,7 +19,7 @@
     }
     .logoLeft { width: 150px; height:auto; justify-self:start; }
     .logoRight { width: 55px; height:auto; justify-self:end; }
-    .ref { font-size: 18px; justify-self:center; }
+    .ref { font-size: 18px; justify-self:center; font-weight:700; }
 
     .sheetTitle { text-align:center; font-size: 16px; font-weight:700; margin: 8px 0 0; }
     .metaRow {
@@ -50,18 +50,20 @@
 
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     .topBtns { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
-    .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:700; }
+    .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:700; cursor:pointer; }
+    .pill.active { outline: 3px solid #111; background:#fff; }
 
     /* Table */
     .tableWrap { overflow-x:auto; border:1px solid #111; border-radius:8px; }
-    table { border-collapse: collapse; width: 900px; background:#fff; }
+    table { border-collapse: collapse; width: 1100px; background:#fff; }
     th, td { border:1px solid #111; padding:6px; font-size:12px; }
     th { background:#fff; }
-    th.item { width: 380px; background:#ffd600; }
+    th.item { width: 420px; background:#ffd600; }
     td.item { font-size:11px; }
-    td.day { text-align:center; width: 70px; }
+    td.day { text-align:center; width: 80px; }
     td.day.inactive { background:#fafafa; color:#bbb; }
     td.day.active { background:#fff; }
+
     .markBtn {
       width: 100%;
       padding: 8px 0;
@@ -70,12 +72,14 @@
       background:#fff;
       font-weight: 800;
       cursor:pointer;
+      user-select:none;
     }
+    .markBtn:disabled { cursor:not-allowed; opacity:.55; }
 
     /* Signature */
     canvas { width: 100%; height: 170px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
     .btnRow { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
-    .submitBtn { border:0; background:#111; color:#fff; font-weight:800; padding: 12px; border-radius: 10px; }
+    .submitBtn { border:0; background:#111; color:#fff; font-weight:800; padding: 12px; border-radius: 10px; cursor:pointer; }
 
     .buildTag { font-size:12px; color:#666; margin-bottom:8px; }
   </style>
@@ -85,7 +89,7 @@
 </head>
 
 <body>
-  <div class="buildTag">BUILD: v5</div>
+  <div class="buildTag" id="buildTag">BUILD: v6</div>
 
   <div class="card">
     <div class="sheetHeader">
@@ -94,7 +98,7 @@
       <img class="logoRight" src="assets/tp.png" alt="TP">
     </div>
 
-    <div class="sheetTitle" id="sheetTitle">Excavator Pre use Inspection Checklist</div>
+    <div class="sheetTitle" id="sheetTitle">Plant Pre-use Inspection Checklist</div>
 
     <div class="metaRow">
       <div><b>Machine No:</b> <span id="machineNoPreview">—</span></div>
@@ -106,13 +110,13 @@
     </div>
 
     <div class="topBtns" style="margin-top:12px;">
-  <button class="pill" id="btnExc" type="button">Excavator</button>
-  <button class="pill" id="btnCrane" type="button">Crane</button>
-  <button class="pill" id="btnDump" type="button">Dumper</button>
-</div>
+      <button class="pill" id="btnExc" type="button">Excavator</button>
+      <button class="pill" id="btnCrane" type="button">Crane</button>
+      <button class="pill" id="btnDump" type="button">Dumper</button>
+    </div>
 
-<p class="small" id="selectedType" style="margin:10px 0 0;">Selected: —</p>
-
+    <p class="small" id="selectedType" style="margin:10px 0 0;">Selected: —</p>
+    <p class="small" id="tokenPreview" style="margin:6px 0 0;">Token: —</p>
   </div>
 
   <div class="card">
@@ -183,21 +187,10 @@
 
   <div class="card">
     <button id="submitBtn" class="submitBtn" type="button">Submit (email PDF)</button>
-    <p class="small" id="status"></p>
+    <p class="small" id="status">Ready.</p>
   </div>
 
-  <script>
-  // Show JS errors on the page (so you don't need DevTools)
-  window.addEventListener("error", (e) => {
-    const s = document.getElementById("status");
-    if (s) s.textContent = "❌ JS error: " + (e.message || "unknown");
-  });
-</script>
-
-<script src="/app.js?v=6"
-  onload="document.getElementById('status').textContent='✅ app.js tag loaded';"
-  onerror="document.getElementById('status').textContent='❌ app.js FAILED to load';">
-</script>
-
+  <!-- IMPORTANT: bump ?v= whenever you change app.js (stops caching issues) -->
+  <script src="app.js?v=6" defer></script>
 </body>
 </html>
