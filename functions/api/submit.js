@@ -10,6 +10,25 @@ function base64Utf8(str) {
   }
   return btoa(bin); // now btoa is safe
 }
+function getWeekCommencingISO(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const day = dt.getDay(); // Sun=0 ... Mon=1
+  const diffToMon = (day === 0 ? -6 : 1 - day);
+  dt.setDate(dt.getDate() + diffToMon);
+
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function getDayIndexMon0(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const day = dt.getDay(); // Sun=0
+  return day === 0 ? 6 : day - 1; // Mon=0..Sun=6
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
