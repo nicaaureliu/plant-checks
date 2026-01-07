@@ -188,6 +188,9 @@ function makePdf(payload) {
   doc.text(`Submitted: ${new Date().toISOString()}`, left, 820);
 
   // Return base64 (without the data: prefix)
+  doc.setFontSize(8);
+doc.text("BUILD: v3", 40, 835);
+  
   const dataUri = doc.output("datauristring"); // data:application/pdf;base64,....
   return dataUri.split(",")[1];
 }
