@@ -186,6 +186,18 @@
     <p class="small" id="status"></p>
   </div>
 
-  <script src="app.js"></script>
+  <script>
+  // Show JS errors on the page (so you don't need DevTools)
+  window.addEventListener("error", (e) => {
+    const s = document.getElementById("status");
+    if (s) s.textContent = "❌ JS error: " + (e.message || "unknown");
+  });
+</script>
+
+<script src="/app.js"
+  onload="document.getElementById('status').textContent='✅ app.js loaded';"
+  onerror="document.getElementById('status').textContent='❌ app.js FAILED to load';">
+</script>
+
 </body>
 </html>
