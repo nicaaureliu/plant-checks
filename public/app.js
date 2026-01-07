@@ -550,3 +550,27 @@ el("submitBtn").addEventListener("click", async () => {
 
     const out = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(out?.
+  // ====== FORCE BOOTSTRAP (guarantees buttons + table work) ======
+window.addEventListener("load", () => {
+  try {
+    // bind buttons (safe even if already bound)
+    const b1 = document.getElementById("btnExc");
+    const b2 = document.getElementById("btnCrane");
+    const b3 = document.getElementById("btnDump");
+
+    if (b1) b1.onclick = () => selectType("excavator");
+    if (b2) b2.onclick = () => selectType("crane");
+    if (b3) b3.onclick = () => selectType("dumper");
+
+    // default selection + show rows immediately
+    selectType("excavator");
+
+    // show a visible confirmation
+    const s = document.getElementById("status");
+    if (s) s.textContent = "✅ Ready (buttons + table active)";
+  } catch (e) {
+    const s = document.getElementById("status");
+    if (s) s.textContent = "❌ BOOT error: " + (e?.message || e);
+  }
+});
+
