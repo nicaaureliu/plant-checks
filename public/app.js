@@ -462,7 +462,21 @@ async function makePdfBase64(payload) {
   doc.text(`BUILD: ${BUILD}`, margin, pageH - 18);
   doc.text(`Token: ${payload.token}`, pageW - margin, pageH - 18, { align: "right" });
 
-  return doc.output("datauristring").split(",")[1];
+    const dataUri =
+    doc.output("datauristring") ||
+    doc.output("datauri") ||
+    doc.output("dataurlstring");
+
+  if (typeof dataUri !== "string") {
+    throw new Error("PDF export failed (jsPDF output returned empty)");
+  }
+
+  const parts = dataUri.split(",");
+  if (parts.length < 2) {
+    throw new Error("PDF export failed (bad data URI)");
+  }
+
+  return parts[1];
 }
 
 // --- submit ---
