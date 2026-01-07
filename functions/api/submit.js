@@ -16,7 +16,9 @@ export async function onRequestPost(context) {
 
     const subject = `${payload.equipmentType.toUpperCase()} check – ${payload.plantId} – ${payload.date}`;
 
-    const auth = btoa(`${env.MAILJET_API_KEY}:${env.MAILJET_SECRET_KEY}`);
+    const creds = `${env.MAILJET_API_KEY}:${env.MAILJET_SECRET_KEY}`;
+// btoa() is picky; this makes it safe for any characters:
+const auth = btoa(unescape(encodeURIComponent(creds)));
 
     const mjBody = {
       Messages: [
