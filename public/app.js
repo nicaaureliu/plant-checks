@@ -3,6 +3,11 @@
      btnExc, btnCrane, btnDump, selectedType, checksBody, sig, clearSig, fillToday,
      site, date, plantId, operator, hours, defectsText, actionTaken, submitBtn, status
 */
+// BUILD marker (so we can see if the latest JS is loaded)
+try {
+  const s = document.getElementById("status");
+  if (s) s.textContent = "✅ app.js BUILD v6 loaded";
+} catch {}
 
 const el = (id) => document.getElementById(id);
 
