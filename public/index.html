@@ -10,7 +10,7 @@
     .small { font-size: 12px; color: #666; }
     .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 12px; background:#fff; }
 
-    /* Sheet-like header */
+    /* Header like your sheet */
     .sheetHeader {
       display:grid;
       grid-template-columns: 1fr auto 1fr;
@@ -19,7 +19,7 @@
     }
     .logoLeft { width: 150px; height:auto; justify-self:start; }
     .logoRight { width: 55px; height:auto; justify-self:end; }
-    .ref { font-size: 18px; justify-self:center; font-weight:700; }
+    .ref { font-size: 18px; justify-self:center; }
 
     .sheetTitle { text-align:center; font-size: 16px; font-weight:700; margin: 8px 0 0; }
     .metaRow {
@@ -43,7 +43,6 @@
       border-right:0;
     }
 
-    /* Inputs */
     label { font-size: 12px; color: #444; display:block; margin-bottom:6px; }
     input, textarea, button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; }
     textarea { min-height: 70px; }
@@ -51,18 +50,19 @@
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     .topBtns { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
     .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:700; cursor:pointer; }
-    .pill.active { outline: 3px solid #111; background:#fff; }
+    .pill.active { background:#111; color:#fff; border-color:#111; }
 
     /* Table */
     .tableWrap { overflow-x:auto; border:1px solid #111; border-radius:8px; }
-    table { border-collapse: collapse; width: 1100px; background:#fff; }
+    table { border-collapse: collapse; width: 100%; min-width: 980px; background:#fff; }
     th, td { border:1px solid #111; padding:6px; font-size:12px; }
     th { background:#fff; }
     th.item { width: 420px; background:#ffd600; }
     td.item { font-size:11px; }
-    td.day { text-align:center; width: 80px; }
+    td.day { text-align:center; width: 70px; }
     td.day.inactive { background:#fafafa; color:#bbb; }
     td.day.active { background:#fff; }
+    td.day.todayCol { outline: 2px solid #111; outline-offset: -2px; }
 
     .markBtn {
       width: 100%;
@@ -70,35 +70,34 @@
       border-radius: 8px;
       border: 1px solid #ccc;
       background:#fff;
-      font-weight: 800;
+      font-weight: 900;
       cursor:pointer;
-      user-select:none;
     }
-    .markBtn:disabled { cursor:not-allowed; opacity:.55; }
+    .markBtn:disabled { cursor:not-allowed; opacity: 0.6; }
 
-    /* Signature */
     canvas { width: 100%; height: 170px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
     .btnRow { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
     .submitBtn { border:0; background:#111; color:#fff; font-weight:800; padding: 12px; border-radius: 10px; cursor:pointer; }
 
     .buildTag { font-size:12px; color:#666; margin-bottom:8px; }
+    .statusLine { margin-top:8px; white-space: pre-wrap; }
   </style>
 
-  <!-- jsPDF (creates the PDF in-browser) -->
+  <!-- jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 
 <body>
-  <div class="buildTag" id="buildTag">BUILD: v6</div>
+  <div class="buildTag">BUILD: v6</div>
 
   <div class="card">
     <div class="sheetHeader">
-      <img class="logoLeft" src="assets/atl-logo.png" alt="Active Tunnelling">
+      <img class="logoLeft" src="/assets/atl-logo.png" alt="Active Tunnelling">
       <div class="ref" id="formRef">QPFPL5.2</div>
-      <img class="logoRight" src="assets/tp.png" alt="TP">
+      <img class="logoRight" src="/assets/tp.png" alt="TP">
     </div>
 
-    <div class="sheetTitle" id="sheetTitle">Plant Pre-use Inspection Checklist</div>
+    <div class="sheetTitle" id="sheetTitle">Plant Pre-Use Inspection Checklist</div>
 
     <div class="metaRow">
       <div><b>Machine No:</b> <span id="machineNoPreview">—</span></div>
@@ -116,7 +115,7 @@
     </div>
 
     <p class="small" id="selectedType" style="margin:10px 0 0;">Selected: —</p>
-    <p class="small" id="tokenPreview" style="margin:6px 0 0;">Token: —</p>
+    <p class="small" id="linkTokenInfo" style="margin:6px 0 0;"></p>
   </div>
 
   <div class="card">
@@ -187,10 +186,9 @@
 
   <div class="card">
     <button id="submitBtn" class="submitBtn" type="button">Submit (email PDF)</button>
-    <p class="small" id="status">Ready.</p>
+    <p class="small statusLine" id="status">Ready.</p>
   </div>
 
-  <!-- IMPORTANT: bump ?v= whenever you change app.js (stops caching issues) -->
-  <script src="app.js?v=6" defer></script>
+  <script src="/app.js"></script>
 </body>
 </html>
