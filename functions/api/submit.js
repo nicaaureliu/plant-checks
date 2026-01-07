@@ -35,6 +35,39 @@ export async function onRequestPost(context) {
 
   try {
     const { token, payload, pdfBase64 } = await request.json();
+    // ---- Save weekly state in KV ----
+if (!env.CHECKS_KV) {
+  return Response.json({ error: "KV binding missing (CHECKS_KV)" }, { status: 500 });
+}
+
+const week = getWeekCommencingISO(payload.date);
+const dayIndex = getDayIndexMon0(payload.date);
+const key = `${payload.equipmentType}:${payload.plantId}:${week}`;
+
+let record = await env.CHECKS_KV.get(key, "json");
+
+// Create new record if none
+if (!record) {
+  const labels = (payload.checks || []).map(c => c.label);
+  record = {
+    equipmentType: payload.equipmentType,
+    site: payload.site,
+    plantId: payload.plantId,
+    weekCommencing: week,
+    labels,
+    // statuses[rowIndex][dayIndex] = "OK" | "DEFECT" | "NA" | null
+    statuses: labels.map(() => Array(7).fill(null)),
+  };
+}
+
+// Update today's marks
+for (let i = 0; i < (payload.checks || []).length; i++) {
+  const status = payload.checks[i].status || "OK";
+  if (record.statuses[i]) record.statuses[i][dayIndex] = status;
+}
+
+await env.CHECKS_KV.put(key, JSON.stringify(record));
+
 
     // 1) QR token protection
     if (!env.SUBMIT_TOKEN || token !== env.SUBMIT_TOKEN) {
