@@ -347,199 +347,285 @@ async function fetchAsDataUrl(url) {
 }
 
 async function makePdfBase64(payload) {
-  if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("jsPDF not loaded");
   const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
 
-  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-  if (!doc.autoTable) throw new Error("jsPDF AutoTable not loaded (missing script tag)");
-
+  const BUILD = "v6";
+  const margin = 28;
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 40;
 
-  // ---- load logos (best effort) ----
-  let atlLogo = null, tpLogo = null;
-  try { atlLogo = await fetchAsDataUrl("/assets/atl-logo.png"); } catch {}
-  try { tpLogo  = await fetchAsDataUrl("/assets/tp.png"); } catch {}
+  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-  // ---- HEADER ----
-  const headerY = 30;
+  // ---------- helpers ----------
+  const isoToUK = (iso) => {
+    if (!iso || !String(iso).includes("-")) return iso || "";
+    const [y,m,d] = String(iso).split("-");
+    return `${d}/${m}/${y}`;
+  };
 
-  if (atlLogo) doc.addImage(atlLogo, "PNG", margin, headerY, 160, 45);
-  if (tpLogo)  doc.addImage(tpLogo,  "PNG", pageW - margin - 55, headerY - 5, 55, 55);
+  const ellipsize = (text, maxW) => {
+    if (!text) return "";
+    let t = String(text);
+    while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
+    return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
+  };
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(14);
-  doc.text("QPFPL5.2", pageW / 2, headerY + 10, { align: "center" });
+  async function fetchAsDataUrl(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  function fitIntoBox(imgW, imgH, boxW, boxH) {
+    const s = Math.min(boxW / imgW, boxH / imgH);
+    return { w: imgW * s, h: imgH * s };
+  }
+
+  function getImageSize(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+
+  const markFor = (status) => {
+    if (status === "OK") return "✓";
+    if (status === "DEFECT") return "X";
+    if (status === "NA") return "N/A";
+    return "";
+  };
+
+  // ---------- data ----------
+  const dateISO = payload.date || "";
+  const weekISO = payload.weekCommencing || payload.weekCommencingISO || "";
+  const weekUK = isoToUK(weekISO);
+  const dateUK = isoToUK(dateISO);
+
+  const labels = (payload.labels && payload.labels.length)
+    ? payload.labels
+    : (payload.checks || []).map(c => c.label);
+
+  const weekStatuses = (payload.weekStatuses && payload.weekStatuses.length)
+    ? payload.weekStatuses
+    : labels.map((_, i) => {
+        const row = Array(7).fill(null);
+        const di = payload.dayIndex ?? 0;
+        row[di] = payload.checks?.[i]?.status ?? null;
+        return row;
+      });
+
+  // ---------- layout ----------
+  let y = margin;
+
+  // logos + title (compact header to save space)
+  const atl = await fetchAsDataUrl("/assets/atl-logo.png");
+  if (atl) doc.addImage(atl, "PNG", margin, y - 4, 140, 36);
+
+  const tp = await fetchAsDataUrl("/assets/tp.png");
+  if (tp) doc.addImage(tp, "PNG", pageW - margin - 52, y - 6, 52, 52);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(payload.title || "Plant Pre-Use Inspection Checklist", pageW / 2, headerY + 30, { align: "center" });
+  doc.setFontSize(13);
+  doc.text(String(payload.formRef || "QPFPL5.2"), pageW / 2, y + 12, { align: "center" });
 
-  // Machine + Week
   doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("Machine No:", margin, headerY + 55);
-  doc.setFont("helvetica", "normal");
-  doc.text(payload.plantId || "—", margin + 75, headerY + 55);
+  doc.text(String(payload.sheetTitle || "Excavator Pre-Use Inspection Checklist"), pageW / 2, y + 28, { align: "center" });
 
-  doc.setFont("helvetica", "bold");
-  doc.text("Week commencing:", pageW - margin - 170, headerY + 55);
-  doc.setFont("helvetica", "normal");
-  doc.text(formatDDMMYYYY(payload.weekCommencingISO), pageW - margin, headerY + 55, { align: "right" });
+  y += 48;
 
-  // Yellow bar
-  doc.setFillColor(255, 214, 0);
-  doc.rect(margin, headerY + 68, pageW - margin * 2, 22, "F");
-  doc.setTextColor(0, 0, 0);
-  doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
+  doc.text(`Machine No: ${payload.machineNo || ""}`, margin, y);
+  doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align: "right" });
+
+  y += 10;
+
+  // yellow bar
+  doc.setFillColor(255, 214, 0);
+  doc.rect(margin, y, pageW - margin * 2, 16, "F");
+  doc.setTextColor(0);
+  doc.setFontSize(8.5);
   doc.text(
     "All checks must be carried out in line with Specific Manufacturer’s instructions",
-    pageW / 2,
-    headerY + 83,
-    { align: "center" }
+    pageW / 2, y + 11, { align: "center" }
   );
+  y += 24;
 
-  // Meta row
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  const metaY = headerY + 108;
-  doc.text(`Site: ${payload.site || ""}`, margin, metaY);
-  doc.text(`Date: ${formatDDMMYYYY(payload.date)}`, margin + 260, metaY);
-  doc.text(`Operator: ${payload.operator || ""}`, margin + 460, metaY);
-  doc.text(`Hours/Shift: ${payload.hours || ""}`, margin + 660, metaY);
+  // meta (single line to save height)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.8);
+  doc.text(`Site: ${payload.site || ""}`, margin, y);
+  doc.text(`Date: ${dateUK}`, margin + 180, y);
+  doc.text(`Operator: ${payload.operator || ""}`, margin + 320, y);
+  doc.text(`Hours/Shift: ${payload.hours || ""}`, pageW - margin, y, { align: "right" });
+  y += 14;
 
-  // ---- TABLE (AutoTable) ----
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  // table sizes
+  const tableX = margin;
+  const tableW = pageW - margin * 2;
+  const itemColW = 360;                      // keep item column wide
+  const dayColW = (tableW - itemColW) / 7;
+  const headH = 16;
 
-  // We draw ✓ and X ourselves. Keep raw values as "OK" / "DEFECT" / "NA" / null.
-  const bodyRows = (payload.labels || []).map((label, r) => {
-    const row = [label];
-    for (let d = 0; d < 7; d++) row.push(payload.statuses?.[r]?.[d] || "");
-    return row;
-  });
+  // footer block sizes (compact)
+  const defectsH = 40;
+  const actionH  = 40;
+  const sigH     = 55;
 
-  doc.autoTable({
-    startY: metaY + 18,
-    theme: "grid",
-    margin: { left: margin, right: margin },
-    head: [[ "", ...days ]],
-    body: bodyRows,
+  const footerTotal =
+    12 +                         // "Checks carried out by"
+    12 + 8 + defectsH + 12 +     // Defects label + box
+    12 + 8 + actionH  + 12 +     // Action label + box
+    12 + 8 + sigH + 18;          // Signature label + box + bottom padding
 
-    styles: {
-      font: "helvetica",
-      fontSize: 8,
-      cellPadding: 4,
-      lineColor: [0, 0, 0],
-      lineWidth: 0.7,
-      textColor: [0, 0, 0],
-      valign: "middle",
-    },
+  // auto row height so ALL rows fit on ONE page
+  const availForTable = (pageH - margin) - y - headH - footerTotal;
+  const totalRows = labels.length;
 
-    headStyles: {
-      fontStyle: "bold",
-      fillColor: [255, 255, 255],
-    },
+  // keep readable minimum
+  let rowH = Math.floor(availForTable / Math.max(1, totalRows));
+  rowH = Math.max(9, Math.min(16, rowH));
 
-    columnStyles: {
-      0: { cellWidth: 420, halign: "left" },
-      1: { cellWidth: 55, halign: "center" },
-      2: { cellWidth: 55, halign: "center" },
-      3: { cellWidth: 55, halign: "center" },
-      4: { cellWidth: 55, halign: "center" },
-      5: { cellWidth: 55, halign: "center" },
-      6: { cellWidth: 55, halign: "center" },
-      7: { cellWidth: 55, halign: "center" },
-    },
+  // fonts follow row height
+  const fontItem = rowH <= 10 ? 6.7 : 7.5;
+  const fontMark = rowH <= 10 ? 8.5 : 9.5;
 
-    didParseCell: function (data) {
-      // Make first header cell yellow like your form
-      if (data.section === "head" && data.column.index === 0) {
-        data.cell.styles.fillColor = [255, 214, 0];
-      }
+  // if still would overflow, we still force one page by tightening footer slightly
+  // (last safety net)
+  const neededTableH = headH + totalRows * rowH;
+  if (neededTableH > availForTable + headH) {
+    rowH = 9;
+  }
 
-      // For body day cells: remove text for OK/DEFECT so we draw marks nicely
-      if (data.section === "body" && data.column.index > 0) {
-        const v = (data.cell.raw || "").toString();
-        if (v === "OK" || v === "DEFECT") data.cell.text = [""];
-        if (v === "NA") data.cell.text = ["N/A"];
-        if (!v) data.cell.text = [""];
-      }
-    },
+  // ---- draw table header ----
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.7);
 
-    didDrawCell: function (data) {
-      // Draw ✓ and X ourselves (font-proof)
-      if (data.section !== "body") return;
-      if (data.column.index <= 0) return;
+  doc.setFillColor(255, 214, 0);
+  doc.rect(tableX, y, itemColW, headH, "F");
+  doc.setFillColor(255, 255, 255);
+  doc.rect(tableX + itemColW, y, tableW - itemColW, headH, "F");
+  doc.rect(tableX, y, tableW, headH);
 
-      const v = (data.cell.raw || "").toString();
-      const x = data.cell.x;
-      const y = data.cell.y;
-      const w = data.cell.width;
-      const h = data.cell.height;
-
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-
-      doc.setDrawColor(0);
-
-      if (v === "OK") {
-        // tick: two lines
-        doc.setLineWidth(1.4);
-        doc.line(cx - 8, cy + 1, cx - 2, cy + 7);
-        doc.line(cx - 2, cy + 7, cx + 10, cy - 6);
-      } else if (v === "DEFECT") {
-        // cross
-        doc.setLineWidth(1.4);
-        doc.line(cx - 8, cy - 6, cx + 8, cy + 6);
-        doc.line(cx + 8, cy - 6, cx - 8, cy + 6);
-      }
-    },
-  });
-
-  // ---- FOOTER / BOXES ----
-  let y = doc.lastAutoTable.finalY + 16;
-
-  // If not enough space, go to new page
-  const need = 140;
-  if (y + need > pageH - 30) {
-    doc.addPage();
-    y = margin;
+  doc.line(tableX + itemColW, y, tableX + itemColW, y + headH);
+  for (let i = 1; i < 7; i++) {
+    const xx = tableX + itemColW + dayColW * i;
+    doc.line(xx, y, xx, y + headH);
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
+  doc.setFontSize(8);
+  for (let i = 0; i < 7; i++) {
+    const cx = tableX + itemColW + dayColW * i + dayColW / 2;
+    doc.text(days[i], cx, y + 11, { align: "center" });
+  }
 
-  // Defects box
+  y += headH;
+
+  // ---- draw table rows ----
+  for (let r = 0; r < totalRows; r++) {
+    // row outline
+    doc.rect(tableX, y, tableW, rowH);
+
+    doc.line(tableX + itemColW, y, tableX + itemColW, y + rowH);
+    for (let i = 1; i < 7; i++) {
+      const xx = tableX + itemColW + dayColW * i;
+      doc.line(xx, y, xx, y + rowH);
+    }
+
+    // label
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontItem);
+    const label = ellipsize(labels[r], itemColW - 10);
+    doc.text(label, tableX + 6, y + rowH * 0.72);
+
+    // marks
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(fontMark);
+    for (let i = 0; i < 7; i++) {
+      const m = markFor(weekStatuses?.[r]?.[i]);
+      if (!m) continue;
+      const cx = tableX + itemColW + dayColW * i + dayColW / 2;
+      doc.text(m, cx, y + rowH * 0.72, { align: "center" });
+    }
+
+    y += rowH;
+  }
+
   y += 10;
+
+  // ---- footer blocks (always on same page) ----
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
+  y += 12;
+
+  // Defects
   doc.text("Defects identified:", margin, y);
   y += 8;
-  doc.rect(margin, y, pageW - margin * 2, 45);
+  doc.rect(margin, y, pageW - margin * 2, defectsH);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  if (payload.defectsText) doc.text(payload.defectsText, margin + 6, y + 16, { maxWidth: pageW - margin * 2 - 12 });
+  doc.setFontSize(8.5);
+  if (payload.defectsText) doc.text(payload.defectsText, margin + 6, y + 14, { maxWidth: pageW - margin * 2 - 12 });
+  y += defectsH + 12;
 
-  // Action box
-  y += 65;
+  // Action
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.text("Reported to / action taken:", margin, y);
   y += 8;
-  doc.rect(margin, y, pageW - margin * 2, 45);
+  doc.rect(margin, y, pageW - margin * 2, actionH);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  if (payload.actionTaken) doc.text(payload.actionTaken, margin + 6, y + 16, { maxWidth: pageW - margin * 2 - 12 });
+  doc.setFontSize(8.5);
+  if (payload.actionTaken) doc.text(payload.actionTaken, margin + 6, y + 14, { maxWidth: pageW - margin * 2 - 12 });
+  y += actionH + 12;
 
-  // Signature image (right side above bottom)
+  // Signature (boxed + centred)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Signature:", margin, y);
+  y += 8;
+
+  const sigBoxW = pageW - margin * 2;
+  doc.rect(margin, y, sigBoxW, sigH);
+
   if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
     try {
-      const sigW = 200, sigH = 60;
-      const sigX = pageW - margin - sigW;
-      const sigY = y - 80;
-      doc.addImage(payload.signatureDataUrl, "PNG", sigX, sigY, sigW, sigH);
+      const pad = 6;
+      const innerW = sigBoxW - pad * 2;
+      const innerH = sigH - pad * 2;
+
+      const { w: iw, h: ih } = await getImageSize(payload.signatureDataUrl);
+      const fitted = fitIntoBox(iw, ih, innerW, innerH);
+
+      const imgX = margin + pad + (innerW - fitted.w) / 2;
+      const imgY = y + pad + (innerH - fitted.h) / 2;
+
+      doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
     } catch {}
+  }
+
+  // bottom footer
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
+  doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align: "center" });
+
+  // output
+  const dataUri = doc.output("datauristring");
+  const parts = String(dataUri).split(",");
+  if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
+  return parts[1];
+}
+
   }
 
   // Submitted footer
