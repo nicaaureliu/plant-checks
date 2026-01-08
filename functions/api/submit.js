@@ -23,13 +23,6 @@ function getWeekCommencingISO(dateStr) {
   return `${yy}-${mm}-${dd}`;
 }
 
-function getDayIndexMon0(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  const day = dt.getDay(); // Sun=0
-  return day === 0 ? 6 : day - 1;
-}
-
 export async function onRequestPost({ request, env }) {
   try {
     const { token, payload, pdfBase64 } = await request.json();
@@ -49,12 +42,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     const week = getWeekCommencingISO(payload.date);
-    const dayIndex = getDayIndexMon0(payload.date);
     const key = `${payload.equipmentType}:${payload.plantId}:${week}`;
 
     let record = await env.CHECKS_KV.get(key, "json");
-
-    // Create if none
     if (!record) {
       const labels = (payload.labels && payload.labels.length) ? payload.labels : [];
       record = {
@@ -66,16 +56,10 @@ export async function onRequestPost({ request, env }) {
       };
     }
 
-    // Update from payload.weekStatuses if provided (best)
+    // Store full week grid if provided
     if (Array.isArray(payload.weekStatuses) && payload.weekStatuses.length) {
       record.labels = payload.labels || record.labels;
       record.statuses = payload.weekStatuses;
-    } else {
-      // fallback (update today's marks only)
-      for (let i = 0; i < (payload.checks || []).length; i++) {
-        const status = payload.checks[i].status || "OK";
-        if (record.statuses[i]) record.statuses[i][dayIndex] = status;
-      }
     }
 
     await env.CHECKS_KV.put(key, JSON.stringify(record));
@@ -83,6 +67,7 @@ export async function onRequestPost({ request, env }) {
     // Mailjet config
     const apiKey = (env.MAILJET_API_KEY || "").trim();
     const secretKey = (env.MAILJET_SECRET_KEY || "").trim();
+
     if (!apiKey || !secretKey) {
       return Response.json({ error: "Mailjet API keys not configured" }, { status: 500 });
     }
@@ -120,14 +105,27 @@ export async function onRequestPost({ request, env }) {
       ],
     };
 
-    const mjResp = await fetch("https://api.mailjet.com/v3.1/send", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: authHeader,
-      },
-      body: JSON.stringify(mjBody),
-    });
+    // Mailjet request timeout (prevents “stuck”)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    let mjResp;
+    try {
+      mjResp = await fetch("https://api.mailjet.com/v3.1/send", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: authHeader,
+        },
+        body: JSON.stringify(mjBody),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      const msg = e?.name === "AbortError" ? "Mailjet timed out (20s)" : (e?.message || "Mailjet fetch failed");
+      return Response.json({ error: msg }, { status: 502 });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const text = await mjResp.text();
     let details;
