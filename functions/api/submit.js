@@ -11,70 +11,21 @@ function base64Utf8(str) {
 }
 
 function getWeekCommencingISO(dateStr) {
-  const [y, m, d] = String(dateStr || "").split("-").map(Number);
-  const dt = new Date(y, (m || 1) - 1, d || 1);
-  const day = dt.getDay(); // Sun=0 ... Mon=1
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const day = dt.getDay();
   const diffToMon = (day === 0 ? -6 : 1 - day);
   dt.setDate(dt.getDate() + diffToMon);
+
   const yy = dt.getFullYear();
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const dd = String(dt.getDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
 }
 
-function getDayIndexMon0(dateStr) {
-  const [y, m, d] = String(dateStr || "").split("-").map(Number);
-  const dt = new Date(y, (m || 1) - 1, d || 1);
-  const day = dt.getDay();
-  return day === 0 ? 6 : day - 1;
-}
-
-async function mailjetSend(env, payload, pdfBase64) {
-  const apiKey = (env.MAILJET_API_KEY || "").trim();
-  const secretKey = (env.MAILJET_SECRET_KEY || "").trim();
-  const mailFrom = (env.MAIL_FROM || "").trim();
-
-  if (!apiKey || !secretKey) throw new Error("Mailjet API keys not configured");
-  if (!mailFrom) throw new Error("MAIL_FROM is missing (must be a verified sender in Mailjet)");
-
-  // ✅ selected person from dropdown
-  const toEmail = (payload?.reportedToEmail || env.DEST_EMAIL || "").trim();
-  if (!toEmail) throw new Error("No recipient email (payload.reportedToEmail or DEST_EMAIL required)");
-
-  const equipmentType = String(payload.equipmentType || "PLANT").toUpperCase();
-  const plantId = String(payload.plantId || "");
-  const date = String(payload.date || "");
-  const subject = `${equipmentType} check - ${plantId} - ${date}`.trim();
-
-  const authHeader = `Basic ${base64Utf8(`${apiKey}:${secretKey}`)}`;
-
-  const mjBody = {
-    Messages: [
-      {
-        From: { Email: mailFrom, Name: "Plant Checks" },
-        To: [{ Email: toEmail, Name: payload?.reportedToName || "Recipient" }],
-        Subject: subject,
-        TextPart:
-          `Site: ${payload.site || ""}\n` +
-          `Date: ${payload.date || ""}\n` +
-          `Plant: ${payload.plantId || ""}\n` +
-          `Operator: ${payload.operator || ""}\n` +
-          `Reported to: ${payload.reportedToName || ""}\n\n` +
-          `PDF attached.`,
-        Attachments: [
-          {
-            Filename: `${equipmentType}-${plantId}-${date}.pdf`.replace(/\s+/g, "_"),
-            ContentType: "application/pdf",
-            Base64Content: pdfBase64,
-          },
-        ],
-      },
-    ],
-  };
-
-  // Hard timeout so it doesn't hang forever
+async function sendMailjet(env, authHeader, mjBody) {
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 20000);
 
   try {
     const mjResp = await fetch("https://api.mailjet.com/v3.1/send", {
@@ -92,14 +43,11 @@ async function mailjetSend(env, payload, pdfBase64) {
     try { details = JSON.parse(text); } catch { details = text; }
 
     if (!mjResp.ok) {
-      // Bubble up Mailjet’s real error
-      const err = new Error(`Mailjet send failed (${mjResp.status})`);
-      err.details = details;
-      throw err;
+      throw new Error(`Mailjet failed: ${mjResp.status} ${String(JSON.stringify(details)).slice(0, 600)}`);
     }
-    return { ok: true, details };
+    return { ok: true };
   } finally {
-    clearTimeout(t);
+    clearTimeout(timeout);
   }
 }
 
@@ -107,65 +55,133 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   try {
-    const body = await request.json();
-    const token = body?.token;
-    const payload = body?.payload;
-    const pdfBase64 = body?.pdfBase64;
+    const { token, payload, pdfBase64 } = await request.json();
 
-    // Token protection
+    // token protection
     if (!env.SUBMIT_TOKEN || token !== env.SUBMIT_TOKEN) {
       return Response.json({ error: "Invalid link token" }, { status: 401 });
     }
 
     if (!payload || !pdfBase64) {
-      return Response.json({ error: "Missing PDF or payload" }, { status: 400 });
+      return Response.json({ error: "Missing payload or PDF" }, { status: 400 });
     }
 
-    // Save weekly state in KV (optional but you had it)
     if (!env.CHECKS_KV) {
       return Response.json({ error: "KV binding missing (CHECKS_KV)" }, { status: 500 });
     }
 
+    // Save weekly record
     const week = getWeekCommencingISO(payload.date);
-    const dayIndex = getDayIndexMon0(payload.date);
     const key = `${payload.equipmentType}:${payload.plantId}:${week}`;
 
-    let record = await env.CHECKS_KV.get(key, "json");
-    if (!record) {
-      const labels = (payload.labels && payload.labels.length)
-        ? payload.labels
-        : (payload.checks || []).map((c) => c.label);
-
-      record = {
-        equipmentType: payload.equipmentType,
-        site: payload.site,
-        plantId: payload.plantId,
-        weekCommencing: week,
-        labels,
-        statuses: labels.map(() => Array(7).fill(null)),
-      };
-    }
-
-    // Update today's marks
-    const labelsLen = record.labels?.length || 0;
-    for (let i = 0; i < labelsLen; i++) {
-      const status = payload.weekStatuses?.[i]?.[dayIndex] ?? null;
-      if (record.statuses?.[i]) record.statuses[i][dayIndex] = status;
-    }
+    const record = {
+      equipmentType: payload.equipmentType,
+      plantId: payload.plantId,
+      weekCommencing: week,
+      labels: payload.labels || [],
+      statuses: payload.weekStatuses || (payload.labels || []).map(() => Array(7).fill(null)),
+      updatedAt: new Date().toISOString(),
+    };
 
     await env.CHECKS_KV.put(key, JSON.stringify(record));
 
-    // Send email (with timeout + proper recipient)
-    const result = await mailjetSend(env, payload, pdfBase64);
+    // Mailjet config
+    const apiKey = (env.MAILJET_API_KEY || "").trim();
+    const secretKey = (env.MAILJET_SECRET_KEY || "").trim();
 
-    return Response.json({ ok: true, mailjet: result.ok ? "sent" : "unknown" });
+    if (!apiKey || !secretKey) {
+      return Response.json({ error: "Mailjet API keys not configured" }, { status: 500 });
+    }
+    if (!env.MAIL_FROM) {
+      return Response.json({ error: "MAIL_FROM not set" }, { status: 500 });
+    }
+
+    // ✅ Recipient from dropdown
+    const reportedToEmail = (payload.reportedToEmail || "").trim().toLowerCase();
+    if (!reportedToEmail) {
+      return Response.json({ error: "No recipient selected (reportedToEmail)" }, { status: 400 });
+    }
+
+    // ✅ Allowlist recipients (set env.RECIPIENTS = comma separated emails)
+    const allowed = String(env.RECIPIENTS || "")
+      .split(",")
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (allowed.length && !allowed.includes(reportedToEmail)) {
+      return Response.json({ error: "Recipient not allowed by server allowlist" }, { status: 400 });
+    }
+
+    const authHeader = `Basic ${base64Utf8(`${apiKey}:${secretKey}`)}`;
+
+    const equipmentType = String(payload.equipmentType || "").toUpperCase() || "PLANT";
+    const plantId = String(payload.plantId || "");
+    const date = String(payload.date || "");
+    const subject = `${equipmentType} check - ${plantId} - ${date}`.trim();
+
+    const mjBody = {
+      Messages: [
+        {
+          From: { Email: env.MAIL_FROM, Name: "Plant Checks" },
+          To: [{ Email: reportedToEmail, Name: payload.reportedToName || "Plant Checks" }],
+          Subject: subject,
+          TextPart:
+            `Site: ${payload.site || ""}\n` +
+            `Date: ${payload.date || ""}\n` +
+            `Plant: ${payload.plantId || ""}\n` +
+            `Operator: ${payload.operator || ""}\n` +
+            `Reported to: ${payload.reportedToName || ""}\n\n` +
+            `PDF attached.`,
+          Attachments: [
+            {
+              Filename: `${equipmentType}-${plantId}-${date}.pdf`.replace(/\s+/g, "_"),
+              ContentType: "application/pdf",
+              Base64Content: pdfBase64,
+            },
+          ],
+        },
+      ],
+    };
+
+    // mark queued
+    const mailKey = `${key}:mail`;
+    await env.CHECKS_KV.put(mailKey, JSON.stringify({
+      status: "queued",
+      at: new Date().toISOString(),
+      subject,
+      to: reportedToEmail
+    }));
+
+    // send in background (fast response)
+    const job = (async () => {
+      try {
+        await sendMailjet(env, authHeader, mjBody);
+        await env.CHECKS_KV.put(mailKey, JSON.stringify({
+          status: "sent",
+          at: new Date().toISOString(),
+          subject,
+          to: reportedToEmail
+        }));
+      } catch (e) {
+        await env.CHECKS_KV.put(mailKey, JSON.stringify({
+          status: "failed",
+          at: new Date().toISOString(),
+          subject,
+          to: reportedToEmail,
+          error: e?.message || "Unknown"
+        }));
+      }
+    })();
+
+    if (typeof context.waitUntil === "function") {
+      context.waitUntil(job);
+      return Response.json({ ok: true, queued: true });
+    } else {
+      await job;
+      return Response.json({ ok: true, queued: false });
+    }
+
   } catch (e) {
-    return Response.json(
-      {
-        error: e?.message || "Server error",
-        details: e?.details || null
-      },
-      { status: 500 }
-    );
+    return Response.json({ error: e?.message || "Server error" }, { status: 500 });
   }
 }
