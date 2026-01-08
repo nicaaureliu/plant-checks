@@ -1,12 +1,13 @@
-/* public/app.js */
+/* public/app.js - FULL FILE (paste whole thing) */
 
-const BUILD = "v6";
+const BUILD = "v7";
 
-// ---------- DOM helpers ----------
+// ---------- DOM ----------
 const el = (id) => document.getElementById(id);
 
 function setStatus(msg, ok = true) {
   const s = el("status");
+  if (!s) return;
   s.textContent = (ok ? "✅ " : "❌ ") + msg;
 }
 
@@ -21,13 +22,11 @@ function toISODate(d) {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
-
-function formatDDMMYYYY(iso) {
-  if (!iso || !iso.includes("-")) return "—";
-  const [y, m, d] = iso.split("-");
+function isoToUK(iso) {
+  if (!iso || !String(iso).includes("-")) return iso || "";
+  const [y, m, d] = String(iso).split("-");
   return `${d}/${m}/${y}`;
 }
-
 function getWeekCommencingISO(dateStr) {
   const [y, m, d] = String(dateStr).split("-").map(Number);
   const dt = new Date(y, m - 1, d);
@@ -36,7 +35,6 @@ function getWeekCommencingISO(dateStr) {
   dt.setDate(dt.getDate() + diffToMon);
   return toISODate(dt);
 }
-
 function getDayIndexMon0(dateStr) {
   const [y, m, d] = String(dateStr).split("-").map(Number);
   const dt = new Date(y, m - 1, d);
@@ -111,15 +109,14 @@ const CHECKS = {
 // ---------- State ----------
 const state = {
   token: "",
-  equipmentType: "",        // "excavator" | "crane" | "dumper"
+  equipmentType: "",
   labels: [],
-  statuses: [],             // [row][day] = "OK" | "DEFECT" | "NA" | null
+  statuses: [], // [row][day]
   activeDay: 0,
   weekCommencingISO: "",
-  weekKey: "",
 };
 
-// ---------- UI / table ----------
+// ---------- UI helpers ----------
 function markToSymbol(st) {
   if (st === "OK") return "✓";
   if (st === "DEFECT") return "X";
@@ -133,36 +130,26 @@ function cycleStatus(st) {
   return null;
 }
 
-function setType(type) {
-  state.equipmentType = type;
-  state.labels = CHECKS[type] || [];
-  state.statuses = state.labels.map(() => Array(7).fill(null));
+function syncHeaderPreviews() {
+  const plantId = (el("plantId")?.value || "").trim();
+  if (el("machineNoPreview")) el("machineNoPreview").textContent = plantId || "—";
 
-  // buttons
-  ["btnExc","btnCrane","btnDump"].forEach((id) => el(id).classList.remove("active"));
-  if (type === "excavator") el("btnExc").classList.add("active");
-  if (type === "crane") el("btnCrane").classList.add("active");
-  if (type === "dumper") el("btnDump").classList.add("active");
-
-  el("selectedType").textContent = `Selected: ${type ? type[0].toUpperCase() + type.slice(1) : "—"}`;
-
-  // title
-  const title =
-    type === "excavator" ? "Excavator Pre-Use Inspection Checklist" :
-    type === "crane" ? "Crane Pre-Use Inspection Checklist" :
-    type === "dumper" ? "Dumper Pre-Use Inspection Checklist" :
-    "Plant Pre-Use Inspection Checklist";
-  el("sheetTitle").textContent = title;
-
-  buildTable();
-  maybeLoadWeek();
+  const dateStr = el("date")?.value || "";
+  if (!dateStr) {
+    if (el("weekCommencingPreview")) el("weekCommencingPreview").textContent = "—";
+    state.weekCommencingISO = "";
+    return;
+  }
+  state.weekCommencingISO = getWeekCommencingISO(dateStr);
+  if (el("weekCommencingPreview")) el("weekCommencingPreview").textContent = isoToUK(state.weekCommencingISO);
 }
 
 function buildTable() {
   const body = el("checksBody");
+  if (!body) return;
   body.innerHTML = "";
 
-  const dateStr = el("date").value;
+  const dateStr = el("date")?.value || "";
   state.activeDay = dateStr ? getDayIndexMon0(dateStr) : 0;
 
   for (let r = 0; r < state.labels.length; r++) {
@@ -181,7 +168,6 @@ function buildTable() {
       btn.type = "button";
       btn.className = "markBtn";
       btn.textContent = markToSymbol(state.statuses[r]?.[d] || null);
-
       btn.disabled = (d !== state.activeDay);
 
       btn.addEventListener("click", () => {
@@ -199,28 +185,37 @@ function buildTable() {
   }
 }
 
-function syncHeaderPreviews() {
-  const plantId = el("plantId").value.trim();
-  el("machineNoPreview").textContent = plantId || "—";
-
-  const dateStr = el("date").value;
-  if (!dateStr) {
-    el("weekCommencingPreview").textContent = "—";
-    state.weekCommencingISO = "";
-    return;
-  }
-  state.weekCommencingISO = getWeekCommencingISO(dateStr);
-  el("weekCommencingPreview").textContent = formatDDMMYYYY(state.weekCommencingISO);
-}
-
-// ---------- Load week record from KV ----------
-function applyWeekRecord(record) {
-  // Reset statuses to empty for current labels
+function setType(type) {
+  state.equipmentType = type;
+  state.labels = CHECKS[type] || [];
   state.statuses = state.labels.map(() => Array(7).fill(null));
 
+  // buttons styling (optional)
+  ["btnExc","btnCrane","btnDump"].forEach((id) => el(id)?.classList.remove("active"));
+  if (type === "excavator") el("btnExc")?.classList.add("active");
+  if (type === "crane") el("btnCrane")?.classList.add("active");
+  if (type === "dumper") el("btnDump")?.classList.add("active");
+
+  if (el("selectedType")) {
+    el("selectedType").textContent = `Selected: ${type ? type[0].toUpperCase() + type.slice(1) : "—"}`;
+  }
+
+  const title =
+    type === "excavator" ? "Excavator Pre-Use Inspection Checklist" :
+    type === "crane" ? "Crane Pre-Use Inspection Checklist" :
+    type === "dumper" ? "Dumper Pre-Use Inspection Checklist" :
+    "Plant Pre-Use Inspection Checklist";
+  if (el("sheetTitle")) el("sheetTitle").textContent = title;
+
+  buildTable();
+  maybeLoadWeek();
+}
+
+// ---------- Load week record ----------
+function applyWeekRecord(record) {
+  state.statuses = state.labels.map(() => Array(7).fill(null));
   if (!record || !record.labels || !record.statuses) return;
 
-  // Map existing rows by label (so order changes won’t break)
   const map = new Map();
   for (let i = 0; i < record.labels.length; i++) {
     map.set(record.labels[i], record.statuses[i]);
@@ -235,42 +230,35 @@ function applyWeekRecord(record) {
 }
 
 async function maybeLoadWeek() {
-  syncHeaderPreviews();
-
-  const token = state.token;
-  const type = state.equipmentType;
-  const plantId = el("plantId").value.trim();
-  const dateStr = el("date").value;
-
-  if (!token || !type || !plantId || !dateStr) {
-    buildTable();
-    return;
-  }
-
   try {
-    setStatus("Loading week record…");
-    const qs = new URLSearchParams({
-      t: token,
-      type,
-      plantId,
-      date: dateStr,
-    });
+    syncHeaderPreviews();
 
-    const res = await fetch(`/api/week?${qs.toString()}`);
+    const token = state.token;
+    const type = state.equipmentType;
+    const plantId = (el("plantId")?.value || "").trim();
+    const dateStr = el("date")?.value || "";
+
+    if (!token || !type || !plantId || !dateStr) {
+      buildTable();
+      return;
+    }
+
+    setStatus("Loading week record…");
+    const qs = new URLSearchParams({ t: token, type, plantId, date: dateStr });
+    const res = await fetch(`/api/week?${qs.toString()}`, { cache: "no-store" });
     const out = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(out?.error || "Failed to load week");
 
-    state.weekKey = out.key || "";
     applyWeekRecord(out.record);
     buildTable();
-    setStatus(`Week loaded (${formatDDMMYYYY(out.week || state.weekCommencingISO)}).`);
+    setStatus(`Week loaded (${isoToUK(out.week || state.weekCommencingISO)}).`);
   } catch (e) {
     buildTable();
     setStatus(e.message || "Week load failed", false);
   }
 }
 
-// ---------- Signature ----------
+// ---------- Signature canvas ----------
 function setupSignature() {
   const canvas = el("sig");
   const ctx = canvas.getContext("2d");
@@ -289,89 +277,44 @@ function setupSignature() {
   let drawing = false;
   let last = null;
 
-  function posFromEvent(e) {
+  function pos(e) {
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * devicePixelRatio;
-    const y = (e.clientY - rect.top) * devicePixelRatio;
-    return { x, y };
+    return {
+      x: (e.clientX - rect.left) * devicePixelRatio,
+      y: (e.clientY - rect.top) * devicePixelRatio,
+    };
   }
 
-  function start(e) {
-    drawing = true;
-    last = posFromEvent(e);
-  }
-  function move(e) {
+  canvas.addEventListener("pointerdown", (e) => { drawing = true; last = pos(e); });
+  canvas.addEventListener("pointermove", (e) => {
     if (!drawing) return;
-    const p = posFromEvent(e);
+    const p = pos(e);
     ctx.beginPath();
     ctx.moveTo(last.x, last.y);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     last = p;
-  }
-  function end() {
-    drawing = false;
-    last = null;
-  }
-
-  canvas.addEventListener("pointerdown", (e) => start(e));
-  canvas.addEventListener("pointermove", (e) => move(e));
-  canvas.addEventListener("pointerup", end);
-  canvas.addEventListener("pointercancel", end);
-  canvas.addEventListener("pointerleave", end);
-
-  el("clearSig").addEventListener("click", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
   });
+  const stop = () => { drawing = false; last = null; };
+  canvas.addEventListener("pointerup", stop);
+  canvas.addEventListener("pointercancel", stop);
+  canvas.addEventListener("pointerleave", stop);
+
+  el("clearSig")?.addEventListener("click", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
 
   return {
-    getDataUrl() {
-      return canvas.toDataURL("image/png");
-    },
-    clear() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    getDataUrl() { return canvas.toDataURL("image/png"); }
   };
 }
 
-// ---------- PDF ----------
+// ---------- PDF helpers ----------
+function imgTypeFromDataUrl(dataUrl) {
+  const s = String(dataUrl || "");
+  if (s.startsWith("data:image/jpeg")) return "JPEG";
+  return "PNG";
+}
 async function fetchAsDataUrl(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed to load image: ${url}`);
-  const blob = await res.blob();
-  return await new Promise((resolve) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.readAsDataURL(blob);
-  });
-}
-
-async function makePdfBase64(payload) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
-
-  const BUILD = "v6";
-  const margin = 28;
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-
-  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-
-  // ---------- helpers ----------
-  const isoToUK = (iso) => {
-    if (!iso || !String(iso).includes("-")) return iso || "";
-    const [y,m,d] = String(iso).split("-");
-    return `${d}/${m}/${y}`;
-  };
-
-  const ellipsize = (text, maxW) => {
-    if (!text) return "";
-    let t = String(text);
-    while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
-    return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
-  };
-
-  async function fetchAsDataUrl(url) {
+  try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return null;
     const blob = await res.blob();
@@ -381,131 +324,191 @@ async function makePdfBase64(payload) {
       r.onerror = reject;
       r.readAsDataURL(blob);
     });
+  } catch {
+    return null;
+  }
+}
+function fitIntoBox(imgW, imgH, boxW, boxH) {
+  const s = Math.min(boxW / imgW, boxH / imgH);
+  return { w: imgW * s, h: imgH * s };
+}
+function getImageSize(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+// Crop signature whitespace so it centres properly
+async function cropSignatureDataUrl(dataUrl) {
+  if (!dataUrl || !String(dataUrl).startsWith("data:image")) return null;
+
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = dataUrl;
+  });
+
+  const c = document.createElement("canvas");
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+
+  c.width = img.naturalWidth || img.width;
+  c.height = img.naturalHeight || img.height;
+  ctx.drawImage(img, 0, 0);
+
+  const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+
+  const isInk = (r, g, b, a) => a > 0 && (r < 245 || g < 245 || b < 245);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+      if (isInk(r, g, b, a)) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
   }
 
-  function fitIntoBox(imgW, imgH, boxW, boxH) {
-    const s = Math.min(boxW / imgW, boxH / imgH);
-    return { w: imgW * s, h: imgH * s };
+  if (maxX < 0 || maxY < 0) return null;
+
+  const pad = 20;
+  minX = Math.max(0, minX - pad);
+  minY = Math.max(0, minY - pad);
+  maxX = Math.min(width - 1, maxX + pad);
+  maxY = Math.min(height - 1, maxY + pad);
+
+  const cw = maxX - minX + 1;
+  const ch = maxY - minY + 1;
+
+  const out = document.createElement("canvas");
+  out.width = cw;
+  out.height = ch;
+
+  const octx = out.getContext("2d");
+  octx.drawImage(c, minX, minY, cw, ch, 0, 0, cw, ch);
+
+  return out.toDataURL("image/png");
+}
+
+function drawWrappedText(doc, text, x, y, maxW, maxH, fontSize) {
+  if (!text) return;
+  doc.setFontSize(fontSize);
+  const lines = doc.splitTextToSize(String(text), maxW);
+  const lineH = fontSize * 1.15;
+  const maxLines = Math.max(1, Math.floor(maxH / lineH));
+  const out = lines.slice(0, maxLines);
+  if (lines.length > maxLines) {
+    const last = out[out.length - 1] || "";
+    out[out.length - 1] = last.replace(/\s+$/, "") + "…";
   }
+  doc.text(out, x, y);
+}
 
-  function getImageSize(dataUrl) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
-      img.onerror = reject;
-      img.src = dataUrl;
-    });
-  }
+function markFor(status) {
+  if (status === "OK") return "✓";
+  if (status === "DEFECT") return "X";
+  if (status === "NA") return "N/A";
+  return "";
+}
 
-  const markFor = (status) => {
-    if (status === "OK") return "✓";
-    if (status === "DEFECT") return "X";
-    if (status === "NA") return "N/A";
-    return "";
-  };
+// ---------- PDF generator (ONE PAGE ALWAYS) ----------
+async function makePdfBase64(payload) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait", compress: true });
 
-  // ---------- data ----------
+  const margin = 22;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
   const dateISO = payload.date || "";
-  const weekISO = payload.weekCommencing || payload.weekCommencingISO || "";
+  const weekISO = payload.weekCommencingISO || payload.weekCommencing || "";
   const weekUK = isoToUK(weekISO);
   const dateUK = isoToUK(dateISO);
 
-  const labels = (payload.labels && payload.labels.length)
-    ? payload.labels
-    : (payload.checks || []).map(c => c.label);
+  const labels = payload.labels || [];
+  const weekStatuses = payload.weekStatuses || [];
 
-  const weekStatuses = (payload.weekStatuses && payload.weekStatuses.length)
-    ? payload.weekStatuses
-    : labels.map((_, i) => {
-        const row = Array(7).fill(null);
-        const di = payload.dayIndex ?? 0;
-        row[di] = payload.checks?.[i]?.status ?? null;
-        return row;
-      });
+  const totalRows = labels.length;
 
-  // ---------- layout ----------
   let y = margin;
 
-  // logos + title (compact header to save space)
+  // Logos + title
   const atl = await fetchAsDataUrl("/assets/atl-logo.png");
-  if (atl) doc.addImage(atl, "PNG", margin, y - 4, 140, 36);
+  if (atl) doc.addImage(atl, imgTypeFromDataUrl(atl), margin, y - 2, 135, 34);
 
   const tp = await fetchAsDataUrl("/assets/tp.png");
-  if (tp) doc.addImage(tp, "PNG", pageW - margin - 52, y - 6, 52, 52);
+  if (tp) doc.addImage(tp, imgTypeFromDataUrl(tp), pageW - margin - 48, y - 6, 48, 48);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  doc.setFontSize(12.5);
   doc.text(String(payload.formRef || "QPFPL5.2"), pageW / 2, y + 12, { align: "center" });
 
-  doc.setFontSize(10);
-  doc.text(String(payload.sheetTitle || "Excavator Pre-Use Inspection Checklist"), pageW / 2, y + 28, { align: "center" });
+  doc.setFontSize(9.8);
+  doc.text(String(payload.sheetTitle || ""), pageW / 2, y + 28, { align: "center" });
 
-  y += 48;
+  y += 46;
 
   doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
   doc.text(`Machine No: ${payload.machineNo || ""}`, margin, y);
   doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align: "right" });
-
   y += 10;
 
-  // yellow bar
   doc.setFillColor(255, 214, 0);
   doc.rect(margin, y, pageW - margin * 2, 16, "F");
   doc.setTextColor(0);
-  doc.setFontSize(8.5);
+  doc.setFontSize(8.3);
   doc.text(
     "All checks must be carried out in line with Specific Manufacturer’s instructions",
     pageW / 2, y + 11, { align: "center" }
   );
   y += 24;
 
-  // meta (single line to save height)
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.8);
   doc.text(`Site: ${payload.site || ""}`, margin, y);
-  doc.text(`Date: ${dateUK}`, margin + 180, y);
-  doc.text(`Operator: ${payload.operator || ""}`, margin + 320, y);
+  doc.text(`Date: ${dateUK}`, margin + 175, y);
+  doc.text(`Operator: ${payload.operator || ""}`, margin + 310, y);
   doc.text(`Hours/Shift: ${payload.hours || ""}`, pageW - margin, y, { align: "right" });
   y += 14;
 
-  // table sizes
-  const tableX = margin;
-  const tableW = pageW - margin * 2;
-  const itemColW = 360;                      // keep item column wide
-  const dayColW = (tableW - itemColW) / 7;
+  // Footer block sizes shrink with many rows
+  let defectsBoxH = 42, actionBoxH = 42, sigBoxH = 58;
+  if (totalRows > 45) { defectsBoxH = 34; actionBoxH = 34; sigBoxH = 50; }
+  if (totalRows > 60) { defectsBoxH = 28; actionBoxH = 28; sigBoxH = 44; }
+
   const headH = 16;
 
-  // footer block sizes (compact)
-  const defectsH = 40;
-  const actionH  = 40;
-  const sigH     = 55;
-
   const footerTotal =
-    12 +                         // "Checks carried out by"
-    12 + 8 + defectsH + 12 +     // Defects label + box
-    12 + 8 + actionH  + 12 +     // Action label + box
-    12 + 8 + sigH + 18;          // Signature label + box + bottom padding
+    12 +
+    10 + 7 + defectsBoxH + 10 +
+    12 + 7 + actionBoxH + 10 +
+    10 + 6 + sigBoxH +
+    18;
 
-  // auto row height so ALL rows fit on ONE page
-  const availForTable = (pageH - margin) - y - headH - footerTotal;
-  const totalRows = labels.length;
+  const tableX = margin;
+  const tableW = pageW - margin * 2;
+  const itemColW = Math.min(360, tableW * 0.66);
+  const dayColW = (tableW - itemColW) / 7;
 
-  // keep readable minimum
-  let rowH = Math.floor(availForTable / Math.max(1, totalRows));
-  rowH = Math.max(9, Math.min(16, rowH));
+  const availForRows = (pageH - margin) - y - headH - 8 - footerTotal;
+  let rowH = Math.floor(availForRows / Math.max(1, totalRows));
+  rowH = Math.max(6, Math.min(14, rowH));
 
-  // fonts follow row height
-  const fontItem = rowH <= 10 ? 6.7 : 7.5;
-  const fontMark = rowH <= 10 ? 8.5 : 9.5;
+  const fontItem = rowH <= 8 ? 6.3 : rowH <= 10 ? 6.9 : 7.6;
+  const fontMark = rowH <= 8 ? 8.0 : rowH <= 10 ? 8.8 : 9.6;
 
-  // if still would overflow, we still force one page by tightening footer slightly
-  // (last safety net)
-  const neededTableH = headH + totalRows * rowH;
-  if (neededTableH > availForTable + headH) {
-    rowH = 9;
-  }
-
-  // ---- draw table header ----
+  // table header
   doc.setDrawColor(0);
   doc.setLineWidth(0.7);
 
@@ -530,9 +533,8 @@ async function makePdfBase64(payload) {
 
   y += headH;
 
-  // ---- draw table rows ----
+  // rows
   for (let r = 0; r < totalRows; r++) {
-    // row outline
     doc.rect(tableX, y, tableW, rowH);
 
     doc.line(tableX + itemColW, y, tableX + itemColW, y + rowH);
@@ -541,13 +543,14 @@ async function makePdfBase64(payload) {
       doc.line(xx, y, xx, y + rowH);
     }
 
-    // label
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontItem);
-    const label = ellipsize(labels[r], itemColW - 10);
+    const maxW = itemColW - 10;
+    let label = String(labels[r] || "");
+    while (label.length && doc.getTextWidth(label) > maxW) label = label.slice(0, -1);
+    if (label.length < String(labels[r] || "").length) label = label.slice(0, -1) + "…";
     doc.text(label, tableX + 6, y + rowH * 0.72);
 
-    // marks
     doc.setFont("helvetica", "bold");
     doc.setFontSize(fontMark);
     for (let i = 0; i < 7; i++) {
@@ -560,134 +563,113 @@ async function makePdfBase64(payload) {
     y += rowH;
   }
 
-  y += 10;
+  y += 8;
 
-  // ---- footer blocks (always on same page) ----
+  // footer blocks
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
   y += 12;
 
-  // Defects
   doc.text("Defects identified:", margin, y);
-  y += 8;
-  doc.rect(margin, y, pageW - margin * 2, defectsH);
+  y += 7;
+  doc.rect(margin, y, pageW - margin * 2, defectsBoxH);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  if (payload.defectsText) doc.text(payload.defectsText, margin + 6, y + 14, { maxWidth: pageW - margin * 2 - 12 });
-  y += defectsH + 12;
+  drawWrappedText(doc, payload.defectsText || "", margin + 6, y + 14, pageW - margin * 2 - 12, defectsBoxH - 10, 8.2);
+  y += defectsBoxH + 10;
 
-  // Action
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
   doc.text("Reported to / action taken:", margin, y);
-  y += 8;
-  doc.rect(margin, y, pageW - margin * 2, actionH);
+  y += 7;
+  doc.rect(margin, y, pageW - margin * 2, actionBoxH);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  if (payload.actionTaken) doc.text(payload.actionTaken, margin + 6, y + 14, { maxWidth: pageW - margin * 2 - 12 });
-  y += actionH + 12;
+  drawWrappedText(doc, payload.actionTaken || "", margin + 6, y + 14, pageW - margin * 2 - 12, actionBoxH - 10, 8.2);
+  y += actionBoxH + 10;
 
-  // Signature (boxed + centred)
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
   doc.text("Signature:", margin, y);
-  y += 8;
+  y += 6;
 
   const sigBoxW = pageW - margin * 2;
-  doc.rect(margin, y, sigBoxW, sigH);
+  doc.rect(margin, y, sigBoxW, sigBoxH);
 
-  if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
+  if (payload.signatureDataUrl && String(payload.signatureDataUrl).startsWith("data:image")) {
     try {
+      const cropped = await cropSignatureDataUrl(payload.signatureDataUrl);
+      const sigData = cropped || payload.signatureDataUrl;
+
       const pad = 6;
       const innerW = sigBoxW - pad * 2;
-      const innerH = sigH - pad * 2;
+      const innerH = sigBoxH - pad * 2;
 
-      const { w: iw, h: ih } = await getImageSize(payload.signatureDataUrl);
+      const { w: iw, h: ih } = await getImageSize(sigData);
       const fitted = fitIntoBox(iw, ih, innerW, innerH);
 
       const imgX = margin + pad + (innerW - fitted.w) / 2;
       const imgY = y + pad + (innerH - fitted.h) / 2;
 
-      doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
+      doc.addImage(sigData, imgTypeFromDataUrl(sigData), imgX, imgY, fitted.w, fitted.h);
     } catch {}
   }
 
-  // bottom footer
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
   doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align: "center" });
 
-  // output
   const dataUri = doc.output("datauristring");
   const parts = String(dataUri).split(",");
   if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
   return parts[1];
 }
 
-  }
-
-  // Submitted footer
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 18);
-  doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 18, { align: "center" });
-
-  // Return Base64
-  const dataUri = doc.output("datauristring");
-  if (!dataUri || typeof dataUri !== "string" || !dataUri.includes(",")) {
-    throw new Error("PDF export failed (bad data URI)");
-  }
-  return dataUri.split(",")[1];
-}
-
-
 // ---------- Submit ----------
 async function submitForm(sigApi) {
   try {
     const token = state.token;
-    if (!token) throw new Error("Missing token in URL (t=...)");
+    if (!token) throw new Error("Missing token in URL (?t=...)");
 
     const type = state.equipmentType;
     if (!type) throw new Error("Select Excavator / Crane / Dumper");
 
-    const dateStr = el("date").value;
+    const dateStr = el("date")?.value || "";
     if (!dateStr) throw new Error("Select a date");
 
-    const plantId = el("plantId").value.trim();
+    const plantId = (el("plantId")?.value || "").trim();
     if (!plantId) throw new Error("Enter Machine / Plant ID");
 
     syncHeaderPreviews();
-    state.activeDay = getDayIndexMon0(dateStr);
 
-    // Build payload
+    // Build payload (send full week matrix for PDF; send today's marks for server merge)
     const payload = {
       equipmentType: type,
-      title: el("sheetTitle").textContent,
-      site: el("site").value.trim(),
+      formRef: "QPFPL5.2",
+      sheetTitle: el("sheetTitle")?.textContent || "",
+      site: (el("site")?.value || "").trim(),
       date: dateStr,
       weekCommencingISO: state.weekCommencingISO,
+      machineNo: plantId,
       plantId,
-      operator: el("operator").value.trim(),
-      hours: el("hours").value.trim(),
-      defectsText: el("defectsText").value.trim(),
-      actionTaken: el("actionTaken").value.trim(),
+      operator: (el("operator")?.value || "").trim(),
+      hours: (el("hours")?.value || "").trim(),
+      defectsText: (el("defectsText")?.value || "").trim(),
+      actionTaken: (el("actionTaken")?.value || "").trim(),
       signatureDataUrl: sigApi.getDataUrl(),
-      // send today statuses (server merges into KV)
+
+      labels: state.labels,
+      weekStatuses: state.statuses, // full Mon-Sun
+      dayIndex: getDayIndexMon0(dateStr),
+
+      // Send today's only so backend merges into KV safely
       checks: state.labels.map((label, i) => ({
         label,
-        status: state.statuses[i]?.[state.activeDay] ?? null,
+        status: state.statuses[i]?.[getDayIndexMon0(dateStr)] ?? null,
       })),
     };
 
-    // For PDF we want full Mon–Sun from current UI state
-    payload.labels = state.labels;
-    payload.statuses = state.statuses;
-
     el("submitBtn").disabled = true;
-    setStatus("Building PDF…");
 
+    setStatus("Building PDF…");
     const pdfBase64 = await makePdfBase64(payload);
 
     setStatus("Sending email…");
@@ -701,6 +683,8 @@ async function submitForm(sigApi) {
     if (!res.ok) throw new Error(out?.error || "Submit failed");
 
     setStatus("Sent successfully.");
+    // Reload week from KV so UI reflects stored state
+    await maybeLoadWeek();
   } catch (e) {
     setStatus(e.message || "Submit failed", false);
   } finally {
@@ -712,35 +696,35 @@ async function submitForm(sigApi) {
 (function init() {
   state.token = getTokenFromUrl();
 
-  el("linkTokenInfo").textContent = state.token
-    ? `Link token OK`
-    : `⚠️ Missing token in link (you must open ?t=YOURTOKEN)`;
+  if (el("linkTokenInfo")) {
+    el("linkTokenInfo").textContent = state.token ? "Link token OK" : "⚠️ Missing token in link (?t=...)";
+  }
 
   // default date = today
-  const today = new Date();
-  el("date").value = toISODate(today);
+  if (el("date")) el("date").value = toISODate(new Date());
 
-  syncHeaderPreviews();
-  buildTable();
+  // bind buttons
+  el("btnExc")?.addEventListener("click", () => setType("excavator"));
+  el("btnCrane")?.addEventListener("click", () => setType("crane"));
+  el("btnDump")?.addEventListener("click", () => setType("dumper"));
 
-  // events
-  el("btnExc").addEventListener("click", () => setType("excavator"));
-  el("btnCrane").addEventListener("click", () => setType("crane"));
-  el("btnDump").addEventListener("click", () => setType("dumper"));
-
-  el("date").addEventListener("change", () => { syncHeaderPreviews(); buildTable(); maybeLoadWeek(); });
-  el("plantId").addEventListener("input", () => { syncHeaderPreviews(); maybeLoadWeek(); });
-  el("site").addEventListener("input", () => { /* no-op */ });
+  el("date")?.addEventListener("change", () => { syncHeaderPreviews(); buildTable(); maybeLoadWeek(); });
+  el("plantId")?.addEventListener("input", () => { syncHeaderPreviews(); maybeLoadWeek(); });
 
   const sigApi = setupSignature();
-  el("fillToday").addEventListener("click", () => {
-    el("date").value = toISODate(new Date());
+  el("fillToday")?.addEventListener("click", () => {
+    if (el("date")) el("date").value = toISODate(new Date());
     syncHeaderPreviews();
     buildTable();
     maybeLoadWeek();
   });
 
-  el("submitBtn").addEventListener("click", () => submitForm(sigApi));
+  el("submitBtn")?.addEventListener("click", async () => submitForm(sigApi));
 
+  // start with excavator by default (so user sees something immediately)
+  setType("excavator");
+
+  syncHeaderPreviews();
+  buildTable();
   setStatus("Ready.");
 })();
