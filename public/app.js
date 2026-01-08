@@ -413,11 +413,48 @@ function drawWrappedText(doc, text, x, y, maxW, maxH, fontSize) {
   doc.text(out, x, y);
 }
 
-function markFor(status) {
-  if (status === "OK") return "✓";
-  if (status === "DEFECT") return "X";
-  if (status === "NA") return "N/A";
-  return "";
+function drawStatusMark(doc, status, x, y, w, h, fontSize) {
+  // x,y = top-left of the cell
+  if (!status) return;
+
+  // N/A stays as text (it renders fine)
+  if (status === "NA") {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(Math.max(7, fontSize - 1));
+    doc.text("N/A", x + w / 2, y + h * 0.72, { align: "center" });
+    return;
+  }
+
+  // Draw marks as vector lines (always visible)
+  const padX = w * 0.22;
+  const padY = h * 0.22;
+
+  const left   = x + padX;
+  const right  = x + w - padX;
+  const top    = y + padY;
+  const bottom = y + h - padY;
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(1.2);
+
+  if (status === "OK") {
+    // Tick ✓
+    const x1 = left;
+    const y1 = y + h * 0.60;
+    const x2 = x + w * 0.46;
+    const y2 = bottom;
+    const x3 = right;
+    const y3 = top;
+
+    doc.line(x1, y1, x2, y2);
+    doc.line(x2, y2, x3, y3);
+  } else if (status === "DEFECT") {
+    // X
+    doc.line(left, top, right, bottom);
+    doc.line(right, top, left, bottom);
+  }
+}
+
 }
 
 // ---------- PDF generator (ONE PAGE ALWAYS) ----------
@@ -554,12 +591,14 @@ async function makePdfBase64(payload) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(fontMark);
     for (let i = 0; i < 7; i++) {
-      const m = markFor(weekStatuses?.[r]?.[i]);
-      if (!m) continue;
-      const cx = tableX + itemColW + dayColW * i + dayColW / 2;
-      doc.text(m, cx, y + rowH * 0.72, { align: "center" });
-    }
+      for (let i = 0; i < 7; i++) {
+  const st = weekStatuses?.[r]?.[i];
+  if (!st) continue;
 
+  const cellX = tableX + itemColW + dayColW * i;
+  const cellY = y; // NOTE: this must be the row’s top Y before you increment y
+  drawStatusMark(doc, st, cellX, cellY, dayColW, rowH, fontMark);
+}
     y += rowH;
   }
 
