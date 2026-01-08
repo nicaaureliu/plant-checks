@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13";
+  const BUILD = "v13.1";
   const $ = (id) => document.getElementById(id);
 
   // Recipients (selected person receives email)
@@ -195,8 +195,6 @@
 
   function setHeaderTexts() {
     $("buildTag").textContent = `BUILD: ${BUILD}`;
-
-    // form ref per type
     $("formRef").textContent = FORM_REFS[equipmentType] || "QPFPL5.2";
 
     $("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
@@ -309,7 +307,7 @@
     RECIPIENTS.forEach((r) => {
       const opt = document.createElement("option");
       opt.value = r.email;
-      opt.textContent = r.name; // show NAME only (cleaner)
+      opt.textContent = r.name; // name only
       sel.appendChild(opt);
     });
   }
@@ -374,7 +372,6 @@
     const canvas = $("sig");
     const ctx = canvas.getContext("2d");
 
-    // detect blank
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     let hasInk = false;
     for (let i = 0; i < img.length; i += 4) {
@@ -442,23 +439,18 @@
         weekStatuses = rec.statuses;
         renderChecks();
 
-        // Don’t overwrite "Submitted" message right after submit
         if (!silent) {
-          if (Date.now() - lastSubmitStamp < 4000) {
-            status.textContent = "✅ Submitted.";
-          } else {
-            status.textContent = "✅ Week loaded.";
-          }
+          if (Date.now() - lastSubmitStamp < 4000) status.textContent = "✅ Submitted.";
+          else status.textContent = "✅ Week loaded.";
         }
         return;
       }
 
-      // No record -> keep it simple
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       renderChecks();
       if (!silent) status.textContent = "Ready.";
-    } catch (e) {
+    } catch {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       renderChecks();
@@ -466,7 +458,293 @@
     }
   }
 
-  // submit (keeps your existing backend)
+  // ---------------- PDF generator (browser) ----------------
+  async function makePdfBase64(payload) {
+    if (!window.jspdf?.jsPDF) throw new Error("jsPDF not loaded");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
+
+    const margin = 28;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const tableW = pageW - margin * 2;
+    const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+    const isoToUK2 = (iso) => {
+      if (!iso || !String(iso).includes("-")) return iso || "";
+      const [y,m,d] = String(iso).split("-");
+      return `${d}/${m}/${y}`;
+    };
+
+    const ellipsize = (text, maxW, fontSize) => {
+      if (!text) return "";
+      doc.setFontSize(fontSize);
+      let t = String(text);
+      while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
+      return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
+    };
+
+    async function fetchAsDataUrl(url) {
+      const res = await fetch(url, { cache:"no-store" });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    function getImageSize(dataUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+    }
+
+    function fitIntoBox(imgW, imgH, boxW, boxH) {
+      const s = Math.min(boxW / imgW, boxH / imgH);
+      return { w: imgW * s, h: imgH * s };
+    }
+
+    function drawOkTick(cx, cy) {
+      // ZapfDingbats tick (reliable in PDF viewers)
+      doc.setFont("zapfdingbats", "normal");
+      doc.setFontSize(13);
+      doc.text(String.fromCharCode(52), cx, cy, { align:"center", baseline:"middle" });
+    }
+
+    function drawMark(status, cx, cy) {
+      if (status === "OK") return drawOkTick(cx, cy);
+      doc.setFont("helvetica", "bold");
+      if (status === "DEFECT") {
+        doc.setFontSize(10);
+        return doc.text("X", cx, cy, { align:"center", baseline:"middle" });
+      }
+      if (status === "NA") {
+        doc.setFontSize(7.2);
+        return doc.text("N/A", cx, cy, { align:"center", baseline:"middle" });
+      }
+    }
+
+    const dateISO = payload.date || "";
+    const weekISO = payload.weekCommencing || "";
+    const weekUK = isoToUK2(weekISO);
+    const dateUK = isoToUK2(dateISO);
+
+    const labels2 = payload.labels || [];
+    const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
+
+    let y = margin;
+
+    // logos (fit so they don't clash)
+    const atl = await fetchAsDataUrl("/assets/atl-logo.png");
+    const tp  = await fetchAsDataUrl("/assets/tp.png");
+
+    const leftBoxW = 140, leftBoxH = 34;
+    const rightBoxW = 52, rightBoxH = 52;
+
+    if (atl) {
+      try {
+        const s = await getImageSize(atl);
+        const f = fitIntoBox(s.w, s.h, leftBoxW, leftBoxH);
+        doc.addImage(atl, "PNG", margin, y, f.w, f.h);
+      } catch {}
+    }
+    if (tp) {
+      try {
+        const s = await getImageSize(tp);
+        const f = fitIntoBox(s.w, s.h, rightBoxW, rightBoxH);
+        doc.addImage(tp, "PNG", pageW - margin - f.w, y - 2, f.w, f.h);
+      } catch {}
+    }
+
+    // Titles
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(payload.formRef || "QPFPL5.2", pageW / 2, y + 16, { align:"center" });
+    doc.setFontSize(10);
+    doc.text(payload.sheetTitle || "", pageW / 2, y + 32, { align:"center" });
+
+    y += 58;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`Machine No: ${payload.machineNo || payload.plantId || ""}`, margin, y);
+    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align:"right" });
+    y += 10;
+
+    // instruction bar
+    doc.setFillColor(255, 214, 0);
+    doc.rect(margin, y, tableW, 18, "F");
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.8);
+    doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW/2, y+12.5, { align:"center" });
+    y += 24;
+
+    // Meta between 2 yellow lines
+    doc.setFillColor(255, 214, 0);
+    doc.rect(margin, y, tableW, 4, "F");
+    y += 12;
+
+    const colW = tableW / 4;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`Site: ${payload.site || ""}`, margin + colW * 0.5, y, { align:"center" });
+    doc.text(`Date: ${dateUK}`, margin + colW * 1.5, y, { align:"center" });
+    doc.text(`Operator: ${payload.operator || ""}`, margin + colW * 2.5, y, { align:"center" });
+    doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW * 3.5, y, { align:"center" });
+
+    y += 10;
+    doc.setFillColor(255, 214, 0);
+    doc.rect(margin, y, tableW, 4, "F");
+    y += 10;
+
+    // Table
+    const itemColW = 420;
+    const dayColW = (tableW - itemColW) / 7;
+    const headH = 16;
+
+    // Footer heights
+    const defectsH = 26;
+    const actionH  = 28;
+    const sigH     = 34;
+
+    const footerTotal =
+      10 +
+      10 + 6 + defectsH + 10 +
+      10 + 6 + 10 +
+      10 + 6 + actionH + 10 +
+      10 + 6 + sigH + 20;
+
+    const availForTable = (pageH - margin) - y - headH - footerTotal;
+    const totalRows = labels2.length || 1;
+
+    let rowH = Math.floor(availForTable / totalRows);
+    rowH = Math.max(10, Math.min(16, rowH));
+    const fontItem = rowH <= 11 ? 6.7 : 7.6;
+
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.7);
+
+    doc.setFillColor(255, 214, 0);
+    doc.rect(margin, y, itemColW, headH, "F");
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
+    doc.rect(margin, y, tableW, headH);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    for (let i = 0; i < 7; i++) {
+      const cx = margin + itemColW + dayColW * i + dayColW / 2;
+      doc.text(days[i], cx, y + 11, { align:"center" });
+    }
+    y += headH;
+
+    for (let r = 0; r < totalRows; r++) {
+      doc.rect(margin, y, tableW, rowH);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(fontItem);
+      const label = ellipsize(labels2[r] || "", itemColW - 10, fontItem);
+      doc.text(label, margin + 6, y + rowH * 0.72);
+
+      for (let d = 0; d < 7; d++) {
+        const cellX = margin + itemColW + dayColW * d;
+        doc.line(cellX, y, cellX, y + rowH);
+
+        // pill style like UI
+        const pillPadX = 4;
+        const pillPadY = 2;
+        const pillW = dayColW - pillPadX * 2;
+        const pillH = rowH - pillPadY * 2;
+        const px = cellX + pillPadX;
+        const py = y + pillPadY;
+
+        doc.setDrawColor(200);
+        doc.setFillColor(255,255,255);
+        doc.roundedRect(px, py, pillW, pillH, 5, 5, "DF");
+
+        const st = weekStatuses2?.[r]?.[d] || null;
+        if (st) {
+          const cx = px + pillW / 2;
+          const cy = py + pillH / 2 + 0.5;
+          doc.setTextColor(0);
+          drawMark(st, cx, cy);
+        }
+      }
+
+      doc.line(margin + tableW, y, margin + tableW, y + rowH);
+      y += rowH;
+    }
+
+    doc.line(margin, y, margin + tableW, y);
+    y += 8;
+
+    // Footer
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
+    y += 10;
+
+    doc.text("Defects identified:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, defectsH);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    if (payload.defectsText) doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += defectsH + 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
+    y += 10;
+
+    doc.text("Action taken:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, actionH);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    if (payload.actionTaken) doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += actionH + 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Signature:", margin, y);
+    y += 6;
+
+    doc.rect(margin, y, tableW, sigH);
+
+    if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
+      try {
+        const pad = 4;
+        const innerW = tableW - pad * 2;
+        const innerH = sigH - pad * 2;
+        const s = await getImageSize(payload.signatureDataUrl);
+        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
+        const imgX = margin + pad + (innerW - fitted.w) / 2;
+        const imgY = y + pad + (innerH - fitted.h) / 2;
+        doc.addImage(payload.signatureDataUrl, "JPEG", imgX, imgY, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
+    doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align:"center" });
+
+    const dataUri = doc.output("datauristring");
+    const parts = String(dataUri).split(",");
+    if (parts.length < 2) throw new Error("PDF export failed");
+    return parts[1];
+  }
+
+  // ---------------- SUBMIT (sends payload + pdfBase64) ----------------
   async function submit() {
     const status = $("status");
     const btn = $("submitBtn");
@@ -496,7 +774,7 @@
       plantId,
       machineNo: plantId,
       operator,
-      hours, // machine hours
+      hours,
       weekCommencing,
       dayIndex,
       labels,
@@ -509,14 +787,16 @@
     };
 
     btn.disabled = true;
-    status.textContent = "Submitting…";
 
     try {
-      // Your backend creates/sends PDF - keep as-is
+      status.textContent = "Building PDF…";
+      const pdfBase64 = await makePdfBase64(payload);
+
+      status.textContent = "Sending…";
       const { resp, data } = await fetchJson("/api/submit", {
         method: "POST",
         headers: { "content-type":"application/json" },
-        body: JSON.stringify({ token: TOKEN, payload })
+        body: JSON.stringify({ token: TOKEN, payload, pdfBase64 })
       }, 30000);
 
       if (!resp.ok) {
@@ -529,9 +809,7 @@
       status.textContent = "✅ Submitted.";
       btn.disabled = false;
 
-      // refresh silently (don’t change status)
       await loadWeekFromKV({ silent: true });
-
     } catch (e) {
       status.textContent = `❌ Error: ${e?.message || "unknown"}`;
       btn.disabled = false;
@@ -568,7 +846,7 @@
 
     $("date").addEventListener("change", loadWeekFromKV);
 
-    // Plant ID: UPPERCASE while typing
+    // Plant ID: uppercase while typing
     $("plantId").addEventListener("input", (e) => {
       const el = e.target;
       const s = el.selectionStart;
@@ -579,10 +857,10 @@
     });
     $("plantId").addEventListener("blur", loadWeekFromKV);
 
-    // Reported to button -> show/hide list
+    // Reported to: show list only when pressing button
     $("openRecipients").addEventListener("click", () => toggleRecipients());
 
-    // When pick a person, collapse dropdown and show preview
+    // Pick a person -> collapse
     $("reportedTo").addEventListener("change", () => {
       const email = $("reportedTo").value;
       const name = (RECIPIENTS.find(r => r.email === email)?.name) || "";
