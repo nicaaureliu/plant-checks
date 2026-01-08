@@ -1,9 +1,8 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13";
+  const BUILD = "v14";
   const $ = (id) => document.getElementById(id);
 
-  // ✅ Edit this list if needed (must have commas!)
   const RECIPIENTS = [
     { name: "Alin Pop", email: "apop@activetunnelling.com" },
     { name: "Andrew Hubbard", email: "ahubbard@activetunnelling.com" },
@@ -143,7 +142,7 @@
   const getWeekCommencingISO = (dateStr) => {
     const [y,m,d] = dateStr.split("-").map(Number);
     const dt = new Date(y, m-1, d);
-    const day = dt.getDay(); // Sun=0 ... Mon=1
+    const day = dt.getDay();
     const diffToMon = (day === 0 ? -6 : 1 - day);
     dt.setDate(dt.getDate() + diffToMon);
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
@@ -186,6 +185,76 @@
     }
   }
 
+  // ------------------- DRAFT SAVE (localStorage) -------------------
+  function draftKey() {
+    const plantId = ($("plantId").value || "").trim();
+    const dateISO = $("date").value || "";
+    if (!plantId || !dateISO) return "";
+    const week = getWeekCommencingISO(dateISO);
+    return `plantchecks:draft:${equipmentType}:${plantId}:${week}`;
+  }
+
+  function saveDraft() {
+    const key = draftKey();
+    if (!key) return;
+
+    const reportedToEmail = $("reportedTo")?.value || "";
+    const obj = {
+      v: 1,
+      ts: Date.now(),
+      equipmentType,
+      labels,
+      weekStatuses,
+      site: ($("site").value || "").trim(),
+      operator: ($("operator").value || "").trim(),
+      hours: ($("hours").value || "").trim(),
+      defectsText: ($("defectsText").value || "").trim(),
+      actionTaken: ($("actionTaken").value || "").trim(),
+      reportedToEmail
+    };
+
+    try { localStorage.setItem(key, JSON.stringify(obj)); } catch {}
+  }
+
+  function loadDraftIfAny() {
+    const key = draftKey();
+    if (!key) return false;
+
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return false;
+      const d = JSON.parse(raw);
+
+      if (d && Array.isArray(d.labels) && Array.isArray(d.weekStatuses)) {
+        labels = d.labels;
+        weekStatuses = d.weekStatuses;
+
+        if (d.site && !$("site").value) $("site").value = d.site;
+        if (d.operator && !$("operator").value) $("operator").value = d.operator;
+        if (d.hours && !$("hours").value) $("hours").value = d.hours;
+        if (d.defectsText && !$("defectsText").value) $("defectsText").value = d.defectsText;
+        if (d.actionTaken && !$("actionTaken").value) $("actionTaken").value = d.actionTaken;
+
+        if (d.reportedToEmail) {
+          $("reportedTo").value = d.reportedToEmail;
+          const nm = (RECIPIENTS.find(r => r.email === d.reportedToEmail)?.name) || "—";
+          $("reportedToChosen").textContent = nm;
+        }
+
+        renderChecks();
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  function clearDraft() {
+    const key = draftKey();
+    if (!key) return;
+    try { localStorage.removeItem(key); } catch {}
+  }
+
+  // ------------------- UI -------------------
   function setButtonsActive() {
     $("btnExc").classList.toggle("active", equipmentType === "excavator");
     $("btnCrane").classList.toggle("active", equipmentType === "crane");
@@ -198,6 +267,7 @@
     const meta = FORM_META[equipmentType];
     $("formRef").textContent = meta.ref;
     $("sheetTitle").textContent = meta.title;
+
     $("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
 
     const dateISO = $("date").value || isoToday();
@@ -240,6 +310,7 @@
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
             btn.textContent = markText(next);
+            saveDraft(); // ✅ autosave ticks
             if (isMobile()) renderMobileList();
           });
         }
@@ -277,6 +348,7 @@
         const next = cycleStatus(cur);
         weekStatuses[r][activeDay] = next;
         btn.textContent = markText(next);
+        saveDraft(); // ✅ autosave ticks
         if (!isMobile()) renderTable();
       });
 
@@ -297,12 +369,11 @@
     RECIPIENTS.forEach((r) => {
       const opt = document.createElement("option");
       opt.value = r.email;
-      opt.textContent = r.name; // ✅ only show names
+      opt.textContent = r.name; // names only
       sel.appendChild(opt);
     });
 
-    const firstName = RECIPIENTS[0]?.name || "—";
-    $("reportedToChosen").textContent = firstName;
+    $("reportedToChosen").textContent = RECIPIENTS[0]?.name || "—";
   }
 
   // Signature pad
@@ -342,7 +413,7 @@
       last = p;
       e.preventDefault();
     }
-    function end(){ drawing = false; last = null; }
+    function end(){ drawing = false; last = null; saveDraft(); }
 
     canvas.addEventListener("mousedown", start);
     canvas.addEventListener("mousemove", move);
@@ -352,54 +423,22 @@
     canvas.addEventListener("touchmove", move, { passive:false });
     window.addEventListener("touchend", end);
 
-    $("clearSig").addEventListener("click", () => ctx.clearRect(0,0,canvas.width,canvas.height));
+    $("clearSig").addEventListener("click", () => { ctx.clearRect(0,0,canvas.width,canvas.height); saveDraft(); });
   }
 
-  // ✅ crop signature so box matches the ink (fixes “massive box / tiny signature” look)
   function signatureDataUrl() {
     const canvas = $("sig");
     const ctx = canvas.getContext("2d");
-    const w = canvas.width;
-    const h = canvas.height;
-
-    const img = ctx.getImageData(0, 0, w, h).data;
-
-    let minX = w, minY = h, maxX = -1, maxY = -1;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const a = img[(y * w + x) * 4 + 3];
-        if (a !== 0) {
-          if (x < minX) minX = x;
-          if (y < minY) minY = y;
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
-        }
-      }
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let hasInk = false;
+    for (let i = 0; i < img.length; i += 4) {
+      if (img[i + 3] !== 0) { hasInk = true; break; }
     }
-
-    if (maxX < 0) return ""; // blank
-
-    const pad = 12;
-    minX = Math.max(0, minX - pad);
-    minY = Math.max(0, minY - pad);
-    maxX = Math.min(w - 1, maxX + pad);
-    maxY = Math.min(h - 1, maxY + pad);
-
-    const cropW = maxX - minX + 1;
-    const cropH = maxY - minY + 1;
-
-    const tmp = document.createElement("canvas");
-    tmp.width = cropW;
-    tmp.height = cropH;
-    const tctx = tmp.getContext("2d");
-
-    tctx.fillStyle = "#fff";
-    tctx.fillRect(0, 0, cropW, cropH);
-    tctx.drawImage(canvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
-
-    return tmp.toDataURL("image/png");
+    if (!hasInk) return "";
+    return canvas.toDataURL("image/png");
   }
 
+  // ------------------- KV week load -------------------
   async function loadWeekFromKV() {
     const status = $("status");
     const plantId = ($("plantId").value || "").trim();
@@ -420,26 +459,38 @@
 
     try {
       const { resp, data } = await fetchJson(url, { cache:"no-store" }, 12000);
-      if (!resp.ok) {
-        labels = [...CHECKLISTS[equipmentType]];
-        weekStatuses = labels.map(() => Array(7).fill(null));
-        renderChecks();
-        status.textContent = `❌ Week load failed (${resp.status}): ${data.error || resp.statusText || "Unknown"}`;
+
+      if (resp.ok) {
+        const rec = data.record || null;
+        if (rec && Array.isArray(rec.labels) && Array.isArray(rec.statuses)) {
+          labels = rec.labels;
+          weekStatuses = rec.statuses;
+          renderChecks();
+          saveDraft(); // keep local draft aligned
+          status.textContent = "Ready.";
+          return;
+        }
+      }
+
+      // ✅ If no KV record, restore draft (this is what you want)
+      const restored = loadDraftIfAny();
+      if (restored) {
+        status.textContent = "Ready.";
         return;
       }
 
-      const rec = data.record || null;
-      if (rec && Array.isArray(rec.labels) && Array.isArray(rec.statuses)) {
-        labels = rec.labels;
-        weekStatuses = rec.statuses;
-        status.textContent = "Ready.";
-      } else {
-        labels = [...CHECKLISTS[equipmentType]];
-        weekStatuses = labels.map(() => Array(7).fill(null));
-        status.textContent = "Ready.";
-      }
+      // else empty week
+      labels = [...CHECKLISTS[equipmentType]];
+      weekStatuses = labels.map(() => Array(7).fill(null));
       renderChecks();
+      status.textContent = "Ready.";
     } catch (e) {
+      // on error -> still try draft
+      const restored = loadDraftIfAny();
+      if (restored) {
+        status.textContent = "Ready.";
+        return;
+      }
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       renderChecks();
@@ -447,7 +498,7 @@
     }
   }
 
-  // ---------- PDF (one page, no circles, small signature, NO thin yellow meta lines) ----------
+  // ------------------- PDF + Submit (kept from your working version) -------------------
   async function makePdfBase64(payload) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
@@ -507,7 +558,6 @@
     function drawMark(status, cx, cy) {
       if (!status) return;
       if (status === "OK") return drawOkTick(cx, cy);
-
       doc.setFont("helvetica", "bold");
       if (status === "DEFECT") {
         doc.setFontSize(10);
@@ -573,7 +623,6 @@
     doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW/2, y+12.5, { align:"center" });
     y += 24;
 
-    // ✅ NO thin yellow lines here anymore (removed)
     const colW = tableW / 4;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
@@ -583,7 +632,6 @@
     doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW * 3.5, y, { align:"center" });
     y += 12;
 
-    // ----- TABLE (NO CIRCLES) -----
     const itemColW = 420;
     const dayColW = (tableW - itemColW) / 7;
     const headH = 16;
@@ -609,12 +657,9 @@
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
-    // header outer
     doc.rect(margin, y, tableW, headH);
-    // header left fill (yellow)
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, itemColW, headH, "F");
-    // header verticals
     doc.line(margin + itemColW, y, margin + itemColW, y + headH);
     for (let i = 1; i < 7; i++) {
       const xx = margin + itemColW + dayColW * i;
@@ -657,7 +702,6 @@
 
     y += 8;
 
-    // footer
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
@@ -777,6 +821,7 @@
       status.textContent = "✅ Submitted.";
       btn.disabled = false;
 
+      clearDraft();         // ✅ clear local draft after successful submit
       await loadWeekFromKV();
     } catch (e) {
       status.textContent = `❌ Error: ${e?.message || "unknown"}`;
@@ -784,48 +829,67 @@
     }
   }
 
+  // ------------------- events -------------------
+  let plantDebounce = null;
+
   function wireEvents() {
     $("btnExc").addEventListener("click", async () => {
+      saveDraft();
       equipmentType = "excavator";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
+      saveDraft();
     });
 
     $("btnCrane").addEventListener("click", async () => {
+      saveDraft();
       equipmentType = "crane";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
+      saveDraft();
     });
 
     $("btnDump").addEventListener("click", async () => {
+      saveDraft();
       equipmentType = "dumper";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
+      saveDraft();
     });
 
-    $("date").addEventListener("change", loadWeekFromKV);
+    $("date").addEventListener("change", async () => { await loadWeekFromKV(); saveDraft(); });
+
+    // Plant ID uppercase + load week WITHOUT needing blur (mobile fix)
+    $("plantId").addEventListener("input", (e) => {
+      e.target.value = (e.target.value || "").toUpperCase();
+      setHeaderTexts();
+      saveDraft();
+
+      clearTimeout(plantDebounce);
+      plantDebounce = setTimeout(() => loadWeekFromKV(), 500);
+    });
+
     $("plantId").addEventListener("blur", loadWeekFromKV);
 
-    // ✅ Plant ID always uppercase
-    $("plantId").addEventListener("input", (e) => {
-      const v = e.target.value || "";
-      e.target.value = v.toUpperCase();
-      setHeaderTexts();
+    ["site","operator","hours","defectsText","actionTaken"].forEach((id) => {
+      $(id).addEventListener("input", saveDraft);
+      $(id).addEventListener("blur", saveDraft);
     });
 
     $("reportedTo").addEventListener("change", () => {
       const email = $("reportedTo").value;
       const name = (RECIPIENTS.find(r => r.email === email)?.name) || "—";
       $("reportedToChosen").textContent = name;
+      saveDraft();
     });
 
     $("toggleReportedTo").addEventListener("click", () => {
@@ -834,6 +898,7 @@
     });
 
     window.addEventListener("resize", () => renderChecks());
+
     $("submitBtn").addEventListener("click", submit);
   }
 
@@ -844,11 +909,18 @@
     wireEvents();
 
     if (!$("date").value) $("date").value = isoToday();
+
     setButtonsActive();
     setHeaderTexts();
     renderChecks();
+
+    // attempt restore draft immediately (if plantId/date already present)
+    loadDraftIfAny();
+
+    // load week from KV (and if none, draft remains)
     loadWeekFromKV();
 
+    $("buildTag").textContent = `BUILD: ${BUILD}`;
     $("status").textContent = "Ready.";
   })();
 })();
