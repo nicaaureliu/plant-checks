@@ -1,236 +1,417 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Plant Checks</title>
+/* public/app.js */
+(() => {
+  const BUILD = "v12-debug";
+  const $ = (id) => document.getElementById(id);
 
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 14px; background:#fff; color:#111; }
-    .small { font-size: 12px; color: #666; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 12px; background:#fff; }
+  function must(id) {
+    const el = $(id);
+    if (!el) throw new Error(`Missing element #${id} in index.html`);
+    return el;
+  }
 
-    /* Sheet-like header */
-    .sheetHeader {
-      display:grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items:center;
-      gap:10px;
+  const statusEl = () => $("status");
+
+  const RECIPIENTS = [
+    { name: "Alin Pop", email: "apop@activetunnelling.com" },
+    { name: "Andrew Hubbard", email: "ahubbard@activetunnelling.com" },
+    { name: "Aureliu Nica", email: "anica@activetunnelling.com" },
+    { name: "Cameron Davies", email: "cdavies@activetunnelling.com" },
+    { name: "Ebenezer Bentum", email: "ebentum@activetunnelling.com" },
+    { name: "Iosif Beghean", email: "ibeghean@activetunnelling.com" },
+    { name: "James Wallace", email: "jwallace@activetunnelling.com" },
+    { name: "John Thorpe", email: "jthorpe@activetunnelling.com" },
+    { name: "Josh Furner", email: "jfurner@activetunnelling.com" },
+    { name: "Kamran Muzaffar", email: "kmuzaffar@activetunnelling.com" },
+    { name: "Niall Lynam", email: "nlynam@activetunnelling.com" },
+    { name: "Richard Wilson", email: "rwilson@activetunnelling.com" },
+    { name: "Rob Graham", email: "rgraham@activetunnelling.com" },
+    { name: "Scott Carter", email: "scarter@activetunnelling.com" }
+  ];
+
+  const CHECKLISTS = {
+    excavator: [
+      "BUCKET, Excessive wear or Damage, Cracks",
+      "BUCKET CYLINDER & LINKAGE, Excessive wear or Damage, Leaks",
+      "STICK, Excessive wear or Damage, Cracks",
+      "BOOM CYLINDERS, Excessive wear or Damage, Leaks",
+      "UNDERNEATH OF MACHINE FINAL DRIVE, Damage, Leaks",
+      "CAB, Damage, Cracks",
+      "UNDERCARRIAGE, Wear Damage, Tension",
+      "STEPS & HANDHOLDS, Condition & Cleanliness",
+      "BATTERIES & HOLDOWNS, Cleanliness, Loose Bolts and Nuts",
+      "AIR FILTER, Restriction Indicator",
+      "WINDSHIELD WIPERS AND WASHERS, Wear, Damage, Fluid Level",
+      "ENGINE COOLANT, Fluid Level",
+      "RADIATOR, Fin Blockage, Leaks",
+      "HYDRAULIC OIL TANK, Fluid Level, Damage, Leaks",
+      "FUEL TANK, Fluid Level, Damage, Leaks",
+      "FIRE EXTINGUISHER, Present/charged, Damage",
+      "LIGHTS, Damage / working",
+      "MIRRORS, Adjusted for Best Visibility",
+      "FUEL WATER SEPARATOR, Drain",
+      "OVERALL MACHINE, Loose or Missing Nuts & Bolts, Loose Guards, Cleanliness",
+      "SWING GEAR OIL LEVEL, Fluid Level",
+      "ENGINE OIL, Fluid Level",
+      "ALL HOSES, Cracks, Wear Spots, Leaks",
+      "ALL BELTS, Tension, Wear, Cracks",
+      "OVERALL ENGINE COMPARTMENT, Rubbish, Dirt, Leaks",
+      "SEAT, Adjustment",
+      "SEAT BELT & MOUNTING, Damage, Wear, Adjustment",
+      "INDICATORS & GAUGES, Check, Test",
+      "HORN / BACKUP ALARM / LIGHTS, Proper Function",
+      "OVERALL CAB INTERIOR, Cleanliness"
+    ],
+    crane: [
+      "Engine Oil Levels",
+      "Fuel Level",
+      "Coolant Levels",
+      "Hydraulic fluid levels",
+      "Visually check for fluid leaks",
+      "Lights, beacons and horn",
+      "Correct operation of RCI (LMI)"
+    ],
+    dumper: [
+      "Skip/Body Security",
+      "Steps/Handrails",
+      "Steering/Braking/Handbrake",
+      "Tracks/Running Gear/Wheels/Tyres",
+      "Lights/Beacons",
+      "Audible Warnings/Alarms"
+    ]
+  };
+
+  const qs = new URLSearchParams(location.search);
+  const TOKEN = qs.get("t") || "";
+
+  let equipmentType = (qs.get("type") || "excavator").toLowerCase();
+  if (!CHECKLISTS[equipmentType]) equipmentType = "excavator";
+
+  let labels = [...CHECKLISTS[equipmentType]];
+  let weekStatuses = labels.map(() => Array(7).fill(null));
+  let activeDay = 0;
+
+  const isoToday = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
+
+  const isoToUK = (iso) => {
+    if (!iso || !String(iso).includes("-")) return iso || "";
+    const [y,m,d] = String(iso).split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  const getWeekCommencingISO = (dateStr) => {
+    const [y,m,d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    const day = dt.getDay();
+    const diffToMon = (day === 0 ? -6 : 1 - day);
+    dt.setDate(dt.getDate() + diffToMon);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  };
+
+  const getDayIndexMon0 = (dateStr) => {
+    const [y,m,d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    const day = dt.getDay();
+    return day === 0 ? 6 : day - 1;
+  };
+
+  const cycleStatus = (cur) => {
+    if (!cur) return "OK";
+    if (cur === "OK") return "DEFECT";
+    if (cur === "DEFECT") return "NA";
+    return null;
+  };
+
+  const markText = (status) => {
+    if (status === "OK") return "✓";
+    if (status === "DEFECT") return "X";
+    if (status === "NA") return "N/A";
+    return "";
+  };
+
+  const isMobile = () => window.matchMedia("(max-width: 760px)").matches;
+
+  async function fetchJson(url, options = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, { ...options, signal: controller.signal });
+      const txt = await resp.text();
+      let data = {};
+      try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+      return { resp, data };
+    } finally { clearTimeout(t); }
+  }
+
+  function fillRecipients() {
+    const sel = must("reportedTo");
+    sel.innerHTML = "";
+    RECIPIENTS.forEach((r) => {
+      const opt = document.createElement("option");
+      opt.value = r.email;
+      opt.textContent = `${r.name} (${r.email})`;
+      sel.appendChild(opt);
+    });
+  }
+
+  function setButtonsActive() {
+    must("btnExc").classList.toggle("active", equipmentType === "excavator");
+    must("btnCrane").classList.toggle("active", equipmentType === "crane");
+    must("btnDump").classList.toggle("active", equipmentType === "dumper");
+  }
+
+  function setHeaderTexts() {
+    must("buildTag").textContent = `BUILD: ${BUILD}`;
+    must("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
+
+    const title =
+      equipmentType === "excavator" ? "Excavator Pre-Use Inspection Checklist" :
+      equipmentType === "crane" ? "Crane Pre-Use Inspection Checklist" :
+      "Dumper Pre-Use Inspection Checklist";
+    must("sheetTitle").textContent = title;
+
+    const dateISO = must("date").value || isoToday();
+    must("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
+
+    const pid = (must("plantId").value || "").trim();
+    must("machineNoPreview").textContent = pid || "—";
+  }
+
+  function renderTable() {
+    const dateISO = must("date").value || isoToday();
+    activeDay = getDayIndexMon0(dateISO);
+
+    const tbody = must("checksBody");
+    tbody.innerHTML = "";
+
+    // ✅ GUARANTEE rows exist
+    if (!labels.length) labels = [...CHECKLISTS[equipmentType]];
+    if (!weekStatuses.length) weekStatuses = labels.map(() => Array(7).fill(null));
+
+    labels.forEach((label, r) => {
+      const tr = document.createElement("tr");
+
+      const tdItem = document.createElement("td");
+      tdItem.className = "item";
+      tdItem.textContent = label;
+      tr.appendChild(tdItem);
+
+      for (let d = 0; d < 7; d++) {
+        const td = document.createElement("td");
+        td.className = "day";
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "markBtn";
+        btn.textContent = markText(weekStatuses?.[r]?.[d] || null);
+
+        if (d !== activeDay) {
+          btn.classList.add("disabled");
+          btn.disabled = true;
+        } else {
+          btn.addEventListener("click", () => {
+            const cur = weekStatuses?.[r]?.[d] || null;
+            const next = cycleStatus(cur);
+            weekStatuses[r][d] = next;
+            btn.textContent = markText(next);
+            if (isMobile()) renderMobileList();
+          });
+        }
+
+        td.appendChild(btn);
+        tr.appendChild(td);
+      }
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderMobileList() {
+    const dateISO = must("date").value || isoToday();
+    activeDay = getDayIndexMon0(dateISO);
+
+    const wrap = must("mobileChecks");
+    wrap.innerHTML = "";
+
+    if (!labels.length) labels = [...CHECKLISTS[equipmentType]];
+    if (!weekStatuses.length) weekStatuses = labels.map(() => Array(7).fill(null));
+
+    labels.forEach((label, r) => {
+      const row = document.createElement("div");
+      row.className = "mobileRow";
+
+      const lab = document.createElement("div");
+      lab.className = "mobileLabel";
+      lab.textContent = label;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mobileBtn";
+      btn.textContent = markText(weekStatuses?.[r]?.[activeDay] || null);
+
+      btn.addEventListener("click", () => {
+        const cur = weekStatuses?.[r]?.[activeDay] || null;
+        const next = cycleStatus(cur);
+        weekStatuses[r][activeDay] = next;
+        btn.textContent = markText(next);
+        if (!isMobile()) renderTable();
+      });
+
+      row.appendChild(lab);
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderChecks() {
+    setHeaderTexts();
+    if (isMobile()) renderMobileList();
+    else renderTable();
+  }
+
+  // Minimal signature so page stays interactive even if you haven't signed yet
+  function initSignature() {
+    const canvas = must("sig");
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
+    let last = null;
+
+    function resize() {
+      const ratio = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(canvas.clientWidth * ratio);
+      canvas.height = Math.floor(canvas.clientHeight * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#111";
     }
-    .logoLeft { width: 150px; height:auto; justify-self:start; }
-    .logoRight { width: 55px; height:auto; justify-self:end; }
-    .ref { font-size: 18px; justify-self:center; }
+    resize();
+    window.addEventListener("resize", resize);
 
-    .sheetTitle { text-align:center; font-size: 16px; font-weight:700; margin: 8px 0 0; }
-    .metaRow {
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:10px;
-      font-size: 12px;
-    }
-    .metaRow b { font-weight:700; }
-
-    .yellowBar {
-      margin-top:10px;
-      background:#ffd600;
-      padding:8px 10px;
-      font-weight:700;
-      font-size: 12px;
-      text-align:center;
-      border:1px solid #111;
-      border-left:0;
-      border-right:0;
+    function pos(e) {
+      const r = canvas.getBoundingClientRect();
+      const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+      const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+      return { x, y };
     }
 
-    /* Inputs */
-    label { font-size: 12px; color: #444; display:block; margin-bottom:6px; }
-    input, textarea, button, select {
-      width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box;
-      font-family: inherit;
+    function start(e){ drawing = true; last = pos(e); e.preventDefault(); }
+    function move(e){
+      if (!drawing) return;
+      const p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+      e.preventDefault();
     }
-    textarea { min-height: 70px; }
+    function end(){ drawing = false; last = null; }
 
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    .topBtns { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; align-items:center; }
-    .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:700; cursor:pointer; }
-    .pill.active { background:#111; color:#fff; border-color:#111; }
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", end);
 
-    /* Table */
-    .tableWrap { overflow-x:auto; border:1px solid #111; border-radius:8px; }
-    table { border-collapse: collapse; width: 980px; background:#fff; }
-    th, td { border:1px solid #111; padding:6px; font-size:12px; }
-    th { background:#fff; }
-    th.item { width: 420px; background:#ffd600; }
-    td.item { font-size:11px; }
-    td.day { text-align:center; width: 70px; }
+    canvas.addEventListener("touchstart", start, { passive:false });
+    canvas.addEventListener("touchmove", move, { passive:false });
+    window.addEventListener("touchend", end);
 
-    .markBtn {
-      width: 100%;
-      padding: 7px 0;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      background:#fff;
-      font-weight: 800;
-      cursor:pointer;
-    }
-    .markBtn.disabled { opacity: .45; cursor: not-allowed; }
+    must("clearSig").addEventListener("click", () => ctx.clearRect(0,0,canvas.width,canvas.height));
+    must("fillToday").addEventListener("click", () => {
+      must("date").value = isoToday();
+      renderChecks();
+      loadWeekFromKV();
+    });
+  }
 
-    /* Mobile checklist list */
-    .mobileWrap { display:none; }
-    .mobileRow {
-      display:flex;
-      gap:10px;
-      align-items:center;
-      border:1px solid #eee;
-      border-radius:10px;
-      padding:10px;
-      margin-bottom:8px;
-    }
-    .mobileLabel { flex: 1; font-size: 12px; }
-    .mobileBtn {
-      width: 80px;
-      padding: 10px 0;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      background:#fff;
-      font-weight: 900;
-      cursor:pointer;
+  async function loadWeekFromKV() {
+    const s = statusEl();
+    const plantId = (must("plantId").value || "").trim();
+    const dateISO = must("date").value || "";
+
+    renderChecks();
+
+    // If missing info, still render table (don’t block UI)
+    if (!TOKEN || !plantId || !dateISO) {
+      if (s) s.textContent = TOKEN ? "Ready (enter Plant ID + Date to load saved week)." : "Ready (missing token in URL).";
+      return;
     }
 
-    /* Signature */
-    canvas { width: 100%; height: 170px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
-    .btnRow { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
-    .submitBtn { border:0; background:#111; color:#fff; font-weight:800; padding: 12px; border-radius: 10px; cursor:pointer; }
-    .submitBtn:disabled { opacity:.6; cursor:not-allowed; }
+    const url = `/api/week?t=${encodeURIComponent(TOKEN)}&type=${encodeURIComponent(equipmentType)}&plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(dateISO)}`;
+    if (s) s.textContent = "Loading week…";
 
-    /* BUILD tag */
-    #buildTag { font-size:12px; color:#666; margin-bottom:8px; }
+    try {
+      const { resp, data } = await fetchJson(url, { cache:"no-store" }, 12000);
+      if (!resp.ok) {
+        if (s) s.textContent = `❌ Week load failed (${resp.status}): ${data.error || resp.statusText || "Unknown"}`;
+        return;
+      }
 
-    /* Responsive */
-    @media (max-width: 760px) {
-      .tableWrap { display:none; }
-      .mobileWrap { display:block; }
-      table { width: 900px; }
-      .logoLeft { width: 130px; }
-      .logoRight { width: 48px; }
+      const rec = data.record || null;
+      if (rec && Array.isArray(rec.labels) && Array.isArray(rec.statuses)) {
+        labels = rec.labels;
+        weekStatuses = rec.statuses;
+        if (s) s.textContent = "✅ Week loaded.";
+      } else {
+        labels = [...CHECKLISTS[equipmentType]];
+        weekStatuses = labels.map(() => Array(7).fill(null));
+        if (s) s.textContent = "✅ New week (empty).";
+      }
+
+      renderChecks();
+    } catch (e) {
+      if (s) s.textContent = `❌ Load error: ${e?.name === "AbortError" ? "timeout" : (e?.message || "unknown")}`;
     }
-  </style>
+  }
 
-  <!-- jsPDF -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-</head>
+  function wireEvents() {
+    must("btnExc").addEventListener("click", () => {
+      equipmentType = "excavator";
+      labels = [...CHECKLISTS[equipmentType]];
+      weekStatuses = labels.map(() => Array(7).fill(null));
+      setButtonsActive();
+      renderChecks();
+      loadWeekFromKV();
+    });
+    must("btnCrane").addEventListener("click", () => {
+      equipmentType = "crane";
+      labels = [...CHECKLISTS[equipmentType]];
+      weekStatuses = labels.map(() => Array(7).fill(null));
+      setButtonsActive();
+      renderChecks();
+      loadWeekFromKV();
+    });
+    must("btnDump").addEventListener("click", () => {
+      equipmentType = "dumper";
+      labels = [...CHECKLISTS[equipmentType]];
+      weekStatuses = labels.map(() => Array(7).fill(null));
+      setButtonsActive();
+      renderChecks();
+      loadWeekFromKV();
+    });
 
-<body>
-  <div id="buildTag">BUILD: …</div>
+    must("date").addEventListener("change", loadWeekFromKV);
+    must("plantId").addEventListener("blur", loadWeekFromKV);
+    window.addEventListener("resize", renderChecks);
+  }
 
-  <div class="card">
-    <div class="sheetHeader">
-      <img class="logoLeft" src="assets/atl-logo.png" alt="Active Tunnelling">
-      <div class="ref" id="formRef">QPFPL5.2</div>
-      <img class="logoRight" src="assets/tp.png" alt="TP">
-    </div>
+  // init
+  try {
+    fillRecipients();
+    initSignature();
+    wireEvents();
 
-    <div class="sheetTitle" id="sheetTitle">Excavator Pre-Use Inspection Checklist</div>
+    if (!must("date").value) must("date").value = isoToday();
 
-    <div class="metaRow">
-      <div><b>Machine No:</b> <span id="machineNoPreview">—</span></div>
-      <div style="text-align:right;"><b>Week commencing:</b> <span id="weekCommencingPreview">—</span></div>
-    </div>
+    setButtonsActive();
+    renderChecks();
+    loadWeekFromKV();
 
-    <div class="yellowBar">
-      All checks must be carried out in line with Specific Manufacturer’s instructions
-    </div>
-
-    <div class="topBtns" style="margin-top:12px;">
-      <button class="pill" id="btnExc" type="button">Excavator</button>
-      <button class="pill" id="btnCrane" type="button">Crane</button>
-      <button class="pill" id="btnDump" type="button">Dumper</button>
-    </div>
-
-    <p class="small" id="selectedType" style="margin:10px 0 0;">Selected: —</p>
-  </div>
-
-  <div class="card">
-    <div class="grid2">
-      <div>
-        <label>Site</label>
-        <input id="site" placeholder="e.g. Hinckley" />
-      </div>
-      <div>
-        <label>Date</label>
-        <input id="date" type="date" />
-      </div>
-    </div>
-
-    <div class="grid2" style="margin-top:10px;">
-      <div>
-        <label>Machine / Plant ID</label>
-        <input id="plantId" placeholder="e.g. EXC-12 / AB12CDE" />
-      </div>
-      <div>
-        <label>Operator name</label>
-        <input id="operator" placeholder="Name" />
-      </div>
-    </div>
-
-    <div style="margin-top:10px;">
-      <label>Hours / Shift</label>
-      <input id="hours" placeholder="e.g. 06:00–18:00" />
-    </div>
-  </div>
-
-  <div class="card">
-    <h3 style="margin-top:0;">Checks (Mon–Sun)</h3>
-    <p class="small">Only the column for your selected date is editable. Tap the box to cycle ✓ / X / N/A.</p>
-
-    <div class="tableWrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="item"> </th>
-            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
-          </tr>
-        </thead>
-        <tbody id="checksBody"></tbody>
-      </table>
-    </div>
-
-    <!-- Mobile list -->
-    <div id="mobileChecks" class="mobileWrap"></div>
-  </div>
-
-  <div class="card">
-    <div>
-      <label>Defects identified:</label>
-      <textarea id="defectsText" placeholder="Write defects (if any)"></textarea>
-    </div>
-
-    <div style="margin-top:10px;">
-      <label>Reported to (select):</label>
-      <select id="reportedTo"></select>
-    </div>
-
-    <div style="margin-top:10px;">
-      <label>Action taken:</label>
-      <textarea id="actionTaken" placeholder="What was done / who was informed / reference"></textarea>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3 style="margin-top:0;">Signature</h3>
-    <canvas id="sig"></canvas>
-    <div class="btnRow">
-      <button class="pill" id="clearSig" type="button">Clear</button>
-      <button class="pill" id="fillToday" type="button">Today</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <button id="submitBtn" class="submitBtn" type="button">Submit (email PDF)</button>
-    <p class="small" id="status"></p>
-  </div>
-
-  <script src="app.js"></script>
-</body>
-</html>
+    if (statusEl()) statusEl().textContent = "✅ UI ready (table should be visible).";
+  } catch (e) {
+    if (statusEl()) statusEl().textContent = `❌ Init error: ${e.message}`;
+    throw e;
+  }
+})();
