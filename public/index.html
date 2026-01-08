@@ -8,7 +8,9 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 14px; background:#fff; color:#111; }
     .small { font-size: 12px; color: #666; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 12px; background:#fff; }
+    .card { border: 1px solid #ddd; border-radius: 14px; padding: 12px; margin-bottom: 12px; background:#fff; }
+
+    .buildTag { font-size:12px; color:#666; margin-bottom:8px; }
 
     /* Sheet-like header */
     .sheetHeader {
@@ -17,11 +19,12 @@
       align-items:center;
       gap:10px;
     }
-    .logoLeft { width: 150px; height:auto; justify-self:start; }
-    .logoRight { width: 55px; height:auto; justify-self:end; }
-    .ref { font-size: 18px; justify-self:center; }
+    .logoLeft { width: 150px; height:auto; justify-self:start; object-fit:contain; }
+    .logoRight { width: 55px; height:auto; justify-self:end; object-fit:contain; }
+    .ref { font-size: 18px; justify-self:center; font-weight:700; }
 
-    .sheetTitle { text-align:center; font-size: 16px; font-weight:700; margin: 8px 0 0; }
+    .sheetTitle { text-align:center; font-size: 16px; font-weight:700; margin: 10px 0 0; }
+
     .metaRow {
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -38,61 +41,99 @@
       font-weight:700;
       font-size: 12px;
       text-align:center;
-      border:1px solid #111;
-      border-left:0;
-      border-right:0;
+      border-top:1px solid #111;
+      border-bottom:1px solid #111;
     }
 
+    /* Inputs */
     label { font-size: 12px; color: #444; display:block; margin-bottom:6px; }
-    input, textarea, button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; }
+    input, textarea, button { width: 100%; padding: 10px; border-radius: 12px; border: 1px solid #ccc; box-sizing: border-box; }
     textarea { min-height: 70px; }
 
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     .topBtns { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
-    .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:700; cursor:pointer; }
+
+    .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:800; cursor:pointer; }
     .pill.active { background:#111; color:#fff; border-color:#111; }
 
     /* Table */
-    .tableWrap { overflow-x:auto; border:1px solid #111; border-radius:8px; }
+    .tableWrap { overflow-x:auto; border:1px solid #111; border-radius:10px; }
     table { border-collapse: collapse; width: 980px; background:#fff; }
     th, td { border:1px solid #111; padding:6px; font-size:12px; }
-    th.item { width: 520px; background:#ffd600; }
+    th { background:#fff; }
+    th.item { width: 420px; background:#ffd600; }
     td.item { font-size:11px; }
-    td.day { text-align:center; width: 60px; }
-    td.day.inactive { background:#fafafa; color:#bbb; }
-    td.day.active { background:#fff; }
+    td.day { text-align:center; width: 70px; }
 
-    .markBtn{
-      width: 46px; height: 18px;
-      border-radius: 6px;
+    .markBtn {
+      width: 100%;
+      height: 26px;
+      padding: 0;
+      border-radius: 7px;
       border: 1px solid #cfcfcf;
       background:#fff;
-      font-weight: 800;
+      font-weight: 900;
       cursor:pointer;
-      padding:0;
-      line-height: 18px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      user-select:none;
+      font-size: 15px;
+      line-height: 26px;
     }
-    .markBtn:disabled { cursor:not-allowed; opacity:.45; }
+    .markBtn:disabled {
+      cursor: not-allowed;
+      color: #b9b9b9;
+      border-color:#dddddd;
+      background:#fafafa;
+    }
+    .markBtn.activeDay {
+      border-color:#999;
+      background:#fff;
+      color:#111;
+    }
+
+    /* Mobile list (no horizontal scroll) */
+    .mobileChecks { display:none; }
+    .mobileRow {
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      border:1px solid #111;
+      border-radius:12px;
+      margin-bottom:8px;
+    }
+    .mobileLabel {
+      flex:1;
+      font-size:12px;
+      line-height:1.25;
+    }
+    .mobileBtn{
+      width:72px;
+      height:44px;
+      border-radius:12px;
+      border:1px solid #cfcfcf;
+      background:#fff;
+      font-weight:900;
+      font-size:18px;
+      cursor:pointer;
+    }
+
+    @media (max-width: 760px){
+      .tableWrap { display:none; }
+      .mobileChecks { display:block; }
+    }
 
     /* Signature */
-    canvas { width: 100%; height: 170px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
+    canvas { width: 100%; height: 170px; border: 1px solid #ccc; border-radius: 12px; touch-action: none; }
     .btnRow { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
-    .submitBtn { border:0; background:#111; color:#fff; font-weight:800; padding: 12px; border-radius: 10px; cursor:pointer; }
 
-    .buildTag { font-size:12px; color:#666; margin-bottom:8px; }
-    .statusOk { color:#0a7b2d; font-weight:700; }
-    .statusErr { color:#b00020; font-weight:700; }
+    .submitBtn { border:0; background:#111; color:#fff; font-weight:900; padding: 12px; border-radius: 12px; cursor:pointer; }
   </style>
 
+  <!-- jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 
 <body>
-  <div class="buildTag">BUILD: v8</div>
+  <div class="buildTag" id="buildTag">BUILD: v9</div>
 
   <div class="card">
     <div class="sheetHeader">
@@ -117,6 +158,7 @@
       <button class="pill" id="btnCrane" type="button">Crane</button>
       <button class="pill" id="btnDump" type="button">Dumper</button>
     </div>
+
     <p class="small" id="selectedType" style="margin:10px 0 0;">Selected: Excavator</p>
   </div>
 
@@ -151,8 +193,12 @@
 
   <div class="card">
     <h3 style="margin-top:0;">Checks (Mon–Sun)</h3>
-    <p class="small">Only the column for your selected date is editable. Click the small box to cycle ✓ / X / N/A.</p>
+    <p class="small">Phone view uses a simple list (no sideways scrolling). Desktop shows the full weekly grid.</p>
 
+    <!-- Mobile-friendly list -->
+    <div id="mobileChecks" class="mobileChecks"></div>
+
+    <!-- Desktop table -->
     <div class="tableWrap">
       <table>
         <thead>
@@ -188,8 +234,16 @@
 
   <div class="card">
     <button id="submitBtn" class="submitBtn" type="button">Submit (email PDF)</button>
-    <p class="small" id="status"></p>
+    <p class="small" id="status">Ready.</p>
   </div>
+
+  <script>
+    // Show JS errors on the page (helps when testing on phone)
+    window.addEventListener("error", (e) => {
+      const s = document.getElementById("status");
+      if (s) s.textContent = "❌ JS error: " + (e.message || "unknown");
+    });
+  </script>
 
   <script src="app.js"></script>
 </body>
