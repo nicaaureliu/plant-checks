@@ -9,8 +9,7 @@
     body { font-family: Arial, sans-serif; margin: 0; padding: 14px; background:#fff; color:#111; }
     .small { font-size: 12px; color: #666; }
     .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 12px; background:#fff; }
-
-    #buildTag { font-size:12px; color:#666; margin-bottom:8px; }
+    .buildTag { font-size:12px; color:#666; margin-bottom:8px; }
 
     /* Sheet-like header */
     .sheetHeader {
@@ -19,9 +18,9 @@
       align-items:center;
       gap:10px;
     }
-    .logoLeft { width: 150px; height:auto; justify-self:start; }
-    .logoRight { width: 55px; height:auto; justify-self:end; }
-    .ref { font-size: 18px; justify-self:center; font-weight:800; }
+    .logoLeft { max-width: 160px; height:auto; justify-self:start; }
+    .logoRight { max-width: 60px; height:auto; justify-self:end; }
+    .ref { font-size: 18px; justify-self:center; font-weight:700; }
 
     .sheetTitle { text-align:center; font-size: 16px; font-weight:700; margin: 8px 0 0; }
     .metaRow {
@@ -47,14 +46,7 @@
 
     /* Inputs */
     label { font-size: 12px; color: #444; display:block; margin-bottom:6px; }
-    input, textarea, button, select {
-      width: 100%;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
-      font-family: inherit;
-    }
+    input, textarea, select, button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; }
     textarea { min-height: 70px; }
 
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
@@ -62,14 +54,14 @@
     .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:700; cursor:pointer; }
     .pill.active { background:#111; color:#fff; border-color:#111; }
 
-    /* Desktop table */
+    /* Table */
     .tableWrap { overflow-x:auto; border:1px solid #111; border-radius:8px; }
-    table { border-collapse: collapse; width: 980px; background:#fff; }
+    table { border-collapse: collapse; width: 1000px; background:#fff; }
     th, td { border:1px solid #111; padding:6px; font-size:12px; }
     th { background:#fff; }
-    th.item { width: 420px; background:#ffd600; }
+    th.item { width: 460px; background:#ffd600; }
     td.item { font-size:11px; }
-
+    td.day { text-align:center; width: 75px; }
     .markBtn {
       width: 100%;
       padding: 7px 0;
@@ -79,22 +71,22 @@
       font-weight: 800;
       cursor:pointer;
     }
-    .markBtn.disabled { opacity: .45; cursor: not-allowed; }
+    .markBtn:disabled { background:#fafafa; color:#bbb; cursor:not-allowed; }
 
-    /* Mobile list */
-    #mobileChecks { display:none; }
+    /* Mobile checks list */
+    .mobileChecks { display:none; }
     .mobileRow {
-      display:flex;
+      display:grid;
+      grid-template-columns: 1fr 86px;
       gap:10px;
       align-items:center;
-      border:1px solid #eee;
-      border-radius:10px;
       padding:10px;
-      margin-bottom:8px;
+      border:1px solid #111;
+      border-radius:10px;
+      margin-bottom:10px;
     }
-    .mobileLabel { flex: 1; font-size: 12px; }
+    .mobileLabel { font-size:13px; }
     .mobileBtn {
-      width: 84px;
       padding: 10px 0;
       border-radius: 10px;
       border: 1px solid #ccc;
@@ -104,16 +96,29 @@
     }
 
     /* Signature */
-    canvas { width: 100%; height: 160px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
-    .btnRow { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    canvas { width: 100%; height: 170px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
+    .btnRow { display:grid; grid-template-columns: 1fr; gap:10px; margin-top:10px; }
+
     .submitBtn { border:0; background:#111; color:#fff; font-weight:800; padding: 12px; border-radius: 10px; cursor:pointer; }
-    .submitBtn:disabled { opacity:.6; cursor:not-allowed; }
+    .submitBtn:disabled { opacity:0.6; cursor:not-allowed; }
+
+    /* Reported to toggle */
+    .reportedTopRow {
+      display:grid;
+      grid-template-columns: 1fr 220px;
+      gap:10px;
+      align-items:end;
+    }
+    .reportedToWrap { display:none; margin-top:10px; }
 
     @media (max-width: 760px) {
+      table { width: 100%; min-width: 0; }
       .tableWrap { display:none; }
-      #mobileChecks { display:block; }
-      .logoLeft { width: 130px; }
-      .logoRight { width: 48px; }
+      .mobileChecks { display:block; }
+      .logoLeft { max-width: 135px; }
+      .logoRight { max-width: 52px; }
+      .ref { font-size: 16px; }
+      .sheetTitle { font-size: 15px; }
     }
   </style>
 
@@ -122,7 +127,7 @@
 </head>
 
 <body>
-  <div id="buildTag">BUILD: …</div>
+  <div class="buildTag" id="buildTag">BUILD: —</div>
 
   <div class="card">
     <div class="sheetHeader">
@@ -175,8 +180,8 @@
     </div>
 
     <div style="margin-top:10px;">
-      <label>Hours / Shift</label>
-      <input id="hours" placeholder="e.g. 06:00–18:00" />
+      <label>Machine hours</label>
+      <input id="hours" placeholder="e.g. 560" inputmode="numeric" />
     </div>
   </div>
 
@@ -196,7 +201,7 @@
       </table>
     </div>
 
-    <div id="mobileChecks"></div>
+    <div class="mobileChecks" id="mobileChecks"></div>
   </div>
 
   <div class="card">
@@ -205,14 +210,24 @@
       <textarea id="defectsText" placeholder="Write defects (if any)"></textarea>
     </div>
 
-    <div style="margin-top:10px;">
-      <label>Reported to (select recipient):</label>
+    <div style="margin-top:10px;" class="reportedTopRow">
+      <div>
+        <label>Reported to:</label>
+        <input id="reportedToPreview" placeholder="None selected" readonly />
+      </div>
+      <div>
+        <button class="pill" id="openRecipients" type="button">Select person</button>
+      </div>
+    </div>
+
+    <div class="reportedToWrap" id="reportedToWrap">
       <select id="reportedTo"></select>
+      <p class="small" style="margin:8px 0 0;">Pick a name, then it will collapse automatically.</p>
     </div>
 
     <div style="margin-top:10px;">
       <label>Action taken:</label>
-      <textarea id="actionTaken" placeholder="What was done / who was informed"></textarea>
+      <textarea id="actionTaken" placeholder="What was done"></textarea>
     </div>
   </div>
 
@@ -221,12 +236,11 @@
     <canvas id="sig"></canvas>
     <div class="btnRow">
       <button class="pill" id="clearSig" type="button">Clear</button>
-      <button class="pill" id="fillToday" type="button">Today</button>
     </div>
   </div>
 
   <div class="card">
-    <button id="submitBtn" class="submitBtn" type="button">Submit (email PDF)</button>
+    <button id="submitBtn" class="submitBtn" type="button">Submit</button>
     <p class="small" id="status">Ready.</p>
   </div>
 
