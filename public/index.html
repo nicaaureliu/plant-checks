@@ -6,32 +6,23 @@
   <title>Plant Checks</title>
 
   <style>
-    :root{
-      --border:#111;
-      --soft:#ddd;
-      --pill:#f3f3f3;
-      --yellow:#ffd600;
-    }
     body { font-family: Arial, sans-serif; margin: 0; padding: 14px; background:#fff; color:#111; }
     .small { font-size: 12px; color: #666; }
     .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 12px; background:#fff; }
 
-    .buildTag { font-size:12px; color:#666; margin-bottom:8px; }
-
     /* Sheet-like header */
-    .sheetHeader{
+    .sheetHeader {
       display:grid;
       grid-template-columns: 1fr auto 1fr;
       align-items:center;
       gap:10px;
     }
-    .logoLeft { width: 140px; height:auto; justify-self:start; }
-    .logoRight { width: 52px; height:auto; justify-self:end; }
-    .ref { font-size: 18px; font-weight:700; justify-self:center; }
+    .logoLeft { width: 150px; height:auto; justify-self:start; }
+    .logoRight { width: 55px; height:auto; justify-self:end; }
+    .ref { font-size: 18px; justify-self:center; }
 
     .sheetTitle { text-align:center; font-size: 16px; font-weight:700; margin: 8px 0 0; }
-
-    .metaRow{
+    .metaRow {
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:10px;
@@ -40,113 +31,89 @@
     }
     .metaRow b { font-weight:700; }
 
-    .yellowBar{
+    .yellowBar {
       margin-top:10px;
-      background:var(--yellow);
+      background:#ffd600;
       padding:8px 10px;
       font-weight:700;
       font-size: 12px;
       text-align:center;
-      border-top:1px solid var(--border);
-      border-bottom:1px solid var(--border);
+      border:1px solid #111;
+      border-left:0;
+      border-right:0;
     }
 
     /* Inputs */
     label { font-size: 12px; color: #444; display:block; margin-bottom:6px; }
-    input, textarea, select, button {
-      width: 100%;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
+    input, textarea, button, select {
+      width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box;
       font-family: inherit;
-      font-size: 14px;
-      background:#fff;
     }
     textarea { min-height: 70px; }
 
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     .topBtns { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; align-items:center; }
-    .pill { background:var(--pill); border:1px solid var(--soft); color:#111; font-weight:700; cursor:pointer; }
+    .pill { background:#f3f3f3; border:1px solid #ddd; color:#111; font-weight:700; cursor:pointer; }
     .pill.active { background:#111; color:#fff; border-color:#111; }
-    .pill:disabled { opacity:0.6; cursor:not-allowed; }
 
-    /* Checks */
-    .checksHeaderRow{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-end;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    /* Desktop table */
-    .tableWrap { overflow-x:auto; border:1px solid var(--border); border-radius:8px; }
-    table { border-collapse: collapse; width: 100%; min-width: 980px; background:#fff; }
-    th, td { border:1px solid var(--border); padding:6px; font-size:12px; }
-    th.item { width: 520px; background:var(--yellow); }
+    /* Table */
+    .tableWrap { overflow-x:auto; border:1px solid #111; border-radius:8px; }
+    table { border-collapse: collapse; width: 980px; background:#fff; }
+    th, td { border:1px solid #111; padding:6px; font-size:12px; }
+    th { background:#fff; }
+    th.item { width: 420px; background:#ffd600; }
     td.item { font-size:11px; }
-    td.day { text-align:center; width: 66px; }
+    td.day { text-align:center; width: 70px; }
 
-    /* The little rounded "pill" inside each day cell */
-    .markBtn{
-      width: 44px;
-      height: 22px;
-      padding:0;
-      border-radius: 7px;
-      border: 1px solid #cfcfcf;
+    .markBtn {
+      width: 100%;
+      padding: 7px 0;
+      border-radius: 8px;
+      border: 1px solid #ccc;
       background:#fff;
-      font-weight: 900;
+      font-weight: 800;
       cursor:pointer;
-      line-height: 22px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      user-select:none;
     }
-    .markBtn.disabled{
-      opacity:0.25;
-      cursor:not-allowed;
-    }
+    .markBtn.disabled { opacity: .45; cursor: not-allowed; }
 
-    /* Mobile checks list */
-    .mobileOnly { display:none; }
-    .mobileRow{
-      display:grid;
-      grid-template-columns: 1fr 80px;
+    /* Mobile checklist list */
+    .mobileWrap { display:none; }
+    .mobileRow {
+      display:flex;
       gap:10px;
       align-items:center;
       border:1px solid #eee;
       border-radius:10px;
       padding:10px;
-      margin-bottom:10px;
+      margin-bottom:8px;
     }
-    .mobileLabel{ font-size:13px; }
-    .mobileBtn{
-      width:80px;
-      height:44px;
-      border-radius:12px;
-      border:1px solid #cfcfcf;
+    .mobileLabel { flex: 1; font-size: 12px; }
+    .mobileBtn {
+      width: 80px;
+      padding: 10px 0;
+      border-radius: 10px;
+      border: 1px solid #ccc;
       background:#fff;
-      font-size:18px;
-      font-weight:900;
+      font-weight: 900;
       cursor:pointer;
     }
 
     /* Signature */
-    canvas { width: 100%; height: 140px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; background:#fff; }
+    canvas { width: 100%; height: 170px; border: 1px solid #ccc; border-radius: 10px; touch-action: none; }
     .btnRow { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
     .submitBtn { border:0; background:#111; color:#fff; font-weight:800; padding: 12px; border-radius: 10px; cursor:pointer; }
-    .submitBtn:disabled { opacity:0.6; cursor:not-allowed; }
+    .submitBtn:disabled { opacity:.6; cursor:not-allowed; }
 
-    /* responsive */
-    @media (max-width: 760px){
-      body{ padding:10px; }
-      .logoLeft{ width: 130px; }
-      .logoRight{ width: 48px; }
-      .grid2{ grid-template-columns: 1fr; }
-      .tableWrap{ display:none; }
-      .mobileOnly{ display:block; }
+    /* BUILD tag */
+    #buildTag { font-size:12px; color:#666; margin-bottom:8px; }
+
+    /* Responsive */
+    @media (max-width: 760px) {
+      .tableWrap { display:none; }
+      .mobileWrap { display:block; }
+      table { width: 900px; }
+      .logoLeft { width: 130px; }
+      .logoRight { width: 48px; }
     }
   </style>
 
@@ -155,7 +122,7 @@
 </head>
 
 <body>
-  <div class="buildTag" id="buildTag">BUILD: —</div>
+  <div id="buildTag">BUILD: …</div>
 
   <div class="card">
     <div class="sheetHeader">
@@ -175,14 +142,13 @@
       All checks must be carried out in line with Specific Manufacturer’s instructions
     </div>
 
-    <div style="margin-top:12px;">
-      <div class="topBtns">
-        <button class="pill" id="btnExc" type="button">Excavator</button>
-        <button class="pill" id="btnCrane" type="button">Crane</button>
-        <button class="pill" id="btnDump" type="button">Dumper</button>
-      </div>
-      <p class="small" id="selectedType" style="margin:10px 0 0;">Selected: —</p>
+    <div class="topBtns" style="margin-top:12px;">
+      <button class="pill" id="btnExc" type="button">Excavator</button>
+      <button class="pill" id="btnCrane" type="button">Crane</button>
+      <button class="pill" id="btnDump" type="button">Dumper</button>
     </div>
+
+    <p class="small" id="selectedType" style="margin:10px 0 0;">Selected: —</p>
   </div>
 
   <div class="card">
@@ -215,13 +181,10 @@
   </div>
 
   <div class="card">
-    <div class="checksHeaderRow">
-      <h3 style="margin:0;">Checks (Mon–Sun)</h3>
-      <span class="small">Only the selected day is editable (✓ / X / N/A).</span>
-    </div>
+    <h3 style="margin-top:0;">Checks (Mon–Sun)</h3>
+    <p class="small">Only the column for your selected date is editable. Tap the box to cycle ✓ / X / N/A.</p>
 
-    <!-- Desktop -->
-    <div class="tableWrap" style="margin-top:10px;">
+    <div class="tableWrap">
       <table>
         <thead>
           <tr>
@@ -233,28 +196,24 @@
       </table>
     </div>
 
-    <!-- Mobile -->
-    <div class="mobileOnly" style="margin-top:10px;">
-      <p class="small" style="margin-top:0;">Mobile mode: tap the big button to cycle ✓ / X / N/A.</p>
-      <div id="mobileChecks"></div>
-    </div>
+    <!-- Mobile list -->
+    <div id="mobileChecks" class="mobileWrap"></div>
   </div>
 
   <div class="card">
     <div>
-      <label>Defects identified</label>
+      <label>Defects identified:</label>
       <textarea id="defectsText" placeholder="Write defects (if any)"></textarea>
     </div>
 
-    <div class="grid2" style="margin-top:10px;">
-      <div>
-        <label>Reported to (select)</label>
-        <select id="reportedTo"></select>
-      </div>
-      <div>
-        <label>Action taken</label>
-        <textarea id="actionTaken" placeholder="What action was taken"></textarea>
-      </div>
+    <div style="margin-top:10px;">
+      <label>Reported to (select):</label>
+      <select id="reportedTo"></select>
+    </div>
+
+    <div style="margin-top:10px;">
+      <label>Action taken:</label>
+      <textarea id="actionTaken" placeholder="What was done / who was informed / reference"></textarea>
     </div>
   </div>
 
@@ -269,7 +228,7 @@
 
   <div class="card">
     <button id="submitBtn" class="submitBtn" type="button">Submit (email PDF)</button>
-    <p class="small" id="status">Ready.</p>
+    <p class="small" id="status"></p>
   </div>
 
   <script src="app.js"></script>
