@@ -1,8 +1,15 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v10";
+  const BUILD = "v12";
+  const $ = (id) => document.getElementById(id);
 
-  // -------- checklist labels ----------
+  // ✅ EDIT THIS LIST (names + emails). The selected one will receive the email.
+  const RECIPIENTS = [
+    { name: "Site Agent", email: "site.agent@example.com" },
+    { name: "Gary", email: "gary@example.com" },
+    { name: "John", email: "john@example.com" }
+  ];
+
   const CHECKLISTS = {
     excavator: [
       "BUCKET, Excessive wear or Damage, Cracks",
@@ -64,118 +71,101 @@
     ]
   };
 
-  // -------- DOM ----------
-  const el = (id) => document.getElementById(id);
-
-  // -------- URL params ----------
   const qs = new URLSearchParams(location.search);
   const TOKEN = qs.get("t") || "";
-  const initialType = (qs.get("type") || "excavator").toLowerCase();
-  const initialPlantId = qs.get("plantId") || "";
-  const initialDate = qs.get("date") || "";
 
-  // -------- state ----------
-  let equipmentType = ["excavator", "crane", "dumper"].includes(initialType) ? initialType : "excavator";
+  let equipmentType = (qs.get("type") || "excavator").toLowerCase();
+  if (!["excavator","crane","dumper"].includes(equipmentType)) equipmentType = "excavator";
+
   let labels = [...CHECKLISTS[equipmentType]];
   let weekStatuses = labels.map(() => Array(7).fill(null));
   let activeDay = 0;
 
-  // -------- date helpers ----------
-  function isoToday() {
+  const isoToday = () => {
     const d = new Date();
-    const yy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yy}-${mm}-${dd}`;
-  }
-  function isoToUK(iso) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
+
+  const isoToUK = (iso) => {
     if (!iso || !String(iso).includes("-")) return iso || "";
-    const [y, m, d] = String(iso).split("-");
+    const [y,m,d] = String(iso).split("-");
     return `${d}/${m}/${y}`;
-  }
-  function getWeekCommencingISO(dateStr) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    const day = dt.getDay(); // Sun=0 ... Mon=1
+  };
+
+  const getWeekCommencingISO = (dateStr) => {
+    const [y,m,d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    const day = dt.getDay();
     const diffToMon = (day === 0 ? -6 : 1 - day);
     dt.setDate(dt.getDate() + diffToMon);
-    const yy = dt.getFullYear();
-    const mm = String(dt.getMonth() + 1).padStart(2, "0");
-    const dd = String(dt.getDate()).padStart(2, "0");
-    return `${yy}-${mm}-${dd}`;
-  }
-  function getDayIndexMon0(dateStr) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    const day = dt.getDay(); // Sun=0
-    return day === 0 ? 6 : day - 1;
-  }
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  };
 
-  // -------- status cycle ----------
-  function cycleStatus(cur) {
+  const getDayIndexMon0 = (dateStr) => {
+    const [y,m,d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    const day = dt.getDay();
+    return day === 0 ? 6 : day - 1;
+  };
+
+  const cycleStatus = (cur) => {
     if (!cur) return "OK";
     if (cur === "OK") return "DEFECT";
     if (cur === "DEFECT") return "NA";
     return null;
-  }
-  function markText(status) {
+  };
+
+  const markText = (status) => {
     if (status === "OK") return "✓";
     if (status === "DEFECT") return "X";
     if (status === "NA") return "N/A";
     return "";
-  }
+  };
 
-  // -------- network (with timeout) ----------
-  async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 25000) {
+  const isMobile = () => window.matchMedia("(max-width: 760px)").matches;
+
+  async function fetchJson(url, options = {}, timeoutMs = 15000) {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const resp = await fetch(url, { ...options, signal: controller.signal });
-      const text = await resp.text();
+      const txt = await resp.text();
       let data = {};
-      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
       return { resp, data };
     } finally {
       clearTimeout(t);
     }
   }
 
-  // -------- header UI ----------
   function setButtonsActive() {
-    el("btnExc").classList.toggle("active", equipmentType === "excavator");
-    el("btnCrane").classList.toggle("active", equipmentType === "crane");
-    el("btnDump").classList.toggle("active", equipmentType === "dumper");
+    $("btnExc").classList.toggle("active", equipmentType === "excavator");
+    $("btnCrane").classList.toggle("active", equipmentType === "crane");
+    $("btnDump").classList.toggle("active", equipmentType === "dumper");
   }
 
   function setHeaderTexts() {
-    el("buildTag").textContent = `BUILD: ${BUILD}`;
-    el("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
+    $("buildTag").textContent = `BUILD: ${BUILD}`;
+    $("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
 
     const title =
       equipmentType === "excavator" ? "Excavator Pre-Use Inspection Checklist" :
       equipmentType === "crane" ? "Crane Pre-Use Inspection Checklist" :
       "Dumper Pre-Use Inspection Checklist";
+    $("sheetTitle").textContent = title;
 
-    el("sheetTitle").textContent = title;
+    const dateISO = $("date").value || isoToday();
+    $("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
 
-    const dateISO = el("date").value || isoToday();
-    const weekISO = getWeekCommencingISO(dateISO);
-    el("weekCommencingPreview").textContent = isoToUK(weekISO);
-
-    const pid = (el("plantId").value || "").trim();
-    el("machineNoPreview").textContent = pid || "—";
+    const pid = ($("plantId").value || "").trim();
+    $("machineNoPreview").textContent = pid || "—";
   }
 
-  function isMobileView() {
-    return window.matchMedia("(max-width: 760px)").matches;
-  }
-
-  // -------- render desktop table ----------
   function renderTable() {
-    const dateISO = el("date").value || isoToday();
+    const dateISO = $("date").value || isoToday();
     activeDay = getDayIndexMon0(dateISO);
 
-    const tbody = el("checksBody");
+    const tbody = $("checksBody");
     tbody.innerHTML = "";
 
     labels.forEach((label, r) => {
@@ -188,20 +178,24 @@
 
       for (let d = 0; d < 7; d++) {
         const td = document.createElement("td");
+        td.className = "day";
 
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "markBtn";
-        btn.dataset.r = String(r);
-        btn.dataset.d = String(d);
-
-        const status = weekStatuses?.[r]?.[d] || null;
-        btn.textContent = markText(status);
+        btn.textContent = markText(weekStatuses?.[r]?.[d] || null);
 
         if (d !== activeDay) {
           btn.classList.add("disabled");
+          btn.disabled = true;
         } else {
-          btn.classList.add("activeDay");
+          btn.addEventListener("click", () => {
+            const cur = weekStatuses?.[r]?.[d] || null;
+            const next = cycleStatus(cur);
+            weekStatuses[r][d] = next;
+            btn.textContent = markText(next);
+            if (isMobile()) renderMobileList();
+          });
         }
 
         td.appendChild(btn);
@@ -212,12 +206,11 @@
     });
   }
 
-  // -------- render mobile list ----------
   function renderMobileList() {
-    const dateISO = el("date").value || isoToday();
+    const dateISO = $("date").value || isoToday();
     activeDay = getDayIndexMon0(dateISO);
 
-    const wrap = el("mobileChecks");
+    const wrap = $("mobileChecks");
     wrap.innerHTML = "";
 
     labels.forEach((label, r) => {
@@ -231,14 +224,14 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "mobileBtn";
-      btn.textContent = markText(weekStatuses?.[r]?.[activeDay]);
+      btn.textContent = markText(weekStatuses?.[r]?.[activeDay] || null);
 
       btn.addEventListener("click", () => {
         const cur = weekStatuses?.[r]?.[activeDay] || null;
         const next = cycleStatus(cur);
         weekStatuses[r][activeDay] = next;
         btn.textContent = markText(next);
-        if (!isMobileView()) renderTable();
+        if (!isMobile()) renderTable();
       });
 
       row.appendChild(lab);
@@ -248,23 +241,32 @@
   }
 
   function renderChecks() {
-    if (isMobileView()) renderMobileList();
+    if (isMobile()) renderMobileList();
     else renderTable();
   }
 
-  // -------- signature pad ----------
+  function fillRecipients() {
+    const sel = $("reportedTo");
+    sel.innerHTML = "";
+    RECIPIENTS.forEach((r) => {
+      const opt = document.createElement("option");
+      opt.value = r.email;
+      opt.textContent = `${r.name} (${r.email})`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Signature pad
   function initSignature() {
-    const canvas = el("sig");
+    const canvas = $("sig");
     const ctx = canvas.getContext("2d");
     let drawing = false;
     let last = null;
 
     function resize() {
       const ratio = Math.max(1, window.devicePixelRatio || 1);
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      canvas.width = Math.floor(w * ratio);
-      canvas.height = Math.floor(h * ratio);
+      canvas.width = Math.floor(canvas.clientWidth * ratio);
+      canvas.height = Math.floor(canvas.clientHeight * ratio);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.lineWidth = 2;
       ctx.lineCap = "round";
@@ -280,8 +282,8 @@
       return { x, y };
     }
 
-    function start(e) { drawing = true; last = pos(e); e.preventDefault(); }
-    function move(e) {
+    function start(e){ drawing = true; last = pos(e); e.preventDefault(); }
+    function move(e){
       if (!drawing) return;
       const p = pos(e);
       ctx.beginPath();
@@ -291,141 +293,133 @@
       last = p;
       e.preventDefault();
     }
-    function end() { drawing = false; last = null; }
+    function end(){ drawing = false; last = null; }
 
     canvas.addEventListener("mousedown", start);
     canvas.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
 
-    canvas.addEventListener("touchstart", start, { passive: false });
-    canvas.addEventListener("touchmove", move, { passive: false });
+    canvas.addEventListener("touchstart", start, { passive:false });
+    canvas.addEventListener("touchmove", move, { passive:false });
     window.addEventListener("touchend", end);
 
-    el("clearSig").addEventListener("click", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
+    $("clearSig").addEventListener("click", () => ctx.clearRect(0,0,canvas.width,canvas.height));
 
-    el("fillToday").addEventListener("click", () => {
-      el("date").value = isoToday();
+    $("fillToday").addEventListener("click", () => {
+      $("date").value = isoToday();
       setHeaderTexts();
       loadWeekFromKV();
     });
   }
 
+  // compress signature to small JPEG (fast upload)
   function signatureDataUrl() {
-    const canvas = el("sig");
+    const canvas = $("sig");
+    const ctx = canvas.getContext("2d");
 
     // detect blank
-    const tmp = document.createElement("canvas");
-    tmp.width = canvas.width; tmp.height = canvas.height;
-    const tctx = tmp.getContext("2d");
-    tctx.drawImage(canvas, 0, 0);
-    const pixels = tctx.getImageData(0, 0, tmp.width, tmp.height).data;
-    for (let i = 0; i < pixels.length; i += 4) {
-      if (pixels[i + 3] !== 0) return canvas.toDataURL("image/png");
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let hasInk = false;
+    for (let i = 0; i < img.length; i += 4) {
+      if (img[i + 3] !== 0) { hasInk = true; break; }
     }
-    return "";
+    if (!hasInk) return "";
+
+    const tmp = document.createElement("canvas");
+    tmp.width = canvas.width;
+    tmp.height = canvas.height;
+    const tctx = tmp.getContext("2d");
+
+    tctx.fillStyle = "#fff";
+    tctx.fillRect(0, 0, tmp.width, tmp.height);
+    tctx.drawImage(canvas, 0, 0);
+
+    return tmp.toDataURL("image/jpeg", 0.72);
   }
 
-  // -------- API: load week ----------
   async function loadWeekFromKV() {
-    const status = el("status");
-    const plantId = (el("plantId").value || "").trim();
-    const dateISO = el("date").value || "";
+    const status = $("status");
+    const plantId = ($("plantId").value || "").trim();
+    const dateISO = $("date").value || "";
 
     setHeaderTexts();
 
-    if (!TOKEN) {
-      status.textContent = "⚠️ Missing token (t=...) in link.";
+    // If missing, just render defaults
+    if (!TOKEN || !plantId || !dateISO) {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       renderChecks();
+      status.textContent = TOKEN ? "Ready." : "⚠️ Missing token (t=...) in link.";
       return;
     }
 
-    if (!plantId || !dateISO) {
-      status.textContent = "Enter Plant ID + Date.";
-      labels = [...CHECKLISTS[equipmentType]];
-      weekStatuses = labels.map(() => Array(7).fill(null));
-      renderChecks();
-      return;
-    }
-
-    const url =
-      `/api/week?t=${encodeURIComponent(TOKEN)}` +
-      `&type=${encodeURIComponent(equipmentType)}` +
-      `&plantId=${encodeURIComponent(plantId)}` +
-      `&date=${encodeURIComponent(dateISO)}`;
-
+    const url = `/api/week?t=${encodeURIComponent(TOKEN)}&type=${encodeURIComponent(equipmentType)}&plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(dateISO)}`;
     status.textContent = "Loading week…";
 
     try {
-      const { resp, data } = await fetchJsonWithTimeout(url, { cache: "no-store" }, 15000);
-
+      const { resp, data } = await fetchJson(url, { cache:"no-store" }, 12000);
       if (!resp.ok) {
-        status.textContent = `❌ Load failed (${resp.status}): ${data.error || resp.statusText || "Unknown"}`;
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
         renderChecks();
+        status.textContent = `❌ Week load failed (${resp.status}): ${data.error || resp.statusText || "Unknown"}`;
         return;
       }
 
-      const record = data.record || null;
-
-      if (record && Array.isArray(record.labels) && Array.isArray(record.statuses)) {
-        labels = record.labels;
-        weekStatuses = record.statuses;
+      const rec = data.record || null;
+      if (rec && Array.isArray(rec.labels) && Array.isArray(rec.statuses)) {
+        labels = rec.labels;
+        weekStatuses = rec.statuses;
         status.textContent = "✅ Week loaded.";
       } else {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
-        status.textContent = "✅ New week record (empty).";
+        status.textContent = "✅ New week (empty).";
       }
-
       renderChecks();
     } catch (e) {
-      status.textContent = `❌ Load error: ${e?.name === "AbortError" ? "Timeout" : (e?.message || "Unknown")}`;
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       renderChecks();
+      status.textContent = `❌ Load error: ${e?.name === "AbortError" ? "timeout" : (e?.message || "unknown")}`;
     }
   }
 
-  // -------- PDF generation (ONE page, tick drawn as lines) ----------
+  // ---------- PDF (one page, better header, centred meta between 2 yellow lines, smaller boxes) ----------
   async function makePdfBase64(payload) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
+    const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
 
-    const margin = 26;
+    const margin = 28;
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-
+    const tableW = pageW - margin * 2;
     const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-    const isoToUKLocal = (iso) => isoToUK(iso);
+    const isoToUK = (iso) => {
+      if (!iso || !String(iso).includes("-")) return iso || "";
+      const [y,m,d] = String(iso).split("-");
+      return `${d}/${m}/${y}`;
+    };
 
-    function ellipsize(text, maxW, fontSize) {
+    const ellipsize = (text, maxW, fontSize) => {
       if (!text) return "";
       doc.setFontSize(fontSize);
       let t = String(text);
       while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
       return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
-    }
+    };
 
     async function fetchAsDataUrl(url) {
-      try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) return null;
-        const blob = await res.blob();
-        return await new Promise((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(r.result);
-          r.onerror = reject;
-          r.readAsDataURL(blob);
-        });
-      } catch {
-        return null;
-      }
+      const res = await fetch(url, { cache:"no-store" });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
     }
 
     function getImageSize(dataUrl) {
@@ -442,379 +436,393 @@
       return { w: imgW * s, h: imgH * s };
     }
 
-    function roundRect(x, y, w, h, r) {
-      doc.roundedRect(x, y, w, h, r, r);
+    function drawOkTick(cx, cy) {
+      // ZapfDingbats checkmark ALWAYS renders in PDF
+      doc.setFont("zapfdingbats", "normal");
+      doc.setFontSize(13);
+      doc.text(String.fromCharCode(52), cx, cy, { align:"center", baseline:"middle" });
     }
 
-    function drawTick(x, y, w, h) {
-      // vector tick inside box (so it ALWAYS shows, no font issues)
-      doc.setLineWidth(1.2);
-      doc.line(x + w*0.25, y + h*0.55, x + w*0.45, y + h*0.75);
-      doc.line(x + w*0.45, y + h*0.75, x + w*0.78, y + h*0.30);
-    }
-
-    function drawX(x, y, w, h) {
-      doc.setLineWidth(1.2);
-      doc.line(x + w*0.25, y + h*0.25, x + w*0.75, y + h*0.75);
-      doc.line(x + w*0.75, y + h*0.25, x + w*0.25, y + h*0.75);
-    }
-
-    function drawMarkPill(cx, cy, status) {
-      // “pill” like your on-screen boxes
-      const pillW = 18;
-      const pillH = 11;
-      const x = cx - pillW/2;
-      const y = cy - pillH/2;
-
-      doc.setDrawColor(190);
-      doc.setLineWidth(0.9);
-      roundRect(x, y, pillW, pillH, 4);
-
-      doc.setDrawColor(0);
+    function drawMark(status, cx, cy) {
       if (status === "OK") {
-        drawTick(x, y, pillW, pillH);
-      } else if (status === "DEFECT") {
-        drawX(x, y, pillW, pillH);
-      } else if (status === "NA") {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
-        doc.text("N/A", cx, cy + 2.2, { align: "center" });
+        drawOkTick(cx, cy);
+        return;
+      }
+      doc.setFont("helvetica", "bold");
+      if (status === "DEFECT") {
+        doc.setFontSize(10);
+        doc.text("X", cx, cy, { align:"center", baseline:"middle" });
+        return;
+      }
+      if (status === "NA") {
+        doc.setFontSize(7.2);
+        doc.text("N/A", cx, cy, { align:"center", baseline:"middle" });
       }
     }
 
-    // ---------- data ----------
     const dateISO = payload.date || "";
     const weekISO = payload.weekCommencing || "";
-    const dateUK = isoToUKLocal(dateISO);
-    const weekUK = isoToUKLocal(weekISO);
+    const weekUK = isoToUK(weekISO);
+    const dateUK = isoToUK(dateISO);
 
     const labels = payload.labels || [];
-    const statuses = payload.weekStatuses || [];
+    const weekStatuses = payload.weekStatuses || labels.map(() => Array(7).fill(null));
 
-    // ---------- layout ----------
+    // ----- HEADER (logos + titles without clashing) -----
     let y = margin;
 
-    // Logos + header (fixed sizes so no stretching)
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
     const tp  = await fetchAsDataUrl("/assets/tp.png");
 
+    // logo boxes
+    const leftBoxW = 140, leftBoxH = 34;
+    const rightBoxW = 52, rightBoxH = 52;
+
     if (atl) {
       try {
-        const { w: iw, h: ih } = await getImageSize(atl);
-        const fitted = fitIntoBox(iw, ih, 150, 38);
-        doc.addImage(atl, "PNG", margin, y - 2, fitted.w, fitted.h);
+        const s = await getImageSize(atl);
+        const fitted = fitIntoBox(s.w, s.h, leftBoxW, leftBoxH);
+        doc.addImage(atl, "PNG", margin, y, fitted.w, fitted.h);
       } catch {}
     }
 
     if (tp) {
       try {
-        const { w: iw, h: ih } = await getImageSize(tp);
-        const fitted = fitIntoBox(iw, ih, 55, 55);
-        doc.addImage(tp, "PNG", pageW - margin - fitted.w, y - 6, fitted.w, fitted.h);
+        const s = await getImageSize(tp);
+        const fitted = fitIntoBox(s.w, s.h, rightBoxW, rightBoxH);
+        doc.addImage(tp, "PNG", pageW - margin - fitted.w, y - 2, fitted.w, fitted.h);
       } catch {}
     }
 
+    // Title block sits LOWER so it doesn't collide with logos
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text(String(payload.formRef || "QPFPL5.2"), pageW/2, y + 12, { align: "center" });
+    doc.text(payload.formRef || "QPFPL5.2", pageW / 2, y + 16, { align:"center" });
 
     doc.setFontSize(10);
-    doc.text(String(payload.sheetTitle || ""), pageW/2, y + 28, { align: "center" });
+    doc.text(payload.sheetTitle || "Excavator Pre-Use Inspection Checklist", pageW / 2, y + 32, { align:"center" });
 
-    y += 46;
+    y += 58;
 
-    // Machine + Week
+    // Machine / Week line (safe spacing)
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text(`Machine No: ${payload.machineNo || ""}`, margin, y);
-    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align: "right" });
-    y += 12;
+    doc.text(`Machine No: ${payload.machineNo || payload.plantId || ""}`, margin, y);
+    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align:"right" });
 
-    // Yellow bar
+    y += 10;
+
+    // Yellow instruction bar
     doc.setFillColor(255, 214, 0);
-    doc.rect(margin, y, pageW - margin*2, 18, "F");
+    doc.rect(margin, y, tableW, 18, "F");
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.7);
-    doc.text(
-      "All checks must be carried out in line with Specific Manufacturer’s instructions",
-      pageW/2, y + 12.5, { align: "center" }
-    );
-    y += 28;
+    doc.setFontSize(8.8);
+    doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW/2, y+12.5, { align:"center" });
+    y += 24;
 
-    // Meta line
+    // ---- meta centred between 2 yellow lines ----
+    // top yellow line
+    doc.setFillColor(255, 214, 0);
+    doc.rect(margin, y, tableW, 4, "F");
+    y += 12;
+
+    const colW = tableW / 4;
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text(`Site: ${payload.site || ""}`, margin, y);
-    doc.text(`Date: ${dateUK}`, margin + 190, y);
-    doc.text(`Operator: ${payload.operator || ""}`, margin + 320, y);
-    doc.text(`Hours/Shift: ${payload.hours || ""}`, pageW - margin, y, { align: "right" });
-    y += 16;
 
-    // Table geometry
-    const tableX = margin;
-    const tableW = pageW - margin*2;
-    const itemColW = 360;
+    doc.text(`Site: ${payload.site || ""}`, margin + colW * 0.5, y, { align:"center" });
+    doc.text(`Date: ${dateUK}`,        margin + colW * 1.5, y, { align:"center" });
+    doc.text(`Operator: ${payload.operator || ""}`, margin + colW * 2.5, y, { align:"center" });
+    doc.text(`Hours/Shift: ${payload.hours || ""}`, margin + colW * 3.5, y, { align:"center" });
+
+    y += 10;
+    // bottom yellow line
+    doc.setFillColor(255, 214, 0);
+    doc.rect(margin, y, tableW, 4, "F");
+    y += 10;
+
+    // ----- TABLE (one page, with inner pill boxes like UI) -----
+    const itemColW = 420;
     const dayColW = (tableW - itemColW) / 7;
     const headH = 16;
 
-    // Footer sizes (smaller as you asked)
-    const defectsH = 30;
-    const actionH  = 30;
-    const sigH     = 38;
+    // Footer heights (smaller, per your feedback)
+    const defectsH = 26;
+    const actionH  = 28;
+    const sigH     = 34;
 
     const footerTotal =
-      12 +                       // checks carried out by
-      10 + defectsH + 14 +       // defects label + box + gap
-      10 + actionH  + 14 +       // action label + box + gap
-      10 + sigH + 22;            // signature label + box + bottom
+      10 +               // Checks carried out by line
+      10 + 6 + defectsH + 10 +   // defects
+      10 + 6 + 10 +              // Reported to (text only)
+      10 + 6 + actionH + 10 +    // action
+      10 + 6 + sigH + 20;        // signature
 
-    // Choose row height to force ONE PAGE
-    const availForRows = (pageH - margin) - y - headH - footerTotal;
-    const rowH = Math.max(9, Math.min(14, Math.floor(availForRows / Math.max(1, labels.length))));
+    const availForTable = (pageH - margin) - y - headH - footerTotal;
+    const totalRows = labels.length || 1;
 
-    // Table header
+    let rowH = Math.floor(availForTable / totalRows);
+    rowH = Math.max(10, Math.min(16, rowH));
+
+    const fontItem = rowH <= 11 ? 6.7 : 7.6;
+
+    // header row
     doc.setDrawColor(0);
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(0.7);
 
     doc.setFillColor(255, 214, 0);
-    doc.rect(tableX, y, itemColW, headH, "F");
+    doc.rect(margin, y, itemColW, headH, "F");
     doc.setFillColor(255, 255, 255);
-    doc.rect(tableX + itemColW, y, tableW - itemColW, headH, "F");
-
-    doc.rect(tableX, y, tableW, headH);
-    doc.line(tableX + itemColW, y, tableX + itemColW, y + headH);
-    for (let i = 1; i < 7; i++) {
-      const xx = tableX + itemColW + dayColW * i;
-      doc.line(xx, y, xx, y + headH);
-    }
+    doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
+    doc.rect(margin, y, tableW, headH);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     for (let i = 0; i < 7; i++) {
-      const cx = tableX + itemColW + dayColW*i + dayColW/2;
+      const cx = margin + itemColW + dayColW * i + dayColW / 2;
       doc.text(days[i], cx, y + 11, { align:"center" });
     }
 
     y += headH;
 
-    // Table rows
-    for (let r = 0; r < labels.length; r++) {
-      doc.rect(tableX, y, tableW, rowH);
-      doc.line(tableX + itemColW, y, tableX + itemColW, y + rowH);
-      for (let i = 1; i < 7; i++) {
-        const xx = tableX + itemColW + dayColW*i;
-        doc.line(xx, y, xx, y + rowH);
-      }
+    for (let r = 0; r < totalRows; r++) {
+      // row outer box
+      doc.rect(margin, y, tableW, rowH);
 
-      // label
+      // item text
       doc.setFont("helvetica", "normal");
-      const fontItem = rowH <= 10 ? 6.6 : 7.2;
-      const label = ellipsize(labels[r], itemColW - 10, fontItem);
-      doc.text(label, tableX + 6, y + rowH*0.72);
+      doc.setFontSize(fontItem);
+      const label = ellipsize(labels[r] || "", itemColW - 10, fontItem);
+      doc.text(label, margin + 6, y + rowH * 0.72);
 
-      // marks -> pill boxes like UI
+      // day cell pills + marks
       for (let d = 0; d < 7; d++) {
-        const status = statuses?.[r]?.[d] || null;
-        if (!status) continue;
-        const cx = tableX + itemColW + dayColW*d + dayColW/2;
-        const cy = y + rowH/2 + 0.5;
-        drawMarkPill(cx, cy, status);
+        const cellX = margin + itemColW + dayColW * d;
+        doc.line(cellX, y, cellX, y + rowH); // vertical cell line
+
+        const pillPadX = 4;
+        const pillPadY = 2;
+        const pillW = dayColW - pillPadX * 2;
+        const pillH = rowH - pillPadY * 2;
+        const px = cellX + pillPadX;
+        const py = y + pillPadY;
+
+        doc.setDrawColor(200);
+        doc.setFillColor(255,255,255);
+        doc.roundedRect(px, py, pillW, pillH, 5, 5, "DF");
+
+        const status = weekStatuses?.[r]?.[d] || null;
+        if (status) {
+          const cx = px + pillW / 2;
+          const cy = py + pillH / 2 + 0.5;
+          doc.setTextColor(0);
+          drawMark(status, cx, cy);
+        }
       }
+
+      // right border line of table
+      doc.line(margin + tableW, y, margin + tableW, y + rowH);
 
       y += rowH;
     }
 
-    y += 10;
+    // bottom border under table
+    doc.line(margin, y, margin + tableW, y);
 
-    // Footer blocks
+    y += 8;
+
+    // ----- FOOTER (smaller boxes, split fields) -----
+    doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
-    y += 12;
+    y += 10;
 
     // Defects
     doc.text("Defects identified:", margin, y);
     y += 6;
-    doc.rect(margin, y, pageW - margin*2, defectsH);
+    doc.rect(margin, y, tableW, defectsH);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    if (payload.defectsText) doc.text(payload.defectsText, margin + 6, y + 14, { maxWidth: pageW - margin*2 - 12 });
-    y += defectsH + 14;
+    if (payload.defectsText) {
+      doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    }
+    y += defectsH + 10;
 
-    // Action
+    // Reported to (text only, no huge box)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text("Reported to / action taken:", margin, y);
+    doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
+    y += 10;
+
+    // Action taken
+    doc.text("Action taken:", margin, y);
     y += 6;
-    doc.rect(margin, y, pageW - margin*2, actionH);
+    doc.rect(margin, y, tableW, actionH);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    if (payload.actionTaken) doc.text(payload.actionTaken, margin + 6, y + 14, { maxWidth: pageW - margin*2 - 12 });
-    y += actionH + 14;
+    if (payload.actionTaken) {
+      doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    }
+    y += actionH + 10;
 
-    // Signature (smaller + centered)
+    // Signature (smaller box)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Signature:", margin, y);
     y += 6;
 
-    const sigBoxW = pageW - margin*2;
-    doc.rect(margin, y, sigBoxW, sigH);
+    doc.rect(margin, y, tableW, sigH);
 
     if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
       try {
-        const pad = 5;
-        const innerW = sigBoxW - pad*2;
-        const innerH = sigH - pad*2;
-        const { w: iw, h: ih } = await getImageSize(payload.signatureDataUrl);
-        const fitted = fitIntoBox(iw, ih, innerW, innerH);
-        const imgX = margin + pad + (innerW - fitted.w)/2;
-        const imgY = y + pad + (innerH - fitted.h)/2;
-        doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
+        const pad = 4;
+        const innerW = tableW - pad * 2;
+        const innerH = sigH - pad * 2;
+        const s = await getImageSize(payload.signatureDataUrl);
+        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
+
+        const imgX = margin + pad + (innerW - fitted.w) / 2;
+        const imgY = y + pad + (innerH - fitted.h) / 2;
+
+        doc.addImage(payload.signatureDataUrl, "JPEG", imgX, imgY, fitted.w, fitted.h);
       } catch {}
     }
 
-    // Footer text
+    // Bottom footer
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
-    doc.text(`BUILD: ${BUILD}`, pageW/2, pageH - 16, { align:"center" });
+    doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align:"center" });
 
     const dataUri = doc.output("datauristring");
+    if (!dataUri) throw new Error("PDF export failed (empty output)");
     const parts = String(dataUri).split(",");
-    if (parts.length < 2) throw new Error("PDF export failed");
+    if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
     return parts[1];
   }
 
-  // -------- submit ----------
   async function submit() {
-    const status = el("status");
-    status.textContent = "Generating PDF…";
+    const status = $("status");
+    const btn = $("submitBtn");
 
-    const dateISO = el("date").value || "";
-    const weekISO = dateISO ? getWeekCommencingISO(dateISO) : "";
+    const plantId = ($("plantId").value || "").trim();
+    const dateISO = $("date").value || "";
+    const site = ($("site").value || "").trim();
+    const operator = ($("operator").value || "").trim();
+    const hours = ($("hours").value || "").trim();
+
+    const reportedToEmail = $("reportedTo").value;
+    const reportedToName = (RECIPIENTS.find(r => r.email === reportedToEmail)?.name) || "";
+
+    if (!TOKEN) { status.textContent = "❌ Missing token (t=...) in link."; return; }
+    if (!plantId || !dateISO) { status.textContent = "❌ Plant ID and Date are required."; return; }
+    if (!reportedToEmail) { status.textContent = "❌ Please select ‘Reported to’."; return; }
+
+    const weekCommencing = getWeekCommencingISO(dateISO);
+    const dayIndex = getDayIndexMon0(dateISO);
 
     const payload = {
-      build: BUILD,
+      formRef: $("formRef").textContent || "QPFPL5.2",
+      sheetTitle: $("sheetTitle").textContent || "",
       equipmentType,
-      formRef: el("formRef").textContent || "QPFPL5.2",
-      sheetTitle: el("sheetTitle").textContent || "",
-      machineNo: (el("plantId").value || "").trim(),
-      weekCommencing: weekISO,
-
-      site: (el("site").value || "").trim(),
+      site,
       date: dateISO,
-      plantId: (el("plantId").value || "").trim(),
-      operator: (el("operator").value || "").trim(),
-      hours: (el("hours").value || "").trim(),
-
+      plantId,
+      machineNo: plantId,
+      operator,
+      hours,
+      weekCommencing,
+      dayIndex,
       labels,
       weekStatuses,
-
-      defectsText: (el("defectsText").value || "").trim(),
-      actionTaken: (el("actionTaken").value || "").trim(),
+      defectsText: ($("defectsText").value || "").trim(),
+      reportedToName,
+      reportedToEmail,
+      actionTaken: ($("actionTaken").value || "").trim(),
       signatureDataUrl: signatureDataUrl()
     };
 
-    if (!TOKEN) { status.textContent = "❌ Missing token (t=...) in link."; return; }
-    if (!payload.plantId || !payload.date) { status.textContent = "❌ Please enter Plant ID and Date."; return; }
-
-    let pdfBase64 = "";
-    try {
-      pdfBase64 = await makePdfBase64(payload);
-    } catch (e) {
-      status.textContent = "❌ PDF failed: " + (e?.message || "unknown");
-      return;
-    }
-
-    status.textContent = "Sending email…";
+    btn.disabled = true;
+    status.textContent = "Building PDF…";
 
     try {
-      const { resp, data } = await fetchJsonWithTimeout(
-        "/api/submit",
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ token: TOKEN, payload, pdfBase64 })
-        },
-        30000
-      );
+      const pdfBase64 = await makePdfBase64(payload);
+
+      status.textContent = "Submitting…";
+
+      const { resp, data } = await fetchJson("/api/submit", {
+        method: "POST",
+        headers: { "content-type":"application/json" },
+        body: JSON.stringify({ token: TOKEN, payload, pdfBase64 })
+      }, 25000);
 
       if (!resp.ok) {
-        status.textContent =
-          `❌ Send failed (${resp.status}): ${data.error || resp.statusText || "Unknown"}`
-          + (data.details ? ` | ${typeof data.details === "string" ? data.details : JSON.stringify(data.details)}` : "");
+        status.textContent = `❌ Submit failed (${resp.status}): ${data.error || "Unknown"}`;
+        btn.disabled = false;
         return;
       }
 
-      status.textContent = "✅ Sent successfully.";
+      status.textContent = data.queued ? "✅ Submitted. Email queued (should arrive shortly)." : "✅ Submitted.";
+      btn.disabled = false;
+
+      // refresh from KV so week view stays consistent
+      await loadWeekFromKV();
+
     } catch (e) {
-      status.textContent =
-        "❌ Send error: " +
-        (e?.name === "AbortError" ? "Timeout (server took too long)" : (e?.message || "Unknown"));
+      status.textContent = `❌ Error: ${e?.message || "unknown"}`;
+      btn.disabled = false;
     }
   }
 
-  // -------- events ----------
-  function bindEvents() {
-    el("btnExc").addEventListener("click", () => {
+  function wireEvents() {
+    $("btnExc").addEventListener("click", async () => {
       equipmentType = "excavator";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
-      setButtonsActive(); setHeaderTexts(); loadWeekFromKV();
+      setButtonsActive();
+      setHeaderTexts();
+      await loadWeekFromKV();
     });
-    el("btnCrane").addEventListener("click", () => {
+
+    $("btnCrane").addEventListener("click", async () => {
       equipmentType = "crane";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
-      setButtonsActive(); setHeaderTexts(); loadWeekFromKV();
+      setButtonsActive();
+      setHeaderTexts();
+      await loadWeekFromKV();
     });
-    el("btnDump").addEventListener("click", () => {
+
+    $("btnDump").addEventListener("click", async () => {
       equipmentType = "dumper";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
-      setButtonsActive(); setHeaderTexts(); loadWeekFromKV();
+      setButtonsActive();
+      setHeaderTexts();
+      await loadWeekFromKV();
     });
 
-    el("date").addEventListener("change", () => { setHeaderTexts(); loadWeekFromKV(); });
-    el("plantId").addEventListener("change", () => { setHeaderTexts(); loadWeekFromKV(); });
-    el("plantId").addEventListener("input", () => { setHeaderTexts(); });
-
-    // Desktop click (only active day)
-    el("checksBody").addEventListener("click", (e) => {
-      const btn = e.target.closest("button.markBtn");
-      if (!btn) return;
-
-      const dateISO = el("date").value || isoToday();
-      activeDay = getDayIndexMon0(dateISO);
-
-      const r = Number(btn.dataset.r);
-      const d = Number(btn.dataset.d);
-      if (d !== activeDay) return; // only today's column
-
-      const cur = weekStatuses?.[r]?.[d] || null;
-      const next = cycleStatus(cur);
-      weekStatuses[r][d] = next;
-      btn.textContent = markText(next);
-
-      if (isMobileView()) renderMobileList();
-    });
+    $("date").addEventListener("change", loadWeekFromKV);
+    $("plantId").addEventListener("blur", loadWeekFromKV);
 
     window.addEventListener("resize", () => renderChecks());
-    el("submitBtn").addEventListener("click", submit);
+
+    $("submitBtn").addEventListener("click", submit);
   }
 
-  // -------- init ----------
-  function init() {
-    el("buildTag").textContent = `BUILD: ${BUILD}`;
-    el("date").value = initialDate || isoToday();
-    el("plantId").value = initialPlantId;
+  // init
+  (function init(){
+    $("buildTag").textContent = `BUILD: ${BUILD}`;
+    fillRecipients();
+    initSignature();
+    wireEvents();
 
+    if (!$("date").value) $("date").value = isoToday();
     setButtonsActive();
     setHeaderTexts();
-    initSignature();
-    bindEvents();
+    renderChecks();
     loadWeekFromKV();
-  }
-
-  init();
+  })();
 })();
