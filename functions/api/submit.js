@@ -29,29 +29,26 @@ function getDayIndexMon0(dateStr) {
   return day === 0 ? 6 : day - 1;
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost(context) {
+  const { request, env } = context;
+
   try {
     const { token, payload, pdfBase64 } = await request.json();
 
-    // 1) token protection
+    // token protection
     if (!env.SUBMIT_TOKEN || token !== env.SUBMIT_TOKEN) {
       return Response.json({ error: "Invalid link token" }, { status: 401 });
     }
 
-    // 2) basic validation
-    if (!payload || !payload.date || !payload.plantId || !payload.equipmentType) {
-      return Response.json({ error: "Missing payload fields" }, { status: 400 });
-    }
-    if (!pdfBase64) {
-      return Response.json({ error: "Missing PDF" }, { status: 400 });
+    if (!payload || !pdfBase64) {
+      return Response.json({ error: "Missing PDF or payload" }, { status: 400 });
     }
 
-    // 3) KV required
+    // KV save
     if (!env.CHECKS_KV) {
       return Response.json({ error: "KV binding missing (CHECKS_KV)" }, { status: 500 });
     }
 
-    // ---- Save weekly state in KV ----
     const week = getWeekCommencingISO(payload.date);
     const dayIndex = getDayIndexMon0(payload.date);
     const key = `${payload.equipmentType}:${payload.plantId}:${week}`;
@@ -65,7 +62,7 @@ export async function onRequestPost({ request, env }) {
 
       record = {
         equipmentType: payload.equipmentType,
-        site: payload.site || "",
+        site: payload.site,
         plantId: payload.plantId,
         weekCommencing: week,
         labels,
@@ -73,24 +70,19 @@ export async function onRequestPost({ request, env }) {
       };
     }
 
-    // update today's marks
-    const checks = payload.checks || [];
-    for (let i = 0; i < checks.length; i++) {
-      const status = checks[i]?.status || null;
+    for (let i = 0; i < (payload.checks || []).length; i++) {
+      const status = payload.checks[i]?.status || null;
       if (record.statuses[i]) record.statuses[i][dayIndex] = status;
     }
 
     await env.CHECKS_KV.put(key, JSON.stringify(record));
 
-    // 4) Mailjet keys
+    // Mailjet
     const apiKey = (env.MAILJET_API_KEY || "").trim();
     const secretKey = (env.MAILJET_SECRET_KEY || "").trim();
 
     if (!apiKey || !secretKey) {
       return Response.json({ error: "Mailjet API keys not configured" }, { status: 500 });
-    }
-    if (!env.MAIL_FROM || !env.DEST_EMAIL) {
-      return Response.json({ error: "MAIL_FROM or DEST_EMAIL missing" }, { status: 500 });
     }
 
     const authHeader = `Basic ${base64Utf8(`${apiKey}:${secretKey}`)}`;
@@ -98,14 +90,13 @@ export async function onRequestPost({ request, env }) {
     const equipmentType = String(payload.equipmentType || "").toUpperCase() || "PLANT";
     const plantId = String(payload.plantId || "");
     const date = String(payload.date || "");
-
     const subject = `${equipmentType} check - ${plantId} - ${date}`.trim();
 
     const mjBody = {
       Messages: [
         {
           From: { Email: env.MAIL_FROM, Name: "Plant Checks" },
-          To: [{ Email: env.DEST_EMAIL, Name: "Site Agent" }],
+          To: [{ Email: env.DEST_EMAIL, Name: "Site" }],
           Subject: subject,
           TextPart:
             `Site: ${payload.site || ""}\n` +
@@ -141,7 +132,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ error: "Email send failed", details }, { status: 502 });
     }
 
-    return Response.json({ ok: true, key });
+    return Response.json({ ok: true });
   } catch (e) {
     return Response.json({ error: e?.message || "Server error" }, { status: 500 });
   }
