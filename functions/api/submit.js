@@ -13,7 +13,7 @@ function base64Utf8(str) {
 function getWeekCommencingISO(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
-  const day = dt.getDay(); // Sun=0 ... Mon=1
+  const day = dt.getDay();
   const diffToMon = (day === 0 ? -6 : 1 - day);
   dt.setDate(dt.getDate() + diffToMon);
 
@@ -31,12 +31,11 @@ export async function onRequestPost({ request, env }) {
     if (!env.SUBMIT_TOKEN || token !== env.SUBMIT_TOKEN) {
       return Response.json({ error: "Invalid link token" }, { status: 401 });
     }
-
     if (!payload || !pdfBase64) {
       return Response.json({ error: "Missing payload or PDF" }, { status: 400 });
     }
 
-    // KV save (weekly)
+    // KV save (weekly record)
     if (!env.CHECKS_KV) {
       return Response.json({ error: "KV binding missing (CHECKS_KV)" }, { status: 500 });
     }
@@ -46,21 +45,18 @@ export async function onRequestPost({ request, env }) {
 
     let record = await env.CHECKS_KV.get(key, "json");
     if (!record) {
-      const labels = (payload.labels && payload.labels.length) ? payload.labels : [];
       record = {
         equipmentType: payload.equipmentType,
         plantId: payload.plantId,
         weekCommencing: week,
-        labels,
-        statuses: labels.map(() => Array(7).fill(null)),
+        labels: payload.labels || [],
+        statuses: (payload.labels || []).map(() => Array(7).fill(null)),
       };
     }
 
-    // Store full week grid if provided
-    if (Array.isArray(payload.weekStatuses) && payload.weekStatuses.length) {
-      record.labels = payload.labels || record.labels;
-      record.statuses = payload.weekStatuses;
-    }
+    // Save full grid
+    if (Array.isArray(payload.labels)) record.labels = payload.labels;
+    if (Array.isArray(payload.weekStatuses)) record.statuses = payload.weekStatuses;
 
     await env.CHECKS_KV.put(key, JSON.stringify(record));
 
@@ -105,7 +101,7 @@ export async function onRequestPost({ request, env }) {
       ],
     };
 
-    // Mailjet request timeout (prevents “stuck”)
+    // Timeout so it never hangs forever
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
 
@@ -121,7 +117,9 @@ export async function onRequestPost({ request, env }) {
         signal: controller.signal,
       });
     } catch (e) {
-      const msg = e?.name === "AbortError" ? "Mailjet timed out (20s)" : (e?.message || "Mailjet fetch failed");
+      const msg = e?.name === "AbortError"
+        ? "Mailjet timed out (20s)"
+        : (e?.message || "Mailjet fetch failed");
       return Response.json({ error: msg }, { status: 502 });
     } finally {
       clearTimeout(timeout);
