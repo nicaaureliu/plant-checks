@@ -5,9 +5,20 @@
 
   // ✅ EDIT THIS LIST (names + emails). The selected one will receive the email.
   const RECIPIENTS = [
-    { name: "Site Agent", email: "site.agent@example.com" },
-    { name: "Gary", email: "gary@example.com" },
-    { name: "John", email: "john@example.com" }
+    { name: "Alin Pop", email: "APop@activetunnelling.com" },
+    { name: "Andrew Hubbard", email: "AHubbard@activetunnelling.com" },
+    { name: "Aureliu Nica", email: "anica@activetunnelling.com" }
+    { name: "Cameron Davies", email: "CDavies@activetunnelling.com" }  
+    { name: "Ebenezer Bentum", email: "EBentum@activetunnelling.com" }
+    { name: "Iosif Beghean", email: "IBeghean@activetunnelling.com" }  
+    { name: "James Wallace", email: "jwallace@activetunnelling.com" }   
+    { name: "John Thorpe", email: "jthorpe@activetunnelling.com" }  
+    { name: "Josh Furner", email: "jfurner@activetunnelling.com" }  
+    { name: "Kamran Muzaffar", email: "KMuzaffar@activetunnelling.com" }  
+    { name: "Niall Lynam", email: "NLynam@activetunnelling.com" } 
+    { name: "Richard Wilson", email: "rwilson@activetunnelling.com" }  
+    { name: "Rob Graham", email: "RGraham@activetunnelling.com" }  
+    { name: "Scott Carter", email: "SCarter@activetunnelling.com" }  
   ];
 
   const CHECKLISTS = {
@@ -44,30 +55,61 @@
       "OVERALL CAB INTERIOR, Cleanliness"
     ],
     crane: [
-      "Outriggers / stabilisers – condition & function",
-      "Slew ring / rotation – smooth operation",
-      "Boom / jib sections – damage / pins secure",
-      "Hoist ropes / chains – wear, kinks, damage",
-      "Hook block / safety latch – condition",
-      "Load charts / radius indicator – present & working",
-      "Limit switches / A2B – functional",
-      "Hydraulic oil level – correct",
-      "Tyres / tracks – condition & pressure / tension",
-      "Lights / horn / reversing alarm – working",
-      "Fire extinguisher – present & charged",
-      "Cab controls / seatbelt – working"
+      "Engine Oil Levels",
+      "Fuel Level ",
+      "Level of exhaust gas after-treatment (e.g. 'Ad Blue')",
+      "Operation and fill of auto-lubricating grease systems",
+      "Coolant Levels",
+      "Visually check for fluid leaks ",
+      "Air filter vacuum indicator (if fitted)",
+      "Hydraulic fluid levels",
+      "Drain air tanks",
+      "Condition of cab glass, cab windscreen wipers, cab seating, heating and security systems",
+      "Windscreen washer reservoirs ",
+      "Lights, beacons and horn",
+      "Correct adjustment and functioning of all mirrors and cameras ",
+      "Manually grease track rollers if not auto-lubricated",
+      "Condition of undercarriage (including lubrication of sprockets, tumblers and rollers, tension of tracks and condition of shoes, tracks, pins)",
+      "Condition and security of all hydraulic hoses",
+      "Bolt condition including signs of movement/loosening",
+      "Fly jib integrity and security",
+      "Correct functioning of hook over-hoist system",
+      "Correct operation of RCI (LMI)",
+      "Adequate data signal coverage for data upload ",
+      "Correct functioning and labelling of all controls ",
+      "Correct functioning of all lifting and slewing systems",
+      "Correct functioning of all audible /visible warnings and indicators ",
+      "Correct functioning of all winch brakes",
+      "Correct functioning of all winch clutches ",
+      "Check hoist and boom pawls for correct function and condition",
+      "Condition, security and cleanliness of all crane panelling, ladders, walkways, handrails ",
+      "Presence and condition of fire extinguishing system ",
+      "Presence of  crane specific load charts, operator's manual and other required documentation in cab",
+      "Grease and lubricaate to manufacturer's instructions ",
+      "Lubricate and maintain ropes and all rope system components ",
+      "Operation of boom and pinning/exstension systems if appropriate,"
+      "Battery condition and security (including LV Cables)"  
     ],
     dumper: [
-      "Tyres – condition & pressure",
-      "Steering – smooth operation",
-      "Brakes – effective",
-      "Lights / indicators – working",
-      "Horn / alarm – working",
-      "Mirrors – condition & adjusted",
-      "ROPS / cab – condition",
-      "Seat belt – condition",
-      "Body / skip – damage / pins secure",
-      "Hydraulics – leaks / operation"
+      "Skip/Body Security",
+      "Drop Box",
+      "Steps/Handrails",
+      "General Cleanliness",
+      "Steering/Braking/Handbrake",
+      "Hydraulics/Pipework/Controls/Decals",
+      "Radiator/Belts",
+      "Tracks/Running Gear/Wheels/Tyres",
+      "Gauges/Instrumentation",
+      "ROPS/FOPS/ Bodywork",
+      "Operating Position/Seat/Belt",
+      "Lights/Beacons",
+      "Audible Warnings/Alarms",
+      "Battery levels/Condition",
+      "Fluid levels All/Greasing",
+      "Turntable function",
+      "Operators Manual",
+      "Transmission",
+      "Rated Capacity Plate/Readable"
     ]
   };
 
@@ -370,7 +412,7 @@
       if (rec && Array.isArray(rec.labels) && Array.isArray(rec.statuses)) {
         labels = rec.labels;
         weekStatuses = rec.statuses;
-        status.textContent = "✅ Week loaded.";
+        status.textContent = "✅ Submited!";
       } else {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
