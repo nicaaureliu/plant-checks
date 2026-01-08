@@ -3,11 +3,22 @@
   const BUILD = "v12";
   const $ = (id) => document.getElementById(id);
 
-  // ✅ EDIT THIS LIST (names + emails). The selected one will receive the email.
+  // Recipient dropdown (selected one receives the email)
   const RECIPIENTS = [
-    { name: "Site Agent", email: "site.agent@example.com" },
-    { name: "Gary", email: "gary@example.com" },
-    { name: "John", email: "john@example.com" }
+    { name: "Alin Pop", email: "apop@activetunnelling.com" },
+    { name: "Andrew Hubbard", email: "ahubbard@activetunnelling.com" },
+    { name: "Aureliu Nica", email: "anica@activetunnelling.com" },
+    { name: "Cameron Davies", email: "cdavies@activetunnelling.com" },
+    { name: "Ebenezer Bentum", email: "ebentum@activetunnelling.com" },
+    { name: "Iosif Beghean", email: "ibeghean@activetunnelling.com" },
+    { name: "James Wallace", email: "jwallace@activetunnelling.com" },
+    { name: "John Thorpe", email: "jthorpe@activetunnelling.com" },
+    { name: "Josh Furner", email: "jfurner@activetunnelling.com" },
+    { name: "Kamran Muzaffar", email: "kmuzaffar@activetunnelling.com" },
+    { name: "Niall Lynam", email: "nlynam@activetunnelling.com" },
+    { name: "Richard Wilson", email: "rwilson@activetunnelling.com" },
+    { name: "Rob Graham", email: "rgraham@activetunnelling.com" },
+    { name: "Scott Carter", email: "scarter@activetunnelling.com" }
   ];
 
   const CHECKLISTS = {
@@ -44,30 +55,59 @@
       "OVERALL CAB INTERIOR, Cleanliness"
     ],
     crane: [
-      "Outriggers / stabilisers – condition & function",
-      "Slew ring / rotation – smooth operation",
-      "Boom / jib sections – damage / pins secure",
-      "Hoist ropes / chains – wear, kinks, damage",
-      "Hook block / safety latch – condition",
-      "Load charts / radius indicator – present & working",
-      "Limit switches / A2B – functional",
-      "Hydraulic oil level – correct",
-      "Tyres / tracks – condition & pressure / tension",
-      "Lights / horn / reversing alarm – working",
-      "Fire extinguisher – present & charged",
-      "Cab controls / seatbelt – working"
+      "Engine Oil Levels",
+      "Fuel Level",
+      "Level of exhaust gas after-treatment (e.g. AdBlue)",
+      "Operation and fill of auto-lubricating grease systems",
+      "Coolant Levels",
+      "Visually check for fluid leaks",
+      "Air filter vacuum indicator (if fitted)",
+      "Hydraulic fluid levels",
+      "Drain air tanks",
+      "Condition of cab glass / wipers / seating / heating / security systems",
+      "Windscreen washer reservoirs",
+      "Lights, beacons and horn",
+      "Correct adjustment and functioning of mirrors and cameras",
+      "Condition of undercarriage (tension / shoes / pins)",
+      "Condition and security of hydraulic hoses",
+      "Bolt condition including signs of movement/loosening",
+      "Fly jib integrity and security",
+      "Correct functioning of hook over-hoist system",
+      "Correct operation of RCI (LMI)",
+      "Correct functioning and labelling of all controls",
+      "Correct functioning of lifting and slewing systems",
+      "Correct functioning of audible/visible warnings and indicators",
+      "Correct functioning of winch brakes",
+      "Correct functioning of winch clutches",
+      "Check hoist and boom pawls for correct function and condition",
+      "Condition/security/cleanliness of panelling/ladders/walkways/handrails",
+      "Presence and condition of fire extinguishing system",
+      "Crane load charts / operator's manual available in cab",
+      "Grease and lubricate to manufacturer's instructions",
+      "Lubricate and maintain ropes and rope system components",
+      "Operation of boom and pinning/extension systems (if applicable)",
+      "Battery condition and security (including LV cables)"
     ],
     dumper: [
-      "Tyres – condition & pressure",
-      "Steering – smooth operation",
-      "Brakes – effective",
-      "Lights / indicators – working",
-      "Horn / alarm – working",
-      "Mirrors – condition & adjusted",
-      "ROPS / cab – condition",
-      "Seat belt – condition",
-      "Body / skip – damage / pins secure",
-      "Hydraulics – leaks / operation"
+      "Skip/Body Security",
+      "Drop Box",
+      "Steps/Handrails",
+      "General Cleanliness",
+      "Steering/Braking/Handbrake",
+      "Hydraulics/Pipework/Controls/Decals",
+      "Radiator/Belts",
+      "Tracks/Running Gear/Wheels/Tyres",
+      "Gauges/Instrumentation",
+      "ROPS/FOPS/Bodywork",
+      "Operating Position/Seat/Belt",
+      "Lights/Beacons",
+      "Audible Warnings/Alarms",
+      "Battery levels/Condition",
+      "Fluid levels (all) / Greasing",
+      "Turntable function",
+      "Operators Manual",
+      "Transmission",
+      "Rated Capacity Plate/Readable"
     ]
   };
 
@@ -78,7 +118,7 @@
   if (!["excavator","crane","dumper"].includes(equipmentType)) equipmentType = "excavator";
 
   let labels = [...CHECKLISTS[equipmentType]];
-  let weekStatuses = labels.map(() => Array(7).fill(null));
+  let weekStatuses = labels.map(() => Array(7).fill(null)); // statuses[row][day]
   let activeDay = 0;
 
   const isoToday = () => {
@@ -178,7 +218,6 @@
 
       for (let d = 0; d < 7; d++) {
         const td = document.createElement("td");
-        td.className = "day";
 
         const btn = document.createElement("button");
         btn.type = "button";
@@ -231,7 +270,6 @@
         const next = cycleStatus(cur);
         weekStatuses[r][activeDay] = next;
         btn.textContent = markText(next);
-        if (!isMobile()) renderTable();
       });
 
       row.appendChild(lab);
@@ -273,7 +311,7 @@
       ctx.strokeStyle = "#111";
     }
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", () => { resize(); renderChecks(); });
 
     function pos(e) {
       const r = canvas.getBoundingClientRect();
@@ -312,12 +350,11 @@
     });
   }
 
-  // compress signature to small JPEG (fast upload)
+  // compress signature to small JPEG
   function signatureDataUrl() {
     const canvas = $("sig");
     const ctx = canvas.getContext("2d");
 
-    // detect blank
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     let hasInk = false;
     for (let i = 0; i < img.length; i += 4) {
@@ -344,12 +381,12 @@
 
     setHeaderTexts();
 
-    // If missing, just render defaults
+    // If missing, render defaults but don't block UI
     if (!TOKEN || !plantId || !dateISO) {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       renderChecks();
-      status.textContent = TOKEN ? "Ready." : "⚠️ Missing token (t=...) in link.";
+      status.textContent = TOKEN ? "Ready (enter Plant ID + Date)." : "⚠️ Missing token (t=...) in link.";
       return;
     }
 
@@ -385,7 +422,7 @@
     }
   }
 
-  // ---------- PDF (one page, better header, centred meta between 2 yellow lines, smaller boxes) ----------
+  // ---- PDF: one page + pill day cells + ZapfDingbats tick ----
   async function makePdfBase64(payload) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
@@ -396,18 +433,10 @@
     const tableW = pageW - margin * 2;
     const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-    const isoToUK = (iso) => {
+    const isoToUK2 = (iso) => {
       if (!iso || !String(iso).includes("-")) return iso || "";
       const [y,m,d] = String(iso).split("-");
       return `${d}/${m}/${y}`;
-    };
-
-    const ellipsize = (text, maxW, fontSize) => {
-      if (!text) return "";
-      doc.setFontSize(fontSize);
-      let t = String(text);
-      while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
-      return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
     };
 
     async function fetchAsDataUrl(url) {
@@ -437,92 +466,79 @@
     }
 
     function drawOkTick(cx, cy) {
-      // ZapfDingbats checkmark ALWAYS renders in PDF
       doc.setFont("zapfdingbats", "normal");
       doc.setFontSize(13);
       doc.text(String.fromCharCode(52), cx, cy, { align:"center", baseline:"middle" });
     }
 
     function drawMark(status, cx, cy) {
-      if (status === "OK") {
-        drawOkTick(cx, cy);
-        return;
-      }
+      if (status === "OK") return drawOkTick(cx, cy);
       doc.setFont("helvetica", "bold");
       if (status === "DEFECT") {
         doc.setFontSize(10);
-        doc.text("X", cx, cy, { align:"center", baseline:"middle" });
-        return;
+        return doc.text("X", cx, cy, { align:"center", baseline:"middle" });
       }
       if (status === "NA") {
         doc.setFontSize(7.2);
-        doc.text("N/A", cx, cy, { align:"center", baseline:"middle" });
+        return doc.text("N/A", cx, cy, { align:"center", baseline:"middle" });
       }
     }
 
     const dateISO = payload.date || "";
     const weekISO = payload.weekCommencing || "";
-    const weekUK = isoToUK(weekISO);
-    const dateUK = isoToUK(dateISO);
+    const weekUK = isoToUK2(weekISO);
+    const dateUK = isoToUK2(dateISO);
 
-    const labels = payload.labels || [];
-    const weekStatuses = payload.weekStatuses || labels.map(() => Array(7).fill(null));
+    const pdfLabels = payload.labels || [];
+    const pdfStatuses = payload.weekStatuses || pdfLabels.map(() => Array(7).fill(null));
 
-    // ----- HEADER (logos + titles without clashing) -----
     let y = margin;
 
+    // Logos (fit into boxes so they don't stretch)
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
     const tp  = await fetchAsDataUrl("/assets/tp.png");
 
-    // logo boxes
     const leftBoxW = 140, leftBoxH = 34;
     const rightBoxW = 52, rightBoxH = 52;
 
     if (atl) {
       try {
         const s = await getImageSize(atl);
-        const fitted = fitIntoBox(s.w, s.h, leftBoxW, leftBoxH);
-        doc.addImage(atl, "PNG", margin, y, fitted.w, fitted.h);
+        const f = fitIntoBox(s.w, s.h, leftBoxW, leftBoxH);
+        doc.addImage(atl, "PNG", margin, y, f.w, f.h);
       } catch {}
     }
-
     if (tp) {
       try {
         const s = await getImageSize(tp);
-        const fitted = fitIntoBox(s.w, s.h, rightBoxW, rightBoxH);
-        doc.addImage(tp, "PNG", pageW - margin - fitted.w, y - 2, fitted.w, fitted.h);
+        const f = fitIntoBox(s.w, s.h, rightBoxW, rightBoxH);
+        doc.addImage(tp, "PNG", pageW - margin - f.w, y - 2, f.w, f.h);
       } catch {}
     }
 
-    // Title block sits LOWER so it doesn't collide with logos
+    doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text(payload.formRef || "QPFPL5.2", pageW / 2, y + 16, { align:"center" });
+    doc.text(payload.formRef || "QPFPL5.2", pageW/2, y + 16, { align:"center" });
 
     doc.setFontSize(10);
-    doc.text(payload.sheetTitle || "Excavator Pre-Use Inspection Checklist", pageW / 2, y + 32, { align:"center" });
+    doc.text(payload.sheetTitle || "Plant Pre-Use Inspection Checklist", pageW/2, y + 32, { align:"center" });
 
     y += 58;
 
-    // Machine / Week line (safe spacing)
-    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Machine No: ${payload.machineNo || payload.plantId || ""}`, margin, y);
     doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align:"right" });
-
     y += 10;
 
     // Yellow instruction bar
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, tableW, 18, "F");
-    doc.setTextColor(0);
-    doc.setFont("helvetica", "bold");
     doc.setFontSize(8.8);
     doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW/2, y+12.5, { align:"center" });
     y += 24;
 
-    // ---- meta centred between 2 yellow lines ----
-    // top yellow line
+    // Meta between two yellow lines
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, tableW, 4, "F");
     y += 12;
@@ -530,44 +546,40 @@
     const colW = tableW / 4;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-
     doc.text(`Site: ${payload.site || ""}`, margin + colW * 0.5, y, { align:"center" });
-    doc.text(`Date: ${dateUK}`,        margin + colW * 1.5, y, { align:"center" });
+    doc.text(`Date: ${dateUK}`, margin + colW * 1.5, y, { align:"center" });
     doc.text(`Operator: ${payload.operator || ""}`, margin + colW * 2.5, y, { align:"center" });
     doc.text(`Hours/Shift: ${payload.hours || ""}`, margin + colW * 3.5, y, { align:"center" });
 
     y += 10;
-    // bottom yellow line
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, tableW, 4, "F");
     y += 10;
 
-    // ----- TABLE (one page, with inner pill boxes like UI) -----
+    // Table sizing
     const itemColW = 420;
     const dayColW = (tableW - itemColW) / 7;
     const headH = 16;
 
-    // Footer heights (smaller, per your feedback)
+    // Footer sizes (compact)
     const defectsH = 26;
     const actionH  = 28;
     const sigH     = 34;
 
     const footerTotal =
-      10 +               // Checks carried out by line
-      10 + 6 + defectsH + 10 +   // defects
-      10 + 6 + 10 +              // Reported to (text only)
-      10 + 6 + actionH + 10 +    // action
-      10 + 6 + sigH + 20;        // signature
+      10 +  // Checks carried out by
+      10 + 6 + defectsH + 10 +
+      10 + 6 + 10 + // Reported to line
+      10 + 6 + actionH + 10 +
+      10 + 6 + sigH + 20;
 
     const availForTable = (pageH - margin) - y - headH - footerTotal;
-    const totalRows = labels.length || 1;
-
+    const totalRows = Math.max(1, pdfLabels.length);
     let rowH = Math.floor(availForTable / totalRows);
     rowH = Math.max(10, Math.min(16, rowH));
-
     const fontItem = rowH <= 11 ? 6.7 : 7.6;
 
-    // header row
+    // Table header
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
@@ -583,26 +595,24 @@
       const cx = margin + itemColW + dayColW * i + dayColW / 2;
       doc.text(days[i], cx, y + 11, { align:"center" });
     }
-
     y += headH;
 
+    // Rows
     for (let r = 0; r < totalRows; r++) {
-      // row outer box
       doc.rect(margin, y, tableW, rowH);
 
-      // item text
+      // Label
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontItem);
-      const label = ellipsize(labels[r] || "", itemColW - 10, fontItem);
-      doc.text(label, margin + 6, y + rowH * 0.72);
+      const label = String(pdfLabels[r] || "");
+      doc.text(label.length > 95 ? (label.slice(0, 94) + "…") : label, margin + 6, y + rowH * 0.72);
 
-      // day cell pills + marks
+      // Day cells with pill
       for (let d = 0; d < 7; d++) {
         const cellX = margin + itemColW + dayColW * d;
-        doc.line(cellX, y, cellX, y + rowH); // vertical cell line
+        doc.line(cellX, y, cellX, y + rowH);
 
-        const pillPadX = 4;
-        const pillPadY = 2;
+        const pillPadX = 4, pillPadY = 2;
         const pillW = dayColW - pillPadX * 2;
         const pillH = rowH - pillPadY * 2;
         const px = cellX + pillPadX;
@@ -612,7 +622,7 @@
         doc.setFillColor(255,255,255);
         doc.roundedRect(px, py, pillW, pillH, 5, 5, "DF");
 
-        const status = weekStatuses?.[r]?.[d] || null;
+        const status = pdfStatuses?.[r]?.[d] || null;
         if (status) {
           const cx = px + pillW / 2;
           const cy = py + pillH / 2 + 0.5;
@@ -621,58 +631,43 @@
         }
       }
 
-      // right border line of table
       doc.line(margin + tableW, y, margin + tableW, y + rowH);
-
       y += rowH;
     }
-
-    // bottom border under table
     doc.line(margin, y, margin + tableW, y);
-
     y += 8;
 
-    // ----- FOOTER (smaller boxes, split fields) -----
-    doc.setTextColor(0);
+    // Footer blocks
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
     y += 10;
 
-    // Defects
     doc.text("Defects identified:", margin, y);
     y += 6;
     doc.rect(margin, y, tableW, defectsH);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    if (payload.defectsText) {
-      doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
-    }
+    if (payload.defectsText) doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
     y += defectsH + 10;
 
-    // Reported to (text only, no huge box)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
     y += 10;
 
-    // Action taken
     doc.text("Action taken:", margin, y);
     y += 6;
     doc.rect(margin, y, tableW, actionH);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    if (payload.actionTaken) {
-      doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
-    }
+    if (payload.actionTaken) doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
     y += actionH + 10;
 
-    // Signature (smaller box)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Signature:", margin, y);
     y += 6;
-
     doc.rect(margin, y, tableW, sigH);
 
     if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
@@ -681,25 +676,20 @@
         const innerW = tableW - pad * 2;
         const innerH = sigH - pad * 2;
         const s = await getImageSize(payload.signatureDataUrl);
-        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
-
-        const imgX = margin + pad + (innerW - fitted.w) / 2;
-        const imgY = y + pad + (innerH - fitted.h) / 2;
-
-        doc.addImage(payload.signatureDataUrl, "JPEG", imgX, imgY, fitted.w, fitted.h);
+        const f = fitIntoBox(s.w, s.h, innerW, innerH);
+        const imgX = margin + pad + (innerW - f.w) / 2;
+        const imgY = y + pad + (innerH - f.h) / 2;
+        doc.addImage(payload.signatureDataUrl, "JPEG", imgX, imgY, f.w, f.h);
       } catch {}
     }
 
-    // Bottom footer
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
     doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align:"center" });
 
     const dataUri = doc.output("datauristring");
-    if (!dataUri) throw new Error("PDF export failed (empty output)");
     const parts = String(dataUri).split(",");
-    if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
+    if (parts.length < 2) throw new Error("PDF export failed");
     return parts[1];
   }
 
@@ -764,10 +754,10 @@
         return;
       }
 
-      status.textContent = data.queued ? "✅ Submitted. Email queued (should arrive shortly)." : "✅ Submitted.";
+      status.textContent = "✅ Submitted.";
       btn.disabled = false;
 
-      // refresh from KV so week view stays consistent
+      // refresh from KV
       await loadWeekFromKV();
 
     } catch (e) {
@@ -806,8 +796,6 @@
 
     $("date").addEventListener("change", loadWeekFromKV);
     $("plantId").addEventListener("blur", loadWeekFromKV);
-
-    window.addEventListener("resize", () => renderChecks());
 
     $("submitBtn").addEventListener("click", submit);
   }
