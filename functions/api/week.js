@@ -3,9 +3,10 @@
 function getWeekCommencingISO(dateStr) {
   const [y, m, d] = String(dateStr).split("-").map(Number);
   const dt = new Date(y, m - 1, d);
-  const day = dt.getDay(); // Sun=0 ... Mon=1
+  const day = dt.getDay();
   const diffToMon = (day === 0 ? -6 : 1 - day);
   dt.setDate(dt.getDate() + diffToMon);
+
   const yy = dt.getFullYear();
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const dd = String(dt.getDate()).padStart(2, "0");
@@ -30,9 +31,7 @@ export async function onRequestGet(context) {
       return Response.json({ error: "KV binding missing (CHECKS_KV)" }, { status: 500 });
     }
 
-    if (!type || !plantId || !date) {
-      return Response.json({ record: null });
-    }
+    if (!type || !plantId || !date) return Response.json({ record: null });
 
     const week = getWeekCommencingISO(date);
     const key = `${type}:${plantId}:${week}`;
