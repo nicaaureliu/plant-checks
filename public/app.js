@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v12.1";
+  const BUILD = "v12.2";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -120,8 +120,10 @@
 
   let labels = [...CHECKLISTS[equipmentType]];
   let weekStatuses = labels.map(() => Array(7).fill(null));
-  let weekDaily = Array(7).fill(null); // ✅ NEW
+  let weekDaily = Array(7).fill(null);
   let activeDay = 0;
+
+  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
   const isoToday = () => {
     const d = new Date();
@@ -135,7 +137,7 @@
   };
 
   const getWeekCommencingISO = (dateStr) => {
-    const [y,m,d] = dateStr.split("-").map(Number);
+    const [y,m,d] = String(dateStr).split("-").map(Number);
     const dt = new Date(y, m-1, d);
     const day = dt.getDay();
     const diffToMon = (day === 0 ? -6 : 1 - day);
@@ -144,7 +146,7 @@
   };
 
   const getDayIndexMon0 = (dateStr) => {
-    const [y,m,d] = dateStr.split("-").map(Number);
+    const [y,m,d] = String(dateStr).split("-").map(Number);
     const dt = new Date(y, m-1, d);
     const day = dt.getDay();
     return day === 0 ? 6 : day - 1;
@@ -209,21 +211,15 @@
     $("machineNoPreview").textContent = pid || "—";
   }
 
-  function applyDailyToInputs() {
-    const d = weekDaily?.[activeDay] || null;
-
-    // if we have saved daily data for this day, populate it
-    if (d) {
-      if ($("site") && d.site && !$("site").value) $("site").value = d.site;
-      if ($("operator")) $("operator").value = d.operator || $("operator").value || "";
-      if ($("hours")) $("hours").value = d.hours || $("hours").value || "";
-      if ($("defectsText")) $("defectsText").value = d.defectsText || "";
-      if ($("actionTaken")) $("actionTaken").value = d.actionTaken || "";
-
-      if ($("reportedTo") && d.reportedToEmail) {
-        $("reportedTo").value = d.reportedToEmail;
-      }
-    }
+  function fillRecipients() {
+    const sel = $("reportedTo");
+    sel.innerHTML = "";
+    RECIPIENTS.forEach((r) => {
+      const opt = document.createElement("option");
+      opt.value = r.email;
+      opt.textContent = r.name; // names only
+      sel.appendChild(opt);
+    });
   }
 
   function renderTable() {
@@ -310,17 +306,19 @@
     else renderTable();
   }
 
-  function fillRecipients() {
-    const sel = $("reportedTo");
-    sel.innerHTML = "";
-    RECIPIENTS.forEach((r) => {
-      const opt = document.createElement("option");
-      opt.value = r.email;
-      opt.textContent = r.name;
-      sel.appendChild(opt);
-    });
+  function applyDailyToInputs() {
+    const d = weekDaily?.[activeDay] || null;
+    if (!d) return;
+
+    $("site").value = d.site || $("site").value || "";
+    $("operator").value = d.operator || "";
+    $("hours").value = d.hours || "";
+    $("defectsText").value = d.defectsText || "";
+    $("actionTaken").value = d.actionTaken || "";
+    if (d.reportedToEmail) $("reportedTo").value = d.reportedToEmail;
   }
 
+  // -------- Signature pad --------
   function initSignature() {
     const canvas = $("sig");
     const ctx = canvas.getContext("2d");
@@ -382,6 +380,7 @@
     return canvas.toDataURL("image/png");
   }
 
+  // -------- Load week from KV --------
   async function loadWeekFromKV() {
     const status = $("status");
     const plantId = ($("plantId").value || "").trim();
@@ -395,7 +394,7 @@
       weekStatuses = labels.map(() => Array(7).fill(null));
       weekDaily = Array(7).fill(null);
       renderChecks();
-      status.textContent = TOKEN ? "Ready." : "⚠️ Missing token (t=...) in link.";
+      status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
       return;
     }
 
@@ -410,7 +409,7 @@
         weekStatuses = labels.map(() => Array(7).fill(null));
         weekDaily = Array(7).fill(null);
         renderChecks();
-        status.textContent = `❌ Week load failed (${resp.status})`;
+        status.innerHTML = `<span class="bad">✖ Week load failed (${resp.status})</span>`;
         return;
       }
 
@@ -420,7 +419,7 @@
         weekStatuses = rec.statuses;
         weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
 
-        // store site in daily if week-level site exists (helps populate)
+        // if record has week-level site, keep it as a default
         if (rec.site) {
           for (let i = 0; i < 7; i++) {
             if (!weekDaily[i]) weekDaily[i] = {};
@@ -438,21 +437,283 @@
         renderChecks();
         status.textContent = "Ready.";
       }
-    } catch (e) {
+    } catch {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       weekDaily = Array(7).fill(null);
       renderChecks();
-      status.textContent = `❌ Load error`;
+      status.innerHTML = `<span class="bad">✖ Load error</span>`;
     }
   }
 
-  // NOTE: your existing makePdfBase64 stays as-is in your working version
-  // Keep the PDF function you already have working.
-  // (No change here, to avoid breaking anything.)
+  // -------- PDF: ONE PAGE, no circles, smaller signature box, no extra yellow lines --------
+  async function makePdfBase64(payload) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
 
+    const margin = 28;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const tableW = pageW - margin * 2;
+
+    const isoToUK2 = (iso) => {
+      if (!iso || !String(iso).includes("-")) return iso || "";
+      const [y,m,d] = String(iso).split("-");
+      return `${d}/${m}/${y}`;
+    };
+
+    const ellipsize = (text, maxW, fontSize) => {
+      if (!text) return "";
+      doc.setFontSize(fontSize);
+      let t = String(text);
+      while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
+      return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
+    };
+
+    async function fetchAsDataUrl(url) {
+      const res = await fetch(url, { cache:"no-store" });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    function getImageSize(dataUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+    }
+
+    function fitIntoBox(imgW, imgH, boxW, boxH) {
+      const s = Math.min(boxW / imgW, boxH / imgH);
+      return { w: imgW * s, h: imgH * s };
+    }
+
+    function drawOkTick(cx, cy) {
+      doc.setFont("zapfdingbats", "normal");
+      doc.setFontSize(13);
+      doc.text(String.fromCharCode(52), cx, cy, { align:"center", baseline:"middle" });
+    }
+
+    function drawMark(status, cx, cy) {
+      if (status === "OK") return drawOkTick(cx, cy);
+      doc.setFont("helvetica", "bold");
+      if (status === "DEFECT") {
+        doc.setFontSize(10);
+        doc.text("X", cx, cy, { align:"center", baseline:"middle" });
+        return;
+      }
+      if (status === "NA") {
+        doc.setFontSize(7.2);
+        doc.text("N/A", cx, cy, { align:"center", baseline:"middle" });
+      }
+    }
+
+    const dateUK = isoToUK2(payload.date || "");
+    const weekUK = isoToUK2(payload.weekCommencing || "");
+
+    const labels2 = payload.labels || [];
+    const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
+
+    // ---- header ----
+    let y = margin;
+
+    const atl = await fetchAsDataUrl("/assets/atl-logo.png");
+    const tp  = await fetchAsDataUrl("/assets/tp.png");
+
+    // logo placement boxes (prevents clashing)
+    const leftBoxW = 150, leftBoxH = 40;
+    const rightBoxW = 56, rightBoxH = 56;
+
+    if (atl) {
+      try {
+        const s = await getImageSize(atl);
+        const fitted = fitIntoBox(s.w, s.h, leftBoxW, leftBoxH);
+        doc.addImage(atl, "PNG", margin, y + 6, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    if (tp) {
+      try {
+        const s = await getImageSize(tp);
+        const fitted = fitIntoBox(s.w, s.h, rightBoxW, rightBoxH);
+        doc.addImage(tp, "PNG", pageW - margin - fitted.w, y + 2, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(13);
+    doc.text(payload.formRef || "QPFPL5.2", pageW/2, y + 24, { align:"center" });
+
+    doc.setFontSize(10);
+    doc.text(payload.sheetTitle || "", pageW/2, y + 40, { align:"center" });
+
+    y += 68;
+
+    doc.setFontSize(9);
+    doc.text(`Machine No: ${payload.plantId || ""}`, margin, y);
+    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align:"right" });
+
+    y += 10;
+
+    // yellow instruction bar
+    doc.setFillColor(255,214,0);
+    doc.rect(margin, y, tableW, 18, "F");
+    doc.setTextColor(0);
+    doc.setFontSize(8.8);
+    doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW/2, y+12.5, { align:"center" });
+    y += 26;
+
+    // meta line (NO extra yellow lines)
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    const colW = tableW / 4;
+    doc.text(`Site: ${payload.site || ""}`, margin + colW*0.5, y, { align:"center" });
+    doc.text(`Date: ${dateUK}`,          margin + colW*1.5, y, { align:"center" });
+    doc.text(`Operator: ${payload.operator || ""}`, margin + colW*2.5, y, { align:"center" });
+    doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW*3.5, y, { align:"center" });
+    y += 14;
+
+    // ---- table ----
+    const itemColW = 420;
+    const dayColW = (tableW - itemColW) / 7;
+    const headH = 16;
+
+    // footer sizing (smaller like you asked)
+    const defectsH = 26;
+    const actionH  = 28;
+    const sigH     = 34;
+
+    const footerTotal =
+      10 +                 // checks carried out by
+      10 + 6 + defectsH + 10 +
+      10 +                  // reported to line
+      10 + 6 + actionH + 10 +
+      10 + 6 + sigH + 22;
+
+    const availForTable = (pageH - margin) - y - headH - footerTotal;
+    const totalRows = Math.max(1, labels2.length);
+
+    let rowH = Math.floor(availForTable / totalRows);
+    rowH = Math.max(10, Math.min(16, rowH));
+    const fontItem = rowH <= 11 ? 6.7 : 7.6;
+
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.7);
+
+    // header row
+    doc.setFillColor(255,214,0);
+    doc.rect(margin, y, itemColW, headH, "F");
+    doc.setFillColor(255,255,255);
+    doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
+    doc.rect(margin, y, tableW, headH);
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(8);
+    for (let i = 0; i < 7; i++) {
+      const cx = margin + itemColW + dayColW*i + dayColW/2;
+      doc.text(days[i], cx, y + 11, { align:"center" });
+    }
+    y += headH;
+
+    for (let r = 0; r < totalRows; r++) {
+      doc.rect(margin, y, tableW, rowH);
+
+      // verticals
+      doc.line(margin + itemColW, y, margin + itemColW, y + rowH);
+      for (let i = 1; i < 7; i++) {
+        const xx = margin + itemColW + dayColW*i;
+        doc.line(xx, y, xx, y + rowH);
+      }
+
+      // label
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(fontItem);
+      const label = ellipsize(labels2[r] || "", itemColW - 10, fontItem);
+      doc.text(label, margin + 6, y + rowH*0.72);
+
+      // marks (NO circles/pills)
+      for (let d = 0; d < 7; d++) {
+        const status = weekStatuses2?.[r]?.[d] || null;
+        if (!status) continue;
+        const cx = margin + itemColW + dayColW*d + dayColW/2;
+        const cy = y + rowH/2 + 1;
+        drawMark(status, cx, cy);
+      }
+
+      y += rowH;
+    }
+
+    y += 8;
+
+    // footer
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
+    y += 10;
+
+    doc.text("Defects identified:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, defectsH);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(8.5);
+    if (payload.defectsText) doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += defectsH + 10;
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
+    y += 12;
+
+    doc.text("Action taken:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, actionH);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(8.5);
+    if (payload.actionTaken) doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += actionH + 10;
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    doc.text("Signature:", margin, y);
+    y += 6;
+
+    doc.rect(margin, y, tableW, sigH);
+
+    if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
+      try {
+        const pad = 4;
+        const innerW = tableW - pad*2;
+        const innerH = sigH - pad*2;
+        const s = await getImageSize(payload.signatureDataUrl);
+        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
+        const imgX = margin + pad + (innerW - fitted.w)/2;
+        const imgY = y + pad + (innerH - fitted.h)/2;
+        doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(7.5);
+    doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
+    doc.text(`BUILD: ${BUILD}`, pageW/2, pageH - 16, { align:"center" });
+
+    const dataUri = doc.output("datauristring");
+    const parts = String(dataUri).split(",");
+    if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
+    return parts[1];
+  }
+
+  // -------- Submit --------
   async function submit() {
-    const status = $("status");
+    const statusEl = $("status");
     const btn = $("submitBtn");
 
     const plantId = ($("plantId").value || "").trim().toUpperCase();
@@ -466,16 +727,11 @@
     const reportedToEmail = $("reportedTo").value;
     const reportedToName = (RECIPIENTS.find(r => r.email === reportedToEmail)?.name) || "";
 
-    if (!TOKEN) { status.textContent = "❌ Missing token (t=...) in link."; return; }
-    if (!plantId || !dateISO) { status.textContent = "❌ Plant ID and Date are required."; return; }
-    if (!reportedToEmail) { status.textContent = "❌ Please select ‘Reported to’."; return; }
+    if (!TOKEN) { statusEl.innerHTML = `<span class="bad">✖ Missing token (t=...)</span>`; return; }
+    if (!plantId || !dateISO) { statusEl.innerHTML = `<span class="bad">✖ Plant ID and Date are required</span>`; return; }
+    if (!reportedToEmail) { statusEl.innerHTML = `<span class="bad">✖ Please select ‘Reported to’</span>`; return; }
 
-    // IMPORTANT: reuse your existing working PDF builder
-    if (typeof window.makePdfBase64 !== "function" && typeof makePdfBase64 !== "function") {
-      status.textContent = "❌ PDF function missing in app.js (makePdfBase64).";
-      return;
-    }
-
+    // build payload
     const weekCommencing = getWeekCommencingISO(dateISO);
     const dayIndex = getDayIndexMon0(dateISO);
 
@@ -486,7 +742,6 @@
       site,
       date: dateISO,
       plantId,
-      machineNo: plantId,
       operator,
       hours,
       weekCommencing,
@@ -501,12 +756,12 @@
     };
 
     btn.disabled = true;
-    status.textContent = "Building PDF…";
+    statusEl.textContent = "Building PDF…";
 
     try {
       const pdfBase64 = await makePdfBase64(payload);
 
-      status.textContent = "Submitting…";
+      statusEl.textContent = "Submitting…";
 
       const { resp, data } = await fetchJson("/api/submit", {
         method: "POST",
@@ -515,21 +770,22 @@
       }, 30000);
 
       if (!resp.ok) {
-        status.textContent = `❌ Submit failed (${resp.status}): ${data.error || "Unknown"}`;
+        statusEl.innerHTML = `<span class="bad">✖ Submit failed (${resp.status}): ${data.error || "Unknown"}</span>`;
         btn.disabled = false;
         return;
       }
 
-      status.textContent = "✅ Submitted.";
+      statusEl.innerHTML = `<span class="ok">✔ Submitted.</span>`;
       btn.disabled = false;
 
       await loadWeekFromKV();
     } catch (e) {
-      status.textContent = `❌ Error: ${e?.message || "unknown"}`;
+      statusEl.innerHTML = `<span class="bad">✖ ${e?.message || "Error"}</span>`;
       btn.disabled = false;
     }
   }
 
+  // -------- Wire events --------
   function wireEvents() {
     $("btnExc").addEventListener("click", async () => {
       equipmentType = "excavator";
@@ -558,11 +814,8 @@
       await loadWeekFromKV();
     });
 
-    $("date").addEventListener("change", async () => {
-      await loadWeekFromKV();
-    });
+    $("date").addEventListener("change", loadWeekFromKV);
 
-    // ✅ uppercase plant id as you type
     $("plantId").addEventListener("input", () => {
       $("plantId").value = ($("plantId").value || "").toUpperCase();
       setHeaderTexts();
@@ -571,12 +824,11 @@
     $("plantId").addEventListener("blur", loadWeekFromKV);
 
     window.addEventListener("resize", () => renderChecks());
-    $("submitBtn").addEventListener("click", submit);
 
-    // small UI text fixes without touching HTML
-    $("submitBtn").textContent = "Submit";
+    $("submitBtn").addEventListener("click", submit);
   }
 
+  // -------- Init --------
   (function init(){
     $("buildTag").textContent = `BUILD: ${BUILD}`;
     fillRecipients();
@@ -584,6 +836,7 @@
     wireEvents();
 
     if (!$("date").value) $("date").value = isoToday();
+
     setButtonsActive();
     setHeaderTexts();
     renderChecks();
