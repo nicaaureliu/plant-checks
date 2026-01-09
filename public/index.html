@@ -5,178 +5,221 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Plant Checks</title>
   <style>
-    :root{
-      --yellow:#ffd600;
-      --border:#111;
-      --muted:#666;
-      --card:#fff;
-      --bg:#f3f4f6;
-      --pill:#f7f7f7;
+    :root { --bg:#f4f6f8; --card:#fff; --ink:#111; --muted:#6b7280; --line:#d1d5db; --yellow:#ffd600; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--ink); }
+    .wrap{ max-width:1100px; margin:18px auto; padding:0 14px; }
+    .card{ background:var(--card); border:1px solid #e5e7eb; border-radius:14px; padding:14px; box-shadow:0 1px 0 rgba(0,0,0,.04); }
+    .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .build{ font-size:12px; color:var(--muted); }
+    .header{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 0 2px;
+      min-height:84px;
     }
-    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:#111; }
-    .wrap{ max-width:1100px; margin:0 auto; padding:14px; }
-    .topbar{ display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); margin-bottom:10px; }
-    .card{ background:var(--card); border:1px solid #ddd; border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-    .headerRow{ display:grid; grid-template-columns: 1fr 2fr 1fr; gap:10px; align-items:center; }
-    .logoL{ height:44px; width:auto; object-fit:contain; justify-self:start; }
-    .logoR{ height:54px; width:auto; object-fit:contain; justify-self:end; }
-    .titles{ text-align:center; }
-    .formRef{ font-weight:800; font-size:18px; }
-    .sheetTitle{ margin-top:2px; font-weight:700; font-size:15px; }
-    .miniRow{ display:flex; justify-content:space-between; margin-top:8px; font-size:13px; font-weight:700; }
-    .yellowBar{ margin-top:10px; background:var(--yellow); border:1px solid var(--border); padding:8px 10px; border-radius:8px; font-weight:800; text-align:center; }
-    .typeBtns{ display:flex; gap:10px; margin-top:12px; }
-    .typeBtns button{ flex:1; border:1px solid #cfcfcf; background:#f3f3f3; padding:12px 10px; border-radius:12px; font-weight:800; cursor:pointer; }
+    .logo-left{ position:absolute; left:0; top:10px; width:170px; height:50px; object-fit:contain; }
+    .logo-right{ position:absolute; right:0; top:6px; width:56px; height:56px; object-fit:contain; }
+    .titleblock{ text-align:center; line-height:1.25; padding:0 190px 0 80px; }
+    .formref{ font-weight:800; font-size:22px; }
+    .sheettitle{ font-weight:700; font-size:16px; margin-top:6px; }
+    .meta-row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; font-size:13px; margin-top:8px; }
+    .yellowbar{
+      margin-top:10px;
+      background:var(--yellow);
+      border:1px solid #d1b800;
+      border-radius:10px;
+      padding:10px 12px;
+      text-align:center;
+      font-weight:700;
+      font-size:13px;
+    }
+
+    .typeBtns{ display:flex; gap:10px; margin:14px 0 8px; }
+    .typeBtns button{
+      flex:1;
+      border-radius:12px;
+      border:1px solid var(--line);
+      padding:10px;
+      font-weight:700;
+      background:#f3f4f6;
+      cursor:pointer;
+    }
     .typeBtns button.active{ background:#111; color:#fff; border-color:#111; }
-    .selectedType{ margin-top:8px; color:var(--muted); font-weight:700; }
 
-    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .grid3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; }
-    label{ font-size:12px; color:var(--muted); font-weight:700; display:block; margin-bottom:6px; }
-    input, textarea, select{
-      width:100%; padding:12px; border-radius:12px; border:1px solid #d1d5db;
-      font-size:14px; background:#fff;
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      margin-top:10px;
     }
-    textarea{ min-height:72px; resize:vertical; }
+    .field{ display:flex; flex-direction:column; gap:6px; }
+    .field label{ font-size:12px; color:var(--muted); font-weight:700; }
+    .field input, .field select, .field textarea{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px 12px;
+      font-size:14px;
+      background:#fff;
+      outline:none;
+    }
+    .field textarea{ min-height:70px; resize:vertical; }
 
-    .checksTitle{ font-size:26px; font-weight:900; margin:0; }
-    .help{ color:var(--muted); margin-top:6px; font-weight:600; }
+    .checksTitle{ margin:18px 0 6px; font-weight:900; font-size:22px; }
+    .hint{ color:var(--muted); font-size:13px; margin-bottom:10px; }
 
-    table{ width:100%; border-collapse:collapse; table-layout:fixed; }
-    th, td{ border:1px solid var(--border); padding:6px; font-size:12px; }
-    th{ background:#fff; font-weight:900; text-align:center; }
+    .tableWrap{
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:auto;
+      background:#fff;
+    }
+    table{ border-collapse:collapse; width:100%; min-width:860px; }
+    th, td{ border:1px solid #111; padding:0; }
+    th{ background:#fff; font-size:12px; padding:6px; }
     th.itemHead{ background:var(--yellow); }
-    td.item{ font-weight:700; }
-    td.day{ text-align:center; }
-
+    td.item{ padding:7px 8px; font-size:12px; min-width:420px; }
+    td.day{ width:54px; text-align:center; }
     .markBtn{
-      width:34px; height:20px; border-radius:8px; border:1px solid #cfcfcf;
-      background:#fff; font-weight:900; cursor:pointer; line-height:18px;
+      width:34px; height:22px;
+      border-radius:7px;
+      border:1px solid #cfcfcf;
+      background:#f8f8f8;
+      cursor:pointer;
+      font-size:14px;
+      font-weight:900;
+      line-height:1;
     }
-    .markBtn.disabled{ opacity:.35; cursor:not-allowed; }
+    .markBtn.disabled{ opacity:.30; cursor:not-allowed; }
 
-    /* Mobile mode */
-    .mobileOnly{ display:none; }
-    .desktopOnly{ display:block; }
-
-    .mobileRow{
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      border:1px solid #e5e7eb; border-radius:12px; padding:10px; margin-bottom:8px; background:#fff;
-    }
-    .mobileLabel{ flex:1; font-weight:800; font-size:13px; }
+    /* mobile list view */
+    .mobileChecks{ display:none; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#fff; }
+    .mobileRow{ display:flex; gap:10px; align-items:center; padding:10px; border-bottom:1px solid #eee; }
+    .mobileRow:last-child{ border-bottom:none; }
+    .mobileLabel{ flex:1; font-size:13px; }
     .mobileBtn{
-      width:64px; height:34px; border-radius:12px; border:1px solid #cfcfcf;
-      background:#fff; font-weight:900; font-size:16px; cursor:pointer;
+      width:64px; height:36px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#f8f8f8;
+      font-size:16px;
+      font-weight:900;
     }
 
-    .sigBox{ border:1px solid #d1d5db; border-radius:12px; overflow:hidden; background:#fff; }
-    #sig{ width:100%; height:110px; display:block; touch-action:none; }
-    .btnRow{ display:flex; gap:10px; margin-top:10px; }
-    .pill{ flex:1; border:1px solid #cfcfcf; background:#f3f3f3; padding:12px; border-radius:12px; font-weight:900; cursor:pointer; }
+    .sigBox{
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+      background:#fff;
+    }
+    canvas{ width:100%; height:120px; display:block; background:#fff; }
+    .sigActions{ display:flex; gap:10px; padding:10px; border-top:1px solid #eee; }
+    .sigActions button{
+      flex:1; border-radius:12px; border:1px solid var(--line); padding:10px;
+      font-weight:800; background:#f3f4f6; cursor:pointer;
+    }
+
     .submitBtn{
-      width:100%; border:none; border-radius:12px; padding:14px;
-      background:#111; color:#fff; font-weight:900; cursor:pointer;
+      margin-top:14px;
+      width:100%;
+      padding:14px 16px;
+      border-radius:14px;
+      border:0;
+      font-weight:900;
+      background:#111;
+      color:#fff;
+      cursor:pointer;
+      font-size:15px;
     }
-    .small{ margin:8px 0 0; color:var(--muted); font-weight:700; }
-
-    .toggleWrap{ margin-top:10px; }
-    .toggleBtn{
-      width:100%; border:1px solid #cfcfcf; background:#f3f3f3; padding:12px; border-radius:12px; font-weight:900; cursor:pointer;
+    .status{
+      margin-top:8px;
+      font-size:13px;
+      color:#111;
+      display:flex;
+      align-items:center;
+      gap:8px;
     }
-    #reportedToWrap{ display:none; margin-top:10px; }
-    .chosenLine{ margin-top:8px; color:var(--muted); font-weight:800; }
+    .status .bad{ color:#b91c1c; font-weight:800; }
+    .status .ok{ color:#065f46; font-weight:800; }
 
     @media (max-width: 760px){
-      .grid2{ grid-template-columns: 1fr; }
-      .grid3{ grid-template-columns: 1fr; }
-      .mobileOnly{ display:block; }
-      .desktopOnly{ display:none; }
-      .logoL{ height:38px; }
-      .logoR{ height:44px; }
-      .checksTitle{ font-size:22px; }
+      .titleblock{ padding:0 80px; }
+      .grid{ grid-template-columns:1fr; }
+      .tableWrap{ display:none; }
+      .mobileChecks{ display:block; }
     }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <div id="buildTag">BUILD:</div>
-      <div></div>
-    </div>
-
     <div class="card">
-      <div class="headerRow">
-        <img class="logoL" src="/assets/atl-logo.png" alt="ATL" />
-        <div class="titles">
-          <div class="formRef" id="formRef">QPFPL5.2</div>
-          <div class="sheetTitle" id="sheetTitle">Excavator Pre-Use Inspection Checklist</div>
+      <div class="topbar">
+        <div class="build" id="buildTag">BUILD:</div>
+        <div class="build" id="selectedType">Selected:</div>
+      </div>
+
+      <div class="header">
+        <img class="logo-left" src="/assets/atl-logo.png" alt="ATL" />
+        <div class="titleblock">
+          <div class="formref" id="formRef">QPFPL5.2</div>
+          <div class="sheettitle" id="sheetTitle">Excavator Pre-Use Inspection Checklist</div>
         </div>
-        <img class="logoR" src="/assets/tp.png" alt="TP" />
+        <img class="logo-right" src="/assets/tp.png" alt="TP" />
       </div>
 
-      <div class="miniRow">
-        <div>Machine No: <span id="machineNoPreview">—</span></div>
-        <div>Week commencing: <span id="weekCommencingPreview">—</span></div>
+      <div class="meta-row">
+        <div><b>Machine No:</b> <span id="machineNoPreview">—</span></div>
+        <div><b>Week commencing:</b> <span id="weekCommencingPreview">—</span></div>
       </div>
 
-      <div class="yellowBar">All checks must be carried out in line with Specific Manufacturer’s instructions</div>
+      <div class="yellowbar">
+        All checks must be carried out in line with Specific Manufacturer’s instructions
+      </div>
 
       <div class="typeBtns">
-        <button id="btnExc" type="button" class="active">Excavator</button>
+        <button id="btnExc" type="button">Excavator</button>
         <button id="btnCrane" type="button">Crane</button>
         <button id="btnDump" type="button">Dumper</button>
       </div>
-      <div class="selectedType" id="selectedType">Selected: Excavator</div>
-    </div>
 
-    <div class="card">
-      <div class="grid2">
-        <div>
-          <label for="site">Site</label>
-          <input id="site" placeholder="e.g. Sizewell C" />
+      <div class="grid">
+        <div class="field">
+          <label>Site</label>
+          <input id="site" type="text" placeholder="e.g. Sizewell C">
         </div>
-        <div>
-          <label for="date">Date</label>
-          <input id="date" type="date" />
-        </div>
-      </div>
 
-      <div class="grid2" style="margin-top:12px;">
-        <div>
-          <label for="plantId">Machine / Plant ID</label>
-          <input id="plantId" placeholder="e.g. EX100 / DV59" />
+        <div class="field">
+          <label>Date</label>
+          <input id="date" type="date">
         </div>
-        <div>
-          <label for="operator">Operator name</label>
-          <input id="operator" placeholder="Name" />
+
+        <div class="field">
+          <label>Machine / Plant ID</label>
+          <input id="plantId" type="text" placeholder="e.g. EX100">
         </div>
-      </div>
 
-      <div style="margin-top:12px;">
-        <label for="hours">Machine hours</label>
-        <input id="hours" placeholder="e.g. 4000" inputmode="numeric" />
-      </div>
+        <div class="field">
+          <label>Operator name</label>
+          <input id="operator" type="text" placeholder="Name">
+        </div>
 
-      <div class="toggleWrap">
-        <button id="toggleReportedTo" class="toggleBtn" type="button">Select “Reported to”</button>
-        <div id="reportedToWrap">
-          <label for="reportedTo">Reported to (email will go to this person)</label>
-          <select id="reportedTo"></select>
-          <div class="chosenLine">Selected: <span id="reportedToChosen">—</span></div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Machine hours</label>
+          <input id="hours" type="text" placeholder="e.g. 4000">
         </div>
       </div>
-    </div>
 
-    <div class="card">
-      <p class="checksTitle">Checks (Mon–Sun)</p>
-      <div class="help">Only the column for your selected date is editable. Click the box to cycle ✓ / X / N/A.</div>
+      <div class="checksTitle">Checks (Mon–Sun)</div>
+      <div class="hint">Only the column for your selected date is editable. Click the small box to cycle ✓ / X / N/A.</div>
 
-      <div class="desktopOnly" style="margin-top:12px;">
-        <table id="checksTable">
+      <div class="tableWrap">
+        <table>
           <thead>
             <tr>
-              <th class="itemHead" style="width:58%;">&nbsp;</th>
+              <th class="itemHead"></th>
               <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
             </tr>
           </thead>
@@ -184,35 +227,42 @@
         </table>
       </div>
 
-      <div class="mobileOnly" id="mobileChecks" style="margin-top:12px;"></div>
-    </div>
+      <div class="mobileChecks" id="mobileChecks"></div>
 
-    <div class="card">
-      <label for="defectsText">Defects identified</label>
-      <textarea id="defectsText" placeholder="Write defects (if any)"></textarea>
+      <div class="grid" style="margin-top:14px;">
+        <div class="field" style="grid-column:1/-1;">
+          <label>Defects identified</label>
+          <textarea id="defectsText" placeholder="Write defects (if any)"></textarea>
+        </div>
 
-      <label for="actionTaken" style="margin-top:12px;">Action taken</label>
-      <textarea id="actionTaken" placeholder="What was done / what action is required"></textarea>
-    </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Reported to</label>
+          <select id="reportedTo"></select>
+        </div>
 
-    <div class="card">
-      <label>Signature</label>
-      <div class="sigBox">
+        <div class="field" style="grid-column:1/-1;">
+          <label>Action taken</label>
+          <textarea id="actionTaken" placeholder="What was done / what action is required"></textarea>
+        </div>
+      </div>
+
+      <div style="margin-top:12px; font-weight:900; font-size:13px;">Signature</div>
+      <div class="sigBox" style="margin-top:8px;">
         <canvas id="sig"></canvas>
+        <div class="sigActions">
+          <button type="button" id="clearSig">Clear</button>
+        </div>
       </div>
-      <div class="btnRow">
-        <button class="pill" id="clearSig" type="button">Clear</button>
-      </div>
-    </div>
 
-    <div class="card">
-      <button id="submitBtn" class="submitBtn" type="button">Submit</button>
-      <p class="small" id="status">Ready.</p>
+      <button class="submitBtn" id="submitBtn" type="button">Submit</button>
+      <div class="status" id="status">Ready.</div>
     </div>
   </div>
 
   <!-- jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <!-- App -->
   <script src="/app.js"></script>
 </body>
 </html>
