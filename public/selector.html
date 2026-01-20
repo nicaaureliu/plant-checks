@@ -1,3 +1,4 @@
+<!-- public/selector.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,11 +13,11 @@
     *{box-sizing:border-box}
     body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
     .wrap{ max-width:640px; margin:24px auto 40px; padding:0 14px; }
-    .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 2px 14px rgba(0,0,0,.05); padding:16px; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 2px 14px rgba(0,0,0,.05); padding:16px; overflow:hidden; }
     .logos{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
     .logoLeft{ width:120px; height:auto; } .logoRight{ width:62px; height:auto; }
-    h1{ margin:10px 0 6px; font-size:22px; font-weight:900; text-align:center; }
-    p{ margin:0 0 14px; color:var(--muted); text-align:center; font-weight:700; }
+    h1{ margin:10px 0 6px; font-size:22px; font-weight:900; text-align:center; letter-spacing:-0.2px; }
+    p{ margin:0 0 14px; color:var(--muted); text-align:center; font-weight:700; line-height:1.35; }
     .hint{ margin:0 0 16px; background:var(--yellow); border:1px solid rgba(0,0,0,.15); border-radius:14px; padding:12px 14px; text-align:center; font-weight:900; }
     .grid{ display:grid; grid-template-columns:1fr; gap:12px; margin-top:8px; }
     .btn{
@@ -34,6 +35,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
@@ -69,7 +71,7 @@
         return;
       }
 
-      // IMPORTANT: explicit /index.html avoids blank routing issues
+      // IMPORTANT: use /index.html explicitly (avoids blank root route)
       const base = `/index.html?t=${encodeURIComponent(t)}&type=`;
       document.getElementById("linkExc").href   = base + "excavator";
       document.getElementById("linkCrane").href = base + "crane";
