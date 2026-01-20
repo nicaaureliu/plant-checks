@@ -1,1 +1,195 @@
 
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Submitted</title>
+  <style>
+    :root{
+      --bg:#f6f7f9;
+      --card:#ffffff;
+      --text:#111;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --ok:#16a34a;
+      --btn:#111;
+      --btnText:#fff;
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .wrap{
+      max-width:640px;
+      margin:24px auto 40px;
+      padding:0 14px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow: 0 2px 14px rgba(0,0,0,.05);
+      padding:18px;
+      overflow:hidden;
+      text-align:center;
+    }
+    .tick{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:74px;
+      height:74px;
+      border-radius:999px;
+      border:2px solid rgba(22,163,74,.25);
+      background:rgba(22,163,74,.08);
+      margin:6px auto 10px;
+      font-size:42px;
+      color:var(--ok);
+      font-weight:900;
+    }
+    h1{
+      margin:0 0 6px;
+      font-size:26px;
+      font-weight:950;
+      letter-spacing:-0.3px;
+    }
+    .sub{
+      color:var(--muted);
+      font-weight:800;
+      margin:0 0 14px;
+      line-height:1.35;
+    }
+    .meta{
+      margin:0 auto 14px;
+      display:inline-block;
+      text-align:left;
+      border:1px dashed var(--line);
+      border-radius:14px;
+      padding:12px 14px;
+      background:#fff;
+      font-weight:800;
+      color:#111;
+      max-width:100%;
+    }
+    .meta div{
+      margin:4px 0;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .meta span{
+      color:#111;
+      font-weight:950;
+    }
+
+    .art{
+      margin:10px auto 14px;
+      max-width:360px;
+    }
+
+    .actions{
+      display:flex;
+      gap:12px;
+      margin-top:10px;
+    }
+    .actions a{
+      flex:1;
+      text-decoration:none;
+      display:inline-block;
+      padding:14px 14px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.6);
+      background:var(--btn);
+      color:var(--btnText);
+      font-weight:950;
+    }
+    .actions a.secondary{
+      background:#fff;
+      color:#111;
+      border:1px solid var(--line);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="tick">✓</div>
+      <h1>Submitted</h1>
+      <p class="sub">Nice one. The checklist has been sent and saved.</p>
+
+      <div class="meta" id="metaBox" style="display:none;"></div>
+
+      <!-- Funny safe SVG -->
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 420 260" width="100%" height="auto">
+          <rect x="0" y="0" width="420" height="260" rx="20" fill="#f8fafc" stroke="#e5e7eb"/>
+          <circle cx="120" cy="130" r="56" fill="#fff" stroke="#e5e7eb"/>
+          <circle cx="300" cy="130" r="56" fill="#fff" stroke="#e5e7eb"/>
+          <path d="M70 170 Q210 230 350 170" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
+          <circle cx="105" cy="120" r="8" fill="#111"/>
+          <circle cx="135" cy="120" r="8" fill="#111"/>
+          <circle cx="285" cy="120" r="8" fill="#111"/>
+          <circle cx="315" cy="120" r="8" fill="#111"/>
+          <text x="210" y="70" text-anchor="middle" font-size="22" font-weight="900" fill="#111">
+            Checklist complete
+          </text>
+          <text x="210" y="98" text-anchor="middle" font-size="14" font-weight="800" fill="#6b7280">
+            No drama today 👍
+          </text>
+        </svg>
+      </div>
+
+      <div class="actions">
+        <a class="secondary" id="backBtn" href="/selector.html">New check</a>
+        <a id="againBtn" href="/index.html">Back to form</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const qs = new URLSearchParams(location.search);
+      const type = qs.get("type") || "";
+      const plantId = qs.get("plantId") || "";
+      const date = qs.get("date") || "";
+      const t = qs.get("t") || "";
+
+      const meta = document.getElementById("metaBox");
+      if (type || plantId || date) {
+        meta.style.display = "inline-block";
+        meta.innerHTML = `
+          <div>Type: <span>${escapeHtml(type)}</span></div>
+          <div>Plant ID: <span>${escapeHtml(plantId)}</span></div>
+          <div>Date: <span>${escapeHtml(date)}</span></div>
+        `;
+      }
+
+      // Keep token with buttons so the flow stays smooth
+      const backBtn = document.getElementById("backBtn");
+      const againBtn = document.getElementById("againBtn");
+
+      if (t) {
+        backBtn.href = `/selector.html?t=${encodeURIComponent(t)}`;
+        if (type) {
+          againBtn.href = `/index.html?t=${encodeURIComponent(t)}&type=${encodeURIComponent(type)}`;
+        } else {
+          againBtn.href = `/index.html?t=${encodeURIComponent(t)}`;
+        }
+      }
+
+      function escapeHtml(s){
+        return String(s)
+          .replaceAll("&","&amp;")
+          .replaceAll("<","&lt;")
+          .replaceAll(">","&gt;")
+          .replaceAll('"',"&quot;")
+          .replaceAll("'","&#39;");
+      }
+    })();
+  </script>
+</body>
+</html>
