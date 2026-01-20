@@ -1,4 +1,4 @@
-
+<!-- public/submitted.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -7,33 +7,17 @@
   <title>Submitted</title>
   <style>
     :root{
-      --bg:#f6f7f9;
-      --card:#ffffff;
-      --text:#111;
-      --muted:#6b7280;
-      --line:#e5e7eb;
-      --ok:#16a34a;
-      --btn:#111;
-      --btnText:#fff;
-      --radius:16px;
+      --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
+      --ok:#16a34a; --btn:#111; --btnText:#fff; --radius:16px;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      background:var(--bg);
-      color:var(--text);
-    }
-    .wrap{
-      max-width:640px;
-      margin:24px auto 40px;
-      padding:0 14px;
-    }
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    .wrap{ max-width:640px; margin:24px auto 40px; padding:0 14px; }
     .card{
       background:var(--card);
       border:1px solid var(--line);
       border-radius:var(--radius);
-      box-shadow: 0 2px 14px rgba(0,0,0,.05);
+      box-shadow:0 2px 14px rgba(0,0,0,.05);
       padding:18px;
       overflow:hidden;
       text-align:center;
@@ -42,8 +26,7 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      width:74px;
-      height:74px;
+      width:74px; height:74px;
       border-radius:999px;
       border:2px solid rgba(22,163,74,.25);
       background:rgba(22,163,74,.08);
@@ -52,18 +35,8 @@
       color:var(--ok);
       font-weight:900;
     }
-    h1{
-      margin:0 0 6px;
-      font-size:26px;
-      font-weight:950;
-      letter-spacing:-0.3px;
-    }
-    .sub{
-      color:var(--muted);
-      font-weight:800;
-      margin:0 0 14px;
-      line-height:1.35;
-    }
+    h1{ margin:0 0 6px; font-size:26px; font-weight:950; letter-spacing:-0.3px; }
+    .sub{ color:var(--muted); font-weight:800; margin:0 0 14px; line-height:1.35; }
     .meta{
       margin:0 auto 14px;
       display:inline-block;
@@ -73,29 +46,12 @@
       padding:12px 14px;
       background:#fff;
       font-weight:800;
-      color:#111;
       max-width:100%;
     }
-    .meta div{
-      margin:4px 0;
-      color:var(--muted);
-      font-weight:900;
-    }
-    .meta span{
-      color:#111;
-      font-weight:950;
-    }
-
-    .art{
-      margin:10px auto 14px;
-      max-width:360px;
-    }
-
-    .actions{
-      display:flex;
-      gap:12px;
-      margin-top:10px;
-    }
+    .meta div{ margin:4px 0; color:var(--muted); font-weight:900; }
+    .meta span{ color:#111; font-weight:950; }
+    .art{ margin:10px auto 14px; max-width:360px; }
+    .actions{ display:flex; gap:12px; margin-top:10px; }
     .actions a{
       flex:1;
       text-decoration:none;
@@ -114,6 +70,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
@@ -123,7 +80,6 @@
 
       <div class="meta" id="metaBox" style="display:none;"></div>
 
-      <!-- Funny safe SVG -->
       <div class="art" aria-hidden="true">
         <svg viewBox="0 0 420 260" width="100%" height="auto">
           <rect x="0" y="0" width="420" height="260" rx="20" fill="#f8fafc" stroke="#e5e7eb"/>
@@ -144,8 +100,8 @@
       </div>
 
       <div class="actions">
-        <a class="secondary" id="backBtn" href="/selector.html">New check</a>
-        <a id="againBtn" href="/index.html">Back to form</a>
+        <a class="secondary" id="newBtn" href="/selector.html">New check</a>
+        <a id="backBtn" href="/index.html">Back to form</a>
       </div>
     </div>
   </div>
@@ -168,17 +124,13 @@
         `;
       }
 
-      // Keep token with buttons so the flow stays smooth
+      const newBtn = document.getElementById("newBtn");
       const backBtn = document.getElementById("backBtn");
-      const againBtn = document.getElementById("againBtn");
 
       if (t) {
-        backBtn.href = `/selector.html?t=${encodeURIComponent(t)}`;
-        if (type) {
-          againBtn.href = `/index.html?t=${encodeURIComponent(t)}&type=${encodeURIComponent(type)}`;
-        } else {
-          againBtn.href = `/index.html?t=${encodeURIComponent(t)}`;
-        }
+        newBtn.href = `/selector.html?t=${encodeURIComponent(t)}`;
+        if (type) backBtn.href = `/index.html?t=${encodeURIComponent(t)}&type=${encodeURIComponent(type)}`;
+        else backBtn.href = `/index.html?t=${encodeURIComponent(t)}`;
       }
 
       function escapeHtml(s){
