@@ -6,120 +6,34 @@
   <title>Select Checklist Type</title>
   <style>
     :root{
-      --bg:#f6f7f9;
-      --card:#ffffff;
-      --text:#111;
-      --muted:#6b7280;
-      --line:#e5e7eb;
-      --yellow:#ffd600;
-      --btn:#111;
-      --btnText:#fff;
-      --btnAlt:#f3f4f6;
-      --radius:16px;
+      --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
+      --yellow:#ffd600; --btnAlt:#f3f4f6; --radius:16px;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      background:var(--bg);
-      color:var(--text);
-    }
-    .wrap{
-      max-width:640px;
-      margin:24px auto 40px;
-      padding:0 14px;
-    }
-    .card{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow: 0 2px 14px rgba(0,0,0,.05);
-      padding:16px;
-      overflow:hidden;
-    }
-    .logos{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:10px;
-    }
-    .logoLeft{ width:120px; height:auto; }
-    .logoRight{ width:62px; height:auto; }
-
-    h1{
-      margin:10px 0 6px;
-      font-size:22px;
-      font-weight:900;
-      letter-spacing:-0.2px;
-      text-align:center;
-    }
-    p{
-      margin:0 0 14px;
-      color:var(--muted);
-      text-align:center;
-      line-height:1.35;
-      font-weight:700;
-    }
-    .hint{
-      margin:0 0 16px;
-      background:var(--yellow);
-      border:1px solid rgba(0,0,0,.15);
-      border-radius:14px;
-      padding:12px 14px;
-      text-align:center;
-      font-weight:900;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-      margin-top:8px;
-    }
-
-    /* IMPORTANT: use <a> links so navigation works even if JS is slow */
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    .wrap{ max-width:640px; margin:24px auto 40px; padding:0 14px; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 2px 14px rgba(0,0,0,.05); padding:16px; }
+    .logos{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .logoLeft{ width:120px; height:auto; } .logoRight{ width:62px; height:auto; }
+    h1{ margin:10px 0 6px; font-size:22px; font-weight:900; text-align:center; }
+    p{ margin:0 0 14px; color:var(--muted); text-align:center; font-weight:700; }
+    .hint{ margin:0 0 16px; background:var(--yellow); border:1px solid rgba(0,0,0,.15); border-radius:14px; padding:12px 14px; text-align:center; font-weight:900; }
+    .grid{ display:grid; grid-template-columns:1fr; gap:12px; margin-top:8px; }
     .btn{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:16px 16px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:var(--btnAlt);
-      font-weight:900;
-      font-size:18px;
-      color:#111;
-      text-decoration:none;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:16px; border-radius:14px; border:1px solid var(--line);
+      background:var(--btnAlt); font-weight:900; font-size:18px;
+      color:#111; text-decoration:none;
     }
-    .btn:active{ transform: translateY(1px); }
-    .pill{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:13px;
-      font-weight:900;
-      color:#111;
-      white-space:nowrap;
-    }
-
-    .bad{
-      color:#dc2626;
-      font-weight:900;
-      text-align:center;
-      margin-top:12px;
-    }
-
-    @media (min-width: 680px){
+    .pill{ background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:13px; font-weight:900; white-space:nowrap; }
+    .bad{ color:#dc2626; font-weight:900; text-align:center; margin-top:12px; }
+    @media (min-width:680px){
       .grid{ grid-template-columns:1fr 1fr 1fr; }
       .btn{ justify-content:center; flex-direction:column; }
       .pill{ margin-top:6px; }
     }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
@@ -133,15 +47,9 @@
       <div class="hint">Select the correct plant type to continue</div>
 
       <div class="grid">
-        <a class="btn" id="linkExc" href="#">
-          Excavator <span class="pill">QPFPL5.2</span>
-        </a>
-        <a class="btn" id="linkCrane" href="#">
-          Crane <span class="pill">QPFPL5.0</span>
-        </a>
-        <a class="btn" id="linkDump" href="#">
-          Dumper <span class="pill">QPFPL5.1</span>
-        </a>
+        <a class="btn" id="linkExc" href="#">Excavator <span class="pill">QPFPL5.2</span></a>
+        <a class="btn" id="linkCrane" href="#">Crane <span class="pill">QPFPL5.0</span></a>
+        <a class="btn" id="linkDump" href="#">Dumper <span class="pill">QPFPL5.1</span></a>
       </div>
 
       <div id="err" class="bad" style="display:none;"></div>
@@ -161,9 +69,8 @@
         return;
       }
 
-      // IMPORTANT: send to "/" instead of "/index.html" (Cloudflare Pages safest)
-      const base = `/?t=${encodeURIComponent(t)}&type=`;
-
+      // IMPORTANT: explicit /index.html avoids blank routing issues
+      const base = `/index.html?t=${encodeURIComponent(t)}&type=`;
       document.getElementById("linkExc").href   = base + "excavator";
       document.getElementById("linkCrane").href = base + "crane";
       document.getElementById("linkDump").href  = base + "dumper";
