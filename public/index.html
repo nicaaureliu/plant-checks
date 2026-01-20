@@ -27,9 +27,6 @@
       background:var(--bg);
       color:var(--text);
     }
-
-    .hidden{ display:none !important; }
-
     .wrap{
       max-width:860px;
       margin:18px auto 40px;
@@ -54,7 +51,7 @@
       margin-bottom:10px;
     }
 
-    /* ===== Header (no absolute logos) ===== */
+    /* Header: no absolute logos (prevents overlap) */
     .sheetHeader{
       padding:10px 10px 0;
       text-align:center;
@@ -64,17 +61,10 @@
       align-items:center;
       justify-content:space-between;
       gap:10px;
+      flex-wrap:wrap;
     }
-    .logoLeft{
-      width:92px;
-      height:auto;
-      flex:0 0 auto;
-    }
-    .logoRight{
-      width:58px;
-      height:auto;
-      flex:0 0 auto;
-    }
+    .logoLeft{ width:92px; height:auto; flex:0 0 auto; }
+    .logoRight{ width:58px; height:auto; flex:0 0 auto; }
     .headerText{
       flex:1 1 auto;
       min-width:0;
@@ -94,7 +84,7 @@
       line-height:1.15;
     }
 
-    /* ===== Meta row wrap fix ===== */
+    /* Meta row: must wrap on mobile */
     .metaRow{
       display:flex;
       justify-content:space-between;
@@ -184,10 +174,7 @@
       overflow:hidden;
       background:#fff;
     }
-    table{
-      width:100%;
-      border-collapse:collapse;
-    }
+    table{ width:100%; border-collapse:collapse; }
     thead th{
       background:#fafafa;
       border-bottom:1px solid var(--line);
@@ -197,24 +184,14 @@
       text-align:center;
       font-weight:800;
     }
-    thead th.itemHead{
-      text-align:left;
-      padding-left:12px;
-    }
+    thead th.itemHead{ text-align:left; padding-left:12px; }
     tbody td{
       border-top:1px solid var(--line);
       padding:10px 8px;
       vertical-align:middle;
     }
-    td.item{
-      width:46%;
-      font-size:14px;
-      padding-left:12px;
-    }
-    td.day{
-      text-align:center;
-      width:7.7%;
-    }
+    td.item{ width:46%; font-size:14px; padding-left:12px; }
+    td.day{ text-align:center; width:7.7%; }
     .markBtn{
       width:38px;
       height:34px;
@@ -224,10 +201,7 @@
       font-weight:900;
       cursor:pointer;
     }
-    .markBtn.disabled{
-      opacity:.35;
-      cursor:not-allowed;
-    }
+    .markBtn.disabled{ opacity:.35; cursor:not-allowed; }
 
     #mobileChecks{ display:none; }
     .mobileRow{
@@ -239,12 +213,7 @@
       border-top:1px solid var(--line);
       background:#fff;
     }
-    .mobileLabel{
-      font-size:14px;
-      line-height:1.25;
-      flex:1;
-      padding-right:6px;
-    }
+    .mobileLabel{ font-size:14px; line-height:1.25; flex:1; padding-right:6px; }
     .mobileBtn{
       min-width:54px;
       height:40px;
@@ -270,10 +239,7 @@
       gap:10px;
       margin-bottom:10px;
     }
-    .sigTop .label{
-      font-weight:800;
-      color:var(--muted);
-    }
+    .sigTop .label{ font-weight:800; color:var(--muted); }
     #sig{
       width:100%;
       height:120px;
@@ -325,105 +291,15 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
-    /* ===== Overlays (Type Gate + Success Screen) ===== */
-    .overlay{
-      position:fixed;
-      inset:0;
-      background:rgba(17,17,17,.35);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      z-index:9999;
-    }
-    .overlayCard{
-      width:100%;
-      max-width:520px;
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:18px;
-      box-shadow:0 18px 60px rgba(0,0,0,.22);
-      padding:18px;
-      text-align:center;
-    }
-    .overlayTitle{
-      font-weight:900;
-      font-size:22px;
-      margin:2px 0 6px;
-    }
-    .overlayText{
-      color:var(--muted);
-      margin:0 0 14px;
-      line-height:1.35;
-      font-weight:700;
-    }
-    .overlayBtns{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-      margin-top:10px;
-    }
-    .overlayBtns button{
-      padding:14px 14px;
-      border-radius:14px;
-      border:1px solid rgba(0,0,0,.6);
-      background:var(--btn);
-      color:var(--btnText);
-      font-weight:900;
-      cursor:pointer;
-      font-size:16px;
-    }
-    .overlayBtns button.alt{
-      background:var(--btnAlt);
-      color:var(--text);
-      border:1px solid var(--line);
-    }
-    .tickBadge{
-      width:66px;
-      height:66px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      margin:6px auto 8px;
-      background:rgba(22,163,74,.12);
-      border:2px solid rgba(22,163,74,.35);
-      color:var(--ok);
-      font-size:34px;
-      font-weight:900;
-    }
-    .successDetails{
-      margin:6px 0 12px;
-      font-weight:800;
-      color:var(--muted);
-    }
-    .funnyWrap{
-      display:flex;
-      justify-content:center;
-      margin:10px 0 14px;
-    }
-    .funnyWrap svg{
-      width:220px;
-      max-width:100%;
-      height:auto;
-    }
-
     @media (max-width: 760px){
       .logoLeft{ width:84px; }
       .logoRight{ width:54px; }
 
-      .headerRow{ flex-wrap:wrap; }
-      .headerText{
-        flex:0 0 100%;
-        order:3;
-        padding-top:6px;
-      }
+      /* title goes below logos on phone */
+      .headerText{ flex:0 0 100%; order:3; padding-top:6px; }
 
-      .metaRow{
-        flex-direction:column;
-        align-items:flex-start;
-        gap:6px;
-      }
+      /* stack meta line */
+      .metaRow{ flex-direction:column; align-items:flex-start; gap:6px; }
       .metaRow > span{ flex:0 0 auto; }
 
       .formRef{ font-size:24px; }
@@ -437,7 +313,6 @@
         border:1px solid var(--line);
         border-radius:14px;
         overflow:hidden;
-        background:#fff;
       }
     }
   </style>
@@ -447,55 +322,7 @@
 </head>
 
 <body>
-
-  <!-- Type Gate Overlay -->
-  <div id="typeGate" class="overlay hidden">
-    <div class="overlayCard">
-      <div class="overlayTitle">Choose equipment type</div>
-      <div class="overlayText">To avoid mistakes, select the correct checklist before you start.</div>
-      <div class="overlayBtns">
-        <button type="button" data-type="excavator">Excavator</button>
-        <button type="button" data-type="crane">Crane</button>
-        <button type="button" data-type="dumper">Dumper</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Success Overlay -->
-  <div id="successScreen" class="overlay hidden">
-    <div class="overlayCard">
-      <div class="tickBadge">✓</div>
-      <div class="overlayTitle">Submitted</div>
-      <div id="successDetails" class="successDetails"></div>
-
-      <div class="funnyWrap" aria-hidden="true">
-        <!-- Simple “funny” digger SVG (no external assets needed) -->
-        <svg viewBox="0 0 420 240" xmlns="http://www.w3.org/2000/svg">
-          <rect x="40" y="140" width="260" height="46" rx="12" fill="#111"/>
-          <rect x="70" y="108" width="140" height="44" rx="12" fill="#FFD600" stroke="#111" stroke-width="6"/>
-          <rect x="92" y="118" width="52" height="26" rx="8" fill="#fff" stroke="#111" stroke-width="6"/>
-          <circle cx="100" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
-          <circle cx="160" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
-          <circle cx="220" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
-          <circle cx="280" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
-          <path d="M230 112 C280 70, 320 66, 356 78" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
-          <path d="M356 78 L388 92" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
-          <path d="M388 92 C402 98, 404 112, 392 120 C372 134, 352 122, 360 104" fill="#FFD600" stroke="#111" stroke-width="8"/>
-          <text x="78" y="78" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="22" font-weight="900" fill="#111">
-            Nice one 👍
-          </text>
-        </svg>
-      </div>
-
-      <div class="overlayBtns">
-        <button id="successDoneBtn" class="alt" type="button">Back</button>
-        <button id="successNewBtn" type="button">New check</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main App (hidden until type chosen) -->
-  <div id="appRoot" class="wrap hidden">
+  <div class="wrap">
     <div class="card">
       <div class="topbar">
         <div id="buildTag">BUILD:</div>
@@ -607,6 +434,5 @@
       <div id="status">Ready.</div>
     </div>
   </div>
-
 </body>
 </html>
