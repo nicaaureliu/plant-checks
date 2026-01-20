@@ -1,9 +1,20 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v12.3";
+  const BUILD = "v12.4";
   const $ = (id) => document.getElementById(id);
 
+  // --- If user lands on index without type, force them through selector page (prevents wrong form) ---
+  const qs = new URLSearchParams(location.search);
+  const TOKEN = qs.get("t") || "";
+
+  // If there is no type in the URL (and we do have a token), send to selector first
+  if (!qs.get("type") && TOKEN) {
+    location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
+    return;
+  }
+
   const RECIPIENTS = [
+    { name: "Choose from", email: "" },
     { name: "Alin Pop", email: "apop@activetunnelling.com" },
     { name: "Andrew Hubbard", email: "ahubbard@activetunnelling.com" },
     { name: "Aureliu Nica", email: "anica@activetunnelling.com" },
@@ -45,7 +56,7 @@
       "SWING GEAR OIL LEVEL, Fluid Level",
       "ENGINE OIL, Fluid Level",
       "ALL HOSES, Cracks, Wear Spots, Leaks",
-      "ALL BELTS, Tension, Wear, Cracks",
+      "ALL BELTS, TENSION, Wear, Cracks",
       "OVERALL ENGINE COMPARTMENT, Rubbish, Dirt, Leaks",
       "SEAT, Adjustment",
       "SEAT BELT & MOUNTING, Damage, Wear, Adjustment",
@@ -112,9 +123,6 @@
     ]
   };
 
-  const qs = new URLSearchParams(location.search);
-  const TOKEN = qs.get("t") || "";
-
   let equipmentType = (qs.get("type") || "excavator").toLowerCase();
   if (!["excavator","crane","dumper"].includes(equipmentType)) equipmentType = "excavator";
 
@@ -124,69 +132,6 @@
   let activeDay = 0;
 
   const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-
-  // -----------------------------
-  // NEW: Plant ID cleaner (NO spaces)
-  // -----------------------------
-  const cleanPlantId = (v) =>
-    (v || "")
-      .toUpperCase()
-      .replace(/\s+/g, ""); // removes ALL whitespace
-
-  // -----------------------------
-  // NEW: Persist "Submitted" status for the current key
-  // -----------------------------
-  const LAST_SUBMIT_KEY = "plantChecks_lastSubmitKey";
-
-  const currentSubmitKey = () => {
-    const plantId = cleanPlantId($("plantId")?.value || "");
-    const dateISO = ($("date")?.value || "").trim();
-    if (!plantId || !dateISO) return "";
-    return `${equipmentType}|${plantId}|${dateISO}`;
-  };
-
-  const wasSubmittedForCurrent = () => {
-    try {
-      const key = currentSubmitKey();
-      if (!key) return false;
-      return localStorage.getItem(LAST_SUBMIT_KEY) === key;
-    } catch {
-      return false;
-    }
-  };
-
-  const setSubmittedForCurrent = () => {
-    try {
-      const key = currentSubmitKey();
-      if (!key) return;
-      localStorage.setItem(LAST_SUBMIT_KEY, key);
-    } catch {}
-  };
-
-  const clearSubmittedForCurrent = () => {
-    try {
-      const key = currentSubmitKey();
-      if (!key) return;
-      if (localStorage.getItem(LAST_SUBMIT_KEY) === key) {
-        localStorage.removeItem(LAST_SUBMIT_KEY);
-      }
-    } catch {}
-  };
-
-  const showReady = () => {
-    const status = $("status");
-    if (status) status.textContent = "Ready.";
-  };
-
-  const showSubmitted = () => {
-    const status = $("status");
-    if (status) status.innerHTML = `<span class="ok">Submitted ✓</span>`;
-  };
-
-  const showReadyOrSubmitted = () => {
-    if (wasSubmittedForCurrent()) showSubmitted();
-    else showReady();
-  };
 
   const isoToday = () => {
     const d = new Date();
@@ -270,20 +215,13 @@
     const dateISO = $("date").value || isoToday();
     $("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
 
-    // NEW: preview also no-spaces + uppercase
-    const pid = cleanPlantId($("plantId").value || "");
+    const pid = ($("plantId").value || "").trim();
     $("machineNoPreview").textContent = pid || "—";
   }
 
   function fillRecipients() {
     const sel = $("reportedTo");
     sel.innerHTML = "";
-
-    // NEW: "Choose from" first
-    const opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = "Choose from";
-    sel.appendChild(opt0);
 
     RECIPIENTS.forEach((r) => {
       const opt = document.createElement("option");
@@ -292,8 +230,8 @@
       sel.appendChild(opt);
     });
 
-    // Default to "Choose from" unless something already selected
-    if (!sel.value) sel.value = "";
+    // Default to "Choose from"
+    sel.value = "";
   }
 
   function renderTable() {
@@ -325,10 +263,6 @@
           btn.disabled = true;
         } else {
           btn.addEventListener("click", () => {
-            // NEW: editing after submit -> switch back to Ready
-            clearSubmittedForCurrent();
-            showReady();
-
             const cur = weekStatuses?.[r]?.[d] || null;
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
@@ -366,10 +300,6 @@
       btn.textContent = markText(weekStatuses?.[r]?.[activeDay] || null);
 
       btn.addEventListener("click", () => {
-        // NEW: editing after submit -> switch back to Ready
-        clearSubmittedForCurrent();
-        showReady();
-
         const cur = weekStatuses?.[r]?.[activeDay] || null;
         const next = cycleStatus(cur);
         weekStatuses[r][activeDay] = next;
@@ -397,7 +327,32 @@
     $("hours").value = d.hours || "";
     $("defectsText").value = d.defectsText || "";
     $("actionTaken").value = d.actionTaken || "";
-    if (d.reportedToEmail) $("reportedTo").value = d.reportedToEmail;
+    if (d.reportedToEmail !== undefined) $("reportedTo").value = d.reportedToEmail;
+  }
+
+  // ----- "Submitted" marker (per plantId/date/type) -----
+  function submittedKey() {
+    const plantId = ($("plantId").value || "").trim().toUpperCase();
+    const dateISO = $("date").value || "";
+    return `submitted:${TOKEN}:${equipmentType}:${plantId}:${dateISO}`;
+  }
+
+  function markSubmitted() {
+    try { sessionStorage.setItem(submittedKey(), "1"); } catch {}
+  }
+
+  function isMarkedSubmitted() {
+    try { return sessionStorage.getItem(submittedKey()) === "1"; } catch { return false; }
+  }
+
+  function showSubmittedStatus() {
+    const statusEl = $("status");
+    statusEl.innerHTML = `<span class="ok">✔ Submitted ✓</span>`;
+  }
+
+  function showReadyStatus() {
+    const statusEl = $("status");
+    statusEl.textContent = "Ready.";
   }
 
   // -------- Signature pad --------
@@ -447,12 +402,7 @@
     canvas.addEventListener("touchmove", move, { passive:false });
     window.addEventListener("touchend", end);
 
-    $("clearSig").addEventListener("click", () => {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      // optional: mark as edited
-      clearSubmittedForCurrent();
-      showReady();
-    });
+    $("clearSig").addEventListener("click", () => ctx.clearRect(0,0,canvas.width,canvas.height));
   }
 
   function signatureDataUrl() {
@@ -470,8 +420,7 @@
   // -------- Load week from KV --------
   async function loadWeekFromKV() {
     const status = $("status");
-
-    const plantId = cleanPlantId($("plantId").value || "");
+    const plantId = ($("plantId").value || "").trim().toUpperCase();
     const dateISO = $("date").value || "";
 
     setHeaderTexts();
@@ -482,7 +431,9 @@
       weekStatuses = labels.map(() => Array(7).fill(null));
       weekDaily = Array(7).fill(null);
       renderChecks();
-      status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
+
+      if (!TOKEN) status.innerHTML = `<span class="bad">✖ Missing token (t=...)</span>`;
+      else showReadyStatus();
       return;
     }
 
@@ -516,18 +467,17 @@
 
         renderChecks();
         applyDailyToInputs();
-
-        // NEW: show Submitted if this record was just submitted
-        showReadyOrSubmitted();
       } else {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
         weekDaily = Array(7).fill(null);
         renderChecks();
-
-        // NEW: show Submitted if this record was just submitted
-        showReadyOrSubmitted();
       }
+
+      // Do not overwrite submitted status if it was just submitted for this plant/date/type
+      if (isMarkedSubmitted()) showSubmittedStatus();
+      else showReadyStatus();
+
     } catch {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
@@ -797,11 +747,12 @@
     const statusEl = $("status");
     const btn = $("submitBtn");
 
-    // NEW: Plant ID no spaces + uppercase
-    const plantId = cleanPlantId($("plantId").value || "");
+    // Plant ID: UPPERCASE + NO SPACES
+    let plantId = ($("plantId").value || "");
+    plantId = plantId.replace(/\s+/g, "").toUpperCase();
     $("plantId").value = plantId;
 
-    const dateISO = ($("date").value || "").trim();
+    const dateISO = $("date").value || "";
     const site = ($("site").value || "").trim();
     const operator = ($("operator").value || "").trim();
     const hours = ($("hours").value || "").trim();
@@ -856,13 +807,21 @@
         return;
       }
 
-      // NEW: store + show Submitted ✓ (green)
-      setSubmittedForCurrent();
-      showSubmitted();
-
+      // Mark submitted and show status immediately
+      markSubmitted();
+      showSubmittedStatus();
       btn.disabled = false;
 
-      await loadWeekFromKV();
+      // After hitting submit, go to confirmation page (green tick + funny image)
+      const url =
+        `/submitted.html?t=${encodeURIComponent(TOKEN)}` +
+        `&type=${encodeURIComponent(equipmentType)}` +
+        `&plantId=${encodeURIComponent(plantId)}` +
+        `&date=${encodeURIComponent(dateISO)}`;
+
+      location.href = url;
+      return;
+
     } catch (e) {
       statusEl.innerHTML = `<span class="bad">✖ ${e?.message || "Error"}</span>`;
       btn.disabled = false;
@@ -875,7 +834,6 @@
       equipmentType = "excavator";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
-      clearSubmittedForCurrent();
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
@@ -885,7 +843,6 @@
       equipmentType = "crane";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
-      clearSubmittedForCurrent();
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
@@ -895,34 +852,26 @@
       equipmentType = "dumper";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
-      clearSubmittedForCurrent();
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
     });
 
     $("date").addEventListener("change", () => {
-      clearSubmittedForCurrent();
+      setHeaderTexts();
       loadWeekFromKV();
     });
 
-    // NEW: Plant ID input removes spaces automatically
+    // Plant ID: UPPERCASE + NO SPACES (live)
     $("plantId").addEventListener("input", () => {
-      $("plantId").value = cleanPlantId($("plantId").value || "");
-      clearSubmittedForCurrent();
+      const cleaned = ($("plantId").value || "").replace(/\s+/g, "").toUpperCase();
+      if ($("plantId").value !== cleaned) $("plantId").value = cleaned;
       setHeaderTexts();
-      showReady();
     });
 
     $("plantId").addEventListener("blur", loadWeekFromKV);
 
     window.addEventListener("resize", () => renderChecks());
-
-    // Optional: if they change "Reported to", mark as Ready
-    $("reportedTo").addEventListener("change", () => {
-      clearSubmittedForCurrent();
-      showReady();
-    });
 
     $("submitBtn").addEventListener("click", submit);
   }
