@@ -23,7 +23,7 @@
     *{box-sizing:border-box}
     body{
       margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background:var(--bg);
       color:var(--text);
     }
@@ -51,19 +51,34 @@
       margin-bottom:10px;
     }
 
+    /* ===== Header (FIXED: no absolute logos) ===== */
     .sheetHeader{
-      position:relative;
       padding:10px 10px 0;
       text-align:center;
     }
-    .logoLeft, .logoRight{
-      position:absolute;
-      top:6px;
+    .headerRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .logoLeft{
       width:92px;
       height:auto;
+      flex:0 0 auto;
     }
-    .logoLeft{ left:10px; }
-    .logoRight{ right:10px; width:58px; }
+    .logoRight{
+      width:58px;
+      height:auto;
+      flex:0 0 auto;
+    }
+    .headerText{
+      flex:1 1 auto;
+      min-width:0;
+      text-align:center;
+      padding:0 6px;
+    }
+
     .formRef{
       font-weight:800;
       font-size:26px;
@@ -153,7 +168,6 @@
       line-height:1.4;
     }
 
-    /* Desktop table */
     .tableWrap{
       margin:0 6px 14px;
       border:1px solid var(--line);
@@ -206,7 +220,6 @@
       cursor:not-allowed;
     }
 
-    /* Mobile list (app.js fills #mobileChecks on mobile) */
     #mobileChecks{ display:none; }
     .mobileRow{
       display:flex;
@@ -303,23 +316,37 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
+    /* Mobile tweaks + header behaviour */
     @media (max-width: 760px){
       .logoLeft{ width:84px; }
       .logoRight{ width:54px; }
+
+      /* Key: let logos stay on a row, and force title below (prevents overlap) */
+      .headerRow{
+        flex-wrap:wrap;
+      }
+      .headerText{
+        flex: 0 0 100%;
+        order: 3;         /* title goes below logos */
+        padding-top: 6px;
+      }
+
       .formRef{ font-size:24px; }
       .sheetTitle{ font-size:18px; }
       .checksTitle{ font-size:30px; }
 
-      /* Hide desktop table; show mobile list */
       .tableWrap{ display:none; }
-      #mobileChecks{ display:block; margin:0 6px 14px; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+      #mobileChecks{
+        display:block;
+        margin:0 6px 14px;
+        border:1px solid var(--line);
+        border-radius:14px;
+        overflow:hidden;
+      }
     }
   </style>
 
-  <!-- jsPDF (UMD build provides window.jspdf.jsPDF) -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
-
-  <!-- Your app -->
   <script src="/app.js" defer></script>
 </head>
 
@@ -332,11 +359,14 @@
       </div>
 
       <div class="sheetHeader">
-        <img class="logoLeft" src="/assets/atl-logo.png" alt="Active Tunnelling" />
-        <img class="logoRight" src="/assets/tp.png" alt="TP" />
-
-        <div id="formRef" class="formRef">QPFPL5.2</div>
-        <div id="sheetTitle" class="sheetTitle">Excavator Pre-Use Inspection Checklist</div>
+        <div class="headerRow">
+          <img class="logoLeft" src="/assets/atl-logo.png" alt="Active Tunnelling" />
+          <div class="headerText">
+            <div id="formRef" class="formRef">QPFPL5.2</div>
+            <div id="sheetTitle" class="sheetTitle">Excavator Pre-Use Inspection Checklist</div>
+          </div>
+          <img class="logoRight" src="/assets/tp.png" alt="TP" />
+        </div>
       </div>
 
       <div class="metaRow">
@@ -354,7 +384,7 @@
         <button id="btnDump" type="button">Dumper</button>
       </div>
 
-      <!-- Reordered fields exactly as requested:
+      <!-- Reordered fields:
            Date -> Plant ID -> Hours -> Operator -> Site -->
       <div class="form">
         <div class="field">
@@ -388,7 +418,6 @@
         Only the column for your selected date is editable. Click the small box to cycle ✓ / X / N/A.
       </p>
 
-      <!-- Desktop checks table -->
       <div class="tableWrap">
         <table>
           <thead>
@@ -401,7 +430,6 @@
         </table>
       </div>
 
-      <!-- Mobile checks list (app.js fills this on mobile) -->
       <div id="mobileChecks"></div>
 
       <div class="form" style="padding-top:6px;">
