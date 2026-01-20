@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v12.8";
+  const BUILD = "v12.9";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -116,7 +116,7 @@
   const qs = new URLSearchParams(location.search);
   const TOKEN = qs.get("t") || "";
 
-  // Force users through selector if type missing
+  // Force users through selector if type missing (prevents miscompletes)
   if (!qs.get("type") && TOKEN) {
     location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
     return;
@@ -125,7 +125,7 @@
   const LOCK_TYPE = !!qs.get("type");
 
   let equipmentType = (qs.get("type") || "excavator").toLowerCase();
-  if (!["excavator","crane","dumper"].includes(equipmentType)) equipmentType = "excavator";
+  if (!["excavator", "crane", "dumper"].includes(equipmentType)) equipmentType = "excavator";
 
   let labels = [...CHECKLISTS[equipmentType]];
   let weekStatuses = labels.map(() => Array(7).fill(null));
@@ -135,31 +135,31 @@
   let photos = labels.map(() => Array(7).fill(null).map(() => []));
 
   let activeDay = 0;
-  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   const isoToday = () => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
   const isoToUK = (iso) => {
     if (!iso || !String(iso).includes("-")) return iso || "";
-    const [y,m,d] = String(iso).split("-");
+    const [y, m, d] = String(iso).split("-");
     return `${d}/${m}/${y}`;
   };
 
   const getWeekCommencingISO = (dateStr) => {
-    const [y,m,d] = String(dateStr).split("-").map(Number);
-    const dt = new Date(y, m-1, d);
+    const [y, m, d] = String(dateStr).split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
     const day = dt.getDay();
     const diffToMon = (day === 0 ? -6 : 1 - day);
     dt.setDate(dt.getDate() + diffToMon);
-    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
   };
 
   const getDayIndexMon0 = (dateStr) => {
-    const [y,m,d] = String(dateStr).split("-").map(Number);
-    const dt = new Date(y, m-1, d);
+    const [y, m, d] = String(dateStr).split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
     const day = dt.getDay();
     return day === 0 ? 6 : day - 1;
   };
@@ -194,7 +194,7 @@
     }
   }
 
-  async function compressImageToDataUrl(file, maxW = 1280, quality = 0.75) {
+  async function compressImageToDataUrl(file, maxW = 1400, quality = 0.78) {
     const original = await new Promise((resolve, reject) => {
       const r = new FileReader();
       r.onload = () => resolve(r.result);
@@ -269,12 +269,7 @@
     if (c) c.style.display = "none";
 
     const wrap = (a && a.parentElement) || (b && b.parentElement) || (c && c.parentElement);
-    if (wrap && wrap.classList) {
-      const txt = (wrap.innerText || "").toLowerCase();
-      if (txt.includes("excavator") && txt.includes("crane") && txt.includes("dumper")) {
-        wrap.style.display = "none";
-      }
-    }
+    if (wrap && wrap.classList) wrap.style.display = "none";
   }
 
   function makePhotoControls(r, d, onUpdated) {
@@ -380,7 +375,6 @@
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
 
-            // if not DEFECT, clear photos for that row/day (keeps evidence consistent)
             if (next !== "DEFECT") photos[r][d] = [];
 
             btn.textContent = markText(next);
@@ -484,8 +478,8 @@
       return { x, y };
     }
 
-    function start(e){ drawing = true; last = pos(e); e.preventDefault(); }
-    function move(e){
+    function start(e) { drawing = true; last = pos(e); e.preventDefault(); }
+    function move(e) {
       if (!drawing) return;
       const p = pos(e);
       ctx.beginPath();
@@ -495,17 +489,17 @@
       last = p;
       e.preventDefault();
     }
-    function end(){ drawing = false; last = null; }
+    function end() { drawing = false; last = null; }
 
     canvas.addEventListener("mousedown", start);
     canvas.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
 
-    canvas.addEventListener("touchstart", start, { passive:false });
-    canvas.addEventListener("touchmove", move, { passive:false });
+    canvas.addEventListener("touchstart", start, { passive: false });
+    canvas.addEventListener("touchmove", move, { passive: false });
     window.addEventListener("touchend", end);
 
-    $("clearSig").addEventListener("click", () => ctx.clearRect(0,0,canvas.width,canvas.height));
+    $("clearSig").addEventListener("click", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
   }
 
   function signatureDataUrl() {
@@ -523,7 +517,7 @@
   // -------- Load week from KV --------
   async function loadWeekFromKV() {
     const status = $("status");
-    const plantId = (($("plantId").value || "").replace(/\s+/g,"")).trim().toUpperCase();
+    const plantId = (($("plantId").value || "").replace(/\s+/g, "")).trim().toUpperCase();
     const dateISO = $("date").value || "";
 
     setHeaderTexts();
@@ -543,7 +537,7 @@
     status.textContent = "Loading week…";
 
     try {
-      const { resp, data } = await fetchJson(url, { cache:"no-store" }, 12000);
+      const { resp, data } = await fetchJson(url, { cache: "no-store" }, 12000);
 
       if (!resp.ok) {
         labels = [...CHECKLISTS[equipmentType]];
@@ -561,7 +555,7 @@
         weekStatuses = rec.statuses;
         weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
 
-        // Photos are NOT loaded/saved from KV in Option 1 (PDF-only). Always start blank.
+        // Photos are PDF-only; always start blank
         photos = labels.map(() => Array(7).fill(null).map(() => []));
 
         if (rec.site) {
@@ -592,10 +586,10 @@
     }
   }
 
-  // -------- PDF: checklist page as before + unlimited photo pages --------
+  // -------- PDF: checklist page + unlimited photo pages (COVER fit; no shrink) --------
   async function makePdfBase64(payload, defectPhotos) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
+    const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
 
     const margin = 28;
     const pageW = doc.internal.pageSize.getWidth();
@@ -604,7 +598,7 @@
 
     const isoToUK2 = (iso) => {
       if (!iso || !String(iso).includes("-")) return iso || "";
-      const [y,m,d] = String(iso).split("-");
+      const [y, m, d] = String(iso).split("-");
       return `${d}/${m}/${y}`;
     };
 
@@ -617,7 +611,7 @@
     };
 
     async function fetchAsDataUrl(url) {
-      const res = await fetch(url, { cache:"no-store" });
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) return null;
       const blob = await res.blob();
       return await new Promise((resolve, reject) => {
@@ -642,10 +636,43 @@
       return { w: imgW * s, h: imgH * s };
     }
 
+    function coverIntoBox(imgW, imgH, boxW, boxH) {
+      const s = Math.max(boxW / imgW, boxH / imgH);
+      return { w: imgW * s, h: imgH * s };
+    }
+
+    async function addImageCover(dataUrl, x, y, w, h) {
+      // If jsPDF clip APIs exist, do proper cover+crop.
+      // If not, fall back to contain (still no distortion).
+      try {
+        const sz = await getImageSize(String(dataUrl));
+        const fitted = coverIntoBox(sz.w, sz.h, w, h);
+        const drawX = x - (fitted.w - w) / 2;
+        const drawY = y - (fitted.h - h) / 2;
+
+        if (typeof doc.saveGraphicsState === "function" && typeof doc.clip === "function" && typeof doc.restoreGraphicsState === "function") {
+          doc.saveGraphicsState();
+          doc.rect(x, y, w, h);
+          doc.clip();
+          doc.addImage(String(dataUrl), "JPEG", drawX, drawY, fitted.w, fitted.h);
+          doc.restoreGraphicsState();
+        } else {
+          // fallback: contain fit (no crop, no distortion)
+          const contained = fitIntoBox(sz.w, sz.h, w, h);
+          const cx = x + (w - contained.w) / 2;
+          const cy = y + (h - contained.h) / 2;
+          doc.addImage(String(dataUrl), "JPEG", cx, cy, contained.w, contained.h);
+        }
+      } catch {
+        // ignore; caller will show message
+        throw new Error("embed-failed");
+      }
+    }
+
     function drawOkTick(cx, cy) {
       doc.setFont("zapfdingbats", "normal");
       doc.setFontSize(13);
-      doc.text(String.fromCharCode(52), cx, cy, { align:"center", baseline:"middle" });
+      doc.text(String.fromCharCode(52), cx, cy, { align: "center", baseline: "middle" });
     }
 
     function drawMark(status, cx, cy) {
@@ -653,12 +680,12 @@
       doc.setFont("helvetica", "bold");
       if (status === "DEFECT") {
         doc.setFontSize(10);
-        doc.text("X", cx, cy, { align:"center", baseline:"middle" });
+        doc.text("X", cx, cy, { align: "center", baseline: "middle" });
         return;
       }
       if (status === "NA") {
         doc.setFontSize(7.2);
-        doc.text("N/A", cx, cy, { align:"center", baseline:"middle" });
+        doc.text("N/A", cx, cy, { align: "center", baseline: "middle" });
       }
     }
 
@@ -672,7 +699,7 @@
     let y = margin;
 
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
-    const tp  = await fetchAsDataUrl("/assets/tp.png");
+    const tp = await fetchAsDataUrl("/assets/tp.png");
 
     const leftBoxW = 150, leftBoxH = 40;
     const rightBoxW = 56, rightBoxH = 56;
@@ -693,35 +720,35 @@
       } catch {}
     }
 
-    doc.setFont("helvetica","bold");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text(payload.formRef || "QPFPL5.2", pageW/2, y + 24, { align:"center" });
+    doc.text(payload.formRef || "QPFPL5.2", pageW / 2, y + 24, { align: "center" });
 
     doc.setFontSize(10);
-    doc.text(payload.sheetTitle || "", pageW/2, y + 40, { align:"center" });
+    doc.text(payload.sheetTitle || "", pageW / 2, y + 40, { align: "center" });
 
     y += 68;
 
     doc.setFontSize(9);
     doc.text(`Machine No: ${payload.plantId || ""}`, margin, y);
-    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align:"right" });
+    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align: "right" });
 
     y += 10;
 
-    doc.setFillColor(255,214,0);
+    doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, tableW, 18, "F");
     doc.setTextColor(0);
     doc.setFontSize(8.8);
-    doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW/2, y+12.5, { align:"center" });
+    doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW / 2, y + 12.5, { align: "center" });
     y += 26;
 
-    doc.setFont("helvetica","bold");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     const colW = tableW / 4;
-    doc.text(`Site: ${payload.site || ""}`, margin + colW*0.5, y, { align:"center" });
-    doc.text(`Date: ${dateUK}`,          margin + colW*1.5, y, { align:"center" });
-    doc.text(`Operator: ${payload.operator || ""}`, margin + colW*2.5, y, { align:"center" });
-    doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW*3.5, y, { align:"center" });
+    doc.text(`Site: ${payload.site || ""}`, margin + colW * 0.5, y, { align: "center" });
+    doc.text(`Date: ${dateUK}`, margin + colW * 1.5, y, { align: "center" });
+    doc.text(`Operator: ${payload.operator || ""}`, margin + colW * 2.5, y, { align: "center" });
+    doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW * 3.5, y, { align: "center" });
     y += 14;
 
     const itemColW = 420;
@@ -729,8 +756,8 @@
     const headH = 16;
 
     const defectsH = 26;
-    const actionH  = 28;
-    const sigH     = 34;
+    const actionH = 28;
+    const sigH = 34;
 
     const footerTotal =
       10 +
@@ -749,17 +776,17 @@
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
-    doc.setFillColor(255,214,0);
+    doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, itemColW, headH, "F");
-    doc.setFillColor(255,255,255);
+    doc.setFillColor(255, 255, 255);
     doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
     doc.rect(margin, y, tableW, headH);
 
-    doc.setFont("helvetica","bold");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     for (let i = 0; i < 7; i++) {
-      const cx = margin + itemColW + dayColW*i + dayColW/2;
-      doc.text(days[i], cx, y + 11, { align:"center" });
+      const cx = margin + itemColW + dayColW * i + dayColW / 2;
+      doc.text(days[i], cx, y + 11, { align: "center" });
     }
     y += headH;
 
@@ -768,20 +795,20 @@
 
       doc.line(margin + itemColW, y, margin + itemColW, y + rowH);
       for (let i = 1; i < 7; i++) {
-        const xx = margin + itemColW + dayColW*i;
+        const xx = margin + itemColW + dayColW * i;
         doc.line(xx, y, xx, y + rowH);
       }
 
-      doc.setFont("helvetica","normal");
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(fontItem);
       const label = ellipsize(labels2[r] || "", itemColW - 10, fontItem);
-      doc.text(label, margin + 6, y + rowH*0.72);
+      doc.text(label, margin + 6, y + rowH * 0.72);
 
       for (let d = 0; d < 7; d++) {
         const status = weekStatuses2?.[r]?.[d] || null;
         if (!status) continue;
-        const cx = margin + itemColW + dayColW*d + dayColW/2;
-        const cy = y + rowH/2 + 1;
+        const cx = margin + itemColW + dayColW * d + dayColW / 2;
+        const cy = y + rowH / 2 + 1;
         drawMark(status, cx, cy);
       }
 
@@ -790,7 +817,7 @@
 
     y += 8;
 
-    doc.setFont("helvetica","bold");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
     y += 10;
@@ -798,12 +825,12 @@
     doc.text("Defects identified:", margin, y);
     y += 6;
     doc.rect(margin, y, tableW, defectsH);
-    doc.setFont("helvetica","normal");
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     if (payload.defectsText) doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
     y += defectsH + 10;
 
-    doc.setFont("helvetica","bold");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
     y += 12;
@@ -811,12 +838,12 @@
     doc.text("Action taken:", margin, y);
     y += 6;
     doc.rect(margin, y, tableW, actionH);
-    doc.setFont("helvetica","normal");
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     if (payload.actionTaken) doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
     y += actionH + 10;
 
-    doc.setFont("helvetica","bold");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Signature:", margin, y);
     y += 6;
@@ -826,47 +853,44 @@
     if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
       try {
         const pad = 4;
-        const innerW = tableW - pad*2;
-        const innerH = sigH - pad*2;
+        const innerW = tableW - pad * 2;
+        const innerH = sigH - pad * 2;
         const s = await getImageSize(payload.signatureDataUrl);
         const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
-        const imgX = margin + pad + (innerW - fitted.w)/2;
-        const imgY = y + pad + (innerH - fitted.h)/2;
+        const imgX = margin + pad + (innerW - fitted.w) / 2;
+        const imgY = y + pad + (innerH - fitted.h) / 2;
         doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
       } catch {}
     }
 
-    doc.setFont("helvetica","normal");
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
-    doc.text(`BUILD: ${BUILD}`, pageW/2, pageH - 16, { align:"center" });
+    doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align: "center" });
 
     // ------------------- PHOTO PAGES (UNLIMITED) -------------------
     const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
     if (pics.length) {
-      const perPage = 6;        // 2 columns x 3 rows
       const cols = 2;
       const rows = 3;
 
       const gapX = 10;
       const gapY = 18;
 
-      const boxW = (pageW - margin*2 - gapX) / 2;
-      const boxH = 170;
-
-      const thumbW = boxW;
-      const thumbH = 130;
+      const boxW = (pageW - margin * 2 - gapX) / 2;
+      const boxH = 180;         // a bit taller
+      const imgH = 140;         // bigger photo area
 
       let idx = 0;
       while (idx < pics.length) {
         doc.addPage();
         let yy = margin;
 
-        doc.setFont("helvetica","bold");
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.text("Defect Photos", margin, yy);
 
-        doc.setFont("helvetica","normal");
+        doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.text(
           `Machine: ${payload.plantId || ""}   Date: ${dateUK}   Type: ${payload.equipmentType || ""}`,
@@ -884,28 +908,29 @@
             const x = margin + c * (boxW + gapX);
             const yTop = yy + r * (boxH + gapY);
 
-            // Frame
             doc.setDrawColor(0);
             doc.setLineWidth(0.7);
             doc.rect(x, yTop, boxW, boxH);
 
-            // Caption (row + label)
-            doc.setFont("helvetica","bold");
+            doc.setFont("helvetica", "bold");
             doc.setFontSize(8);
             const cap = `Row ${p.rowIndex + 1}: ${p.label || ""}`;
             doc.text(ellipsize(cap, boxW - 8, 8), x + 4, yTop + 12);
 
-            // Image area
-            const imgX = x + 0;
-            const imgY = yTop + 18;
+            const boxX2 = x + 2;
+            const boxY2 = yTop + 18;
+            const boxW2 = boxW - 4;
+            const boxH2 = imgH;
+
+            // draw image boundary
+            doc.rect(boxX2, boxY2, boxW2, boxH2);
 
             try {
-              // Fill the thumbnail area (cropping not applied; it will fit by scaling in addImage box)
-              doc.addImage(String(p.dataUrl), "JPEG", imgX + 2, imgY + 2, thumbW - 4, thumbH - 4);
+              await addImageCover(String(p.dataUrl), boxX2, boxY2, boxW2, boxH2);
             } catch {
-              doc.setFont("helvetica","normal");
+              doc.setFont("helvetica", "normal");
               doc.setFontSize(8);
-              doc.text("Photo could not be embedded.", x + 4, imgY + 22);
+              doc.text("Photo could not be embedded.", x + 4, boxY2 + 22);
             }
 
             idx++;
@@ -977,7 +1002,7 @@
       reportedToEmail,
       actionTaken: ($("actionTaken").value || "").trim(),
       signatureDataUrl: signatureDataUrl()
-      // NOTE: No photos included in payload (Option 1 PDF-only)
+      // NOTE: No photos saved in payload (PDF-only)
     };
 
     btn.disabled = true;
@@ -990,7 +1015,7 @@
 
       const { resp, data } = await fetchJson("/api/submit", {
         method: "POST",
-        headers: { "content-type":"application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ token: TOKEN, payload, pdfBase64 })
       }, 30000);
 
@@ -1073,7 +1098,7 @@
   }
 
   // -------- Init --------
-  (function init(){
+  (function init() {
     $("buildTag").textContent = `BUILD: ${BUILD}`;
     fillRecipients();
     initSignature();
