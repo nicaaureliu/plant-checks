@@ -3,11 +3,11 @@
   const BUILD = "v12.4";
   const $ = (id) => document.getElementById(id);
 
-  // --- If user lands on index without type, force them through selector page (prevents wrong form) ---
   const qs = new URLSearchParams(location.search);
   const TOKEN = qs.get("t") || "";
 
-  // If there is no type in the URL (and we do have a token), send to selector first
+  // Force users through selector if they try to open the form without a type
+  // (prevents wrong checklist submissions)
   if (!qs.get("type") && TOKEN) {
     location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
     return;
@@ -56,7 +56,7 @@
       "SWING GEAR OIL LEVEL, Fluid Level",
       "ENGINE OIL, Fluid Level",
       "ALL HOSES, Cracks, Wear Spots, Leaks",
-      "ALL BELTS, TENSION, Wear, Cracks",
+      "ALL BELTS, Tension, Wear, Cracks",
       "OVERALL ENGINE COMPARTMENT, Rubbish, Dirt, Leaks",
       "SEAT, Adjustment",
       "SEAT BELT & MOUNTING, Damage, Wear, Adjustment",
@@ -226,12 +226,11 @@
     RECIPIENTS.forEach((r) => {
       const opt = document.createElement("option");
       opt.value = r.email;
-      opt.textContent = r.name; // names only
+      opt.textContent = r.name;
       sel.appendChild(opt);
     });
 
-    // Default to "Choose from"
-    sel.value = "";
+    sel.value = ""; // default to "Choose from"
   }
 
   function renderTable() {
@@ -327,32 +326,7 @@
     $("hours").value = d.hours || "";
     $("defectsText").value = d.defectsText || "";
     $("actionTaken").value = d.actionTaken || "";
-    if (d.reportedToEmail !== undefined) $("reportedTo").value = d.reportedToEmail;
-  }
-
-  // ----- "Submitted" marker (per plantId/date/type) -----
-  function submittedKey() {
-    const plantId = ($("plantId").value || "").trim().toUpperCase();
-    const dateISO = $("date").value || "";
-    return `submitted:${TOKEN}:${equipmentType}:${plantId}:${dateISO}`;
-  }
-
-  function markSubmitted() {
-    try { sessionStorage.setItem(submittedKey(), "1"); } catch {}
-  }
-
-  function isMarkedSubmitted() {
-    try { return sessionStorage.getItem(submittedKey()) === "1"; } catch { return false; }
-  }
-
-  function showSubmittedStatus() {
-    const statusEl = $("status");
-    statusEl.innerHTML = `<span class="ok">✔ Submitted ✓</span>`;
-  }
-
-  function showReadyStatus() {
-    const statusEl = $("status");
-    statusEl.textContent = "Ready.";
+    if (d.reportedToEmail) $("reportedTo").value = d.reportedToEmail;
   }
 
   // -------- Signature pad --------
@@ -420,7 +394,7 @@
   // -------- Load week from KV --------
   async function loadWeekFromKV() {
     const status = $("status");
-    const plantId = ($("plantId").value || "").trim().toUpperCase();
+    const plantId = (($("plantId").value || "").replace(/\s+/g,"")).trim().toUpperCase();
     const dateISO = $("date").value || "";
 
     setHeaderTexts();
@@ -431,9 +405,7 @@
       weekStatuses = labels.map(() => Array(7).fill(null));
       weekDaily = Array(7).fill(null);
       renderChecks();
-
-      if (!TOKEN) status.innerHTML = `<span class="bad">✖ Missing token (t=...)</span>`;
-      else showReadyStatus();
+      status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
       return;
     }
 
@@ -467,17 +439,14 @@
 
         renderChecks();
         applyDailyToInputs();
+        status.textContent = "Ready.";
       } else {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
         weekDaily = Array(7).fill(null);
         renderChecks();
+        status.textContent = "Ready.";
       }
-
-      // Do not overwrite submitted status if it was just submitted for this plant/date/type
-      if (isMarkedSubmitted()) showSubmittedStatus();
-      else showReadyStatus();
-
     } catch {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
@@ -563,7 +532,6 @@
     const labels2 = payload.labels || [];
     const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
 
-    // ---- header ----
     let y = margin;
 
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
@@ -807,12 +775,9 @@
         return;
       }
 
-      // Mark submitted and show status immediately
-      markSubmitted();
-      showSubmittedStatus();
       btn.disabled = false;
 
-      // After hitting submit, go to confirmation page (green tick + funny image)
+      // Redirect to confirmation page
       const url =
         `/submitted.html?t=${encodeURIComponent(TOKEN)}` +
         `&type=${encodeURIComponent(equipmentType)}` +
