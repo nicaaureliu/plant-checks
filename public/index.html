@@ -2,224 +2,398 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Plant Checks</title>
+
   <style>
-    :root { --bg:#f4f6f8; --card:#fff; --ink:#111; --muted:#6b7280; --line:#d1d5db; --yellow:#ffd600; }
-    *{ box-sizing:border-box; }
-    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--ink); }
-    .wrap{ max-width:1100px; margin:18px auto; padding:0 14px; }
-    .card{ background:var(--card); border:1px solid #e5e7eb; border-radius:14px; padding:14px; box-shadow:0 1px 0 rgba(0,0,0,.04); }
-    .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .build{ font-size:12px; color:var(--muted); }
-    .header{
-      position:relative;
+    :root{
+      --bg:#f6f7f9;
+      --card:#ffffff;
+      --text:#111;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --yellow:#ffd600;
+      --btn:#111;
+      --btnText:#fff;
+      --btnAlt:#f3f4f6;
+      --ok:#16a34a;
+      --bad:#dc2626;
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:var(--bg);
+      color:var(--text);
+    }
+    .wrap{
+      max-width:860px;
+      margin:18px auto 40px;
+      padding:0 14px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow: 0 2px 14px rgba(0,0,0,.05);
+      padding:14px;
+      overflow:hidden;
+    }
+
+    .topbar{
       display:flex;
       align-items:center;
-      justify-content:center;
-      padding:10px 0 2px;
-      min-height:84px;
-    }
-    .logo-left{ position:absolute; left:0; top:10px; width:170px; height:50px; object-fit:contain; }
-    .logo-right{ position:absolute; right:0; top:6px; width:56px; height:56px; object-fit:contain; }
-    .titleblock{ text-align:center; line-height:1.25; padding:0 190px 0 80px; }
-    .formref{ font-weight:800; font-size:22px; }
-    .sheettitle{ font-weight:700; font-size:16px; margin-top:6px; }
-    .meta-row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; font-size:13px; margin-top:8px; }
-    .yellowbar{
-      margin-top:10px;
-      background:var(--yellow);
-      border:1px solid #d1b800;
-      border-radius:10px;
-      padding:10px 12px;
-      text-align:center;
-      font-weight:700;
-      font-size:13px;
+      justify-content:space-between;
+      gap:10px;
+      font-size:14px;
+      color:var(--muted);
+      margin-bottom:10px;
     }
 
-    .typeBtns{ display:flex; gap:10px; margin:14px 0 8px; }
+    .sheetHeader{
+      position:relative;
+      padding:10px 10px 0;
+      text-align:center;
+    }
+    .logoLeft, .logoRight{
+      position:absolute;
+      top:6px;
+      width:92px;
+      height:auto;
+    }
+    .logoLeft{ left:10px; }
+    .logoRight{ right:10px; width:58px; }
+    .formRef{
+      font-weight:800;
+      font-size:26px;
+      line-height:1.1;
+      margin:2px 0 4px;
+    }
+    .sheetTitle{
+      font-weight:800;
+      font-size:20px;
+      margin:0 0 10px;
+      line-height:1.15;
+    }
+
+    .metaRow{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:700;
+      padding:4px 6px 10px;
+    }
+    .metaRow span{ white-space:nowrap; }
+
+    .yellowBar{
+      background:var(--yellow);
+      border-radius:14px;
+      padding:12px 14px;
+      font-weight:800;
+      text-align:center;
+      border:1px solid rgba(0,0,0,.15);
+      margin:0 6px 14px;
+    }
+
+    .typeBtns{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      padding:0 6px 12px;
+    }
     .typeBtns button{
       flex:1;
-      border-radius:12px;
+      max-width:220px;
+      padding:12px 14px;
+      border-radius:14px;
       border:1px solid var(--line);
-      padding:10px;
-      font-weight:700;
-      background:#f3f4f6;
+      background:var(--btnAlt);
+      font-weight:800;
       cursor:pointer;
     }
-    .typeBtns button.active{ background:#111; color:#fff; border-color:#111; }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top:10px;
+    .typeBtns button.active{
+      background:var(--btn);
+      color:var(--btnText);
+      border-color:rgba(0,0,0,.6);
     }
-    .field{ display:flex; flex-direction:column; gap:6px; }
-    .field label{ font-size:12px; color:var(--muted); font-weight:700; }
+
+    .form{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+      padding:0 6px 8px;
+    }
+    .field label{
+      display:block;
+      font-weight:700;
+      color:var(--muted);
+      margin:4px 0 6px;
+    }
     .field input, .field select, .field textarea{
+      width:100%;
+      padding:14px 14px;
+      border-radius:14px;
       border:1px solid var(--line);
-      border-radius:12px;
-      padding:10px 12px;
-      font-size:14px;
       background:#fff;
+      font-size:16px;
       outline:none;
     }
-    .field textarea{ min-height:70px; resize:vertical; }
+    .field textarea{ min-height:80px; resize:vertical; }
 
-    .checksTitle{ margin:18px 0 6px; font-weight:900; font-size:22px; }
-    .hint{ color:var(--muted); font-size:13px; margin-bottom:10px; }
+    .checksTitle{
+      font-size:34px;
+      font-weight:900;
+      margin:18px 6px 4px;
+      letter-spacing:-0.5px;
+    }
+    .checksHelp{
+      margin:0 6px 12px;
+      color:var(--muted);
+      line-height:1.4;
+    }
 
+    /* Desktop table */
     .tableWrap{
-      border:1px solid var(--line);
-      border-radius:14px;
-      overflow:auto;
-      background:#fff;
-    }
-    table{ border-collapse:collapse; width:100%; min-width:860px; }
-    th, td{ border:1px solid #111; padding:0; }
-    th{ background:#fff; font-size:12px; padding:6px; }
-    th.itemHead{ background:var(--yellow); }
-    td.item{ padding:7px 8px; font-size:12px; min-width:420px; }
-    td.day{ width:54px; text-align:center; }
-    .markBtn{
-      width:34px; height:22px;
-      border-radius:7px;
-      border:1px solid #cfcfcf;
-      background:#f8f8f8;
-      cursor:pointer;
-      font-size:14px;
-      font-weight:900;
-      line-height:1;
-    }
-    .markBtn.disabled{ opacity:.30; cursor:not-allowed; }
-
-    /* mobile list view */
-    .mobileChecks{ display:none; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#fff; }
-    .mobileRow{ display:flex; gap:10px; align-items:center; padding:10px; border-bottom:1px solid #eee; }
-    .mobileRow:last-child{ border-bottom:none; }
-    .mobileLabel{ flex:1; font-size:13px; }
-    .mobileBtn{
-      width:64px; height:36px;
-      border-radius:12px;
-      border:1px solid var(--line);
-      background:#f8f8f8;
-      font-size:16px;
-      font-weight:900;
-    }
-
-    .sigBox{
+      margin:0 6px 14px;
       border:1px solid var(--line);
       border-radius:14px;
       overflow:hidden;
       background:#fff;
     }
-    canvas{ width:100%; height:120px; display:block; background:#fff; }
-    .sigActions{ display:flex; gap:10px; padding:10px; border-top:1px solid #eee; }
-    .sigActions button{
-      flex:1; border-radius:12px; border:1px solid var(--line); padding:10px;
-      font-weight:800; background:#f3f4f6; cursor:pointer;
+    table{
+      width:100%;
+      border-collapse:collapse;
+    }
+    thead th{
+      background:#fafafa;
+      border-bottom:1px solid var(--line);
+      padding:10px 8px;
+      font-size:13px;
+      color:var(--muted);
+      text-align:center;
+      font-weight:800;
+    }
+    thead th.itemHead{
+      text-align:left;
+      padding-left:12px;
+    }
+    tbody td{
+      border-top:1px solid var(--line);
+      padding:10px 8px;
+      vertical-align:middle;
+    }
+    td.item{
+      width:46%;
+      font-size:14px;
+      padding-left:12px;
+    }
+    td.day{
+      text-align:center;
+      width:7.7%;
+    }
+    .markBtn{
+      width:38px;
+      height:34px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:900;
+      cursor:pointer;
+    }
+    .markBtn.disabled{
+      opacity:.35;
+      cursor:not-allowed;
     }
 
-    .submitBtn{
-      margin-top:14px;
-      width:100%;
-      padding:14px 16px;
-      border-radius:14px;
-      border:0;
-      font-weight:900;
-      background:#111;
-      color:#fff;
-      cursor:pointer;
-      font-size:15px;
-    }
-    .status{
-      margin-top:8px;
-      font-size:13px;
-      color:#111;
+    /* Mobile list (app.js fills #mobileChecks on mobile) */
+    #mobileChecks{ display:none; }
+    .mobileRow{
       display:flex;
       align-items:center;
-      gap:8px;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px 12px;
+      border-top:1px solid var(--line);
+      background:#fff;
     }
-    .status .bad{ color:#b91c1c; font-weight:800; }
-    .status .ok{ color:#065f46; font-weight:800; }
+    .mobileLabel{
+      font-size:14px;
+      line-height:1.25;
+      flex:1;
+      padding-right:6px;
+    }
+    .mobileBtn{
+      min-width:54px;
+      height:40px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:900;
+      cursor:pointer;
+      font-size:18px;
+    }
+
+    .sigCard{
+      margin:0 6px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      padding:12px;
+    }
+    .sigTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .sigTop .label{
+      font-weight:800;
+      color:var(--muted);
+    }
+    #sig{
+      width:100%;
+      height:120px;
+      display:block;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      touch-action:none;
+    }
+    .smallBtn{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:var(--btnAlt);
+      font-weight:800;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+
+    .actions{
+      display:flex;
+      gap:12px;
+      padding:0 6px;
+      margin-top:6px;
+    }
+    .actions button{
+      flex:1;
+      padding:14px 14px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.6);
+      background:var(--btn);
+      color:var(--btnText);
+      font-weight:900;
+      cursor:pointer;
+      font-size:16px;
+    }
+    .actions button:disabled{ opacity:.6; cursor:not-allowed; }
+
+    #status{
+      margin:14px 6px 0;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px dashed var(--line);
+      color:var(--muted);
+      background:#fff;
+      text-align:center;
+      font-weight:800;
+    }
+    .ok{ color:var(--ok); }
+    .bad{ color:var(--bad); }
 
     @media (max-width: 760px){
-      .titleblock{ padding:0 80px; }
-      .grid{ grid-template-columns:1fr; }
+      .logoLeft{ width:84px; }
+      .logoRight{ width:54px; }
+      .formRef{ font-size:24px; }
+      .sheetTitle{ font-size:18px; }
+      .checksTitle{ font-size:30px; }
+
+      /* Hide desktop table; show mobile list */
       .tableWrap{ display:none; }
-      .mobileChecks{ display:block; }
+      #mobileChecks{ display:block; margin:0 6px 14px; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
     }
   </style>
+
+  <!-- jsPDF (UMD build provides window.jspdf.jsPDF) -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+
+  <!-- Your app -->
+  <script src="/app.js" defer></script>
 </head>
 
 <body>
   <div class="wrap">
     <div class="card">
       <div class="topbar">
-        <div class="build" id="buildTag">BUILD:</div>
-        <div class="build" id="selectedType">Selected:</div>
+        <div id="buildTag">BUILD:</div>
+        <div id="selectedType">Selected:</div>
       </div>
 
-      <div class="header">
-        <img class="logo-left" src="/assets/atl-logo.png" alt="ATL" />
-        <div class="titleblock">
-          <div class="formref" id="formRef">QPFPL5.2</div>
-          <div class="sheettitle" id="sheetTitle">Excavator Pre-Use Inspection Checklist</div>
-        </div>
-        <img class="logo-right" src="/assets/tp.png" alt="TP" />
+      <div class="sheetHeader">
+        <img class="logoLeft" src="/assets/atl-logo.png" alt="Active Tunnelling" />
+        <img class="logoRight" src="/assets/tp.png" alt="TP" />
+
+        <div id="formRef" class="formRef">QPFPL5.2</div>
+        <div id="sheetTitle" class="sheetTitle">Excavator Pre-Use Inspection Checklist</div>
       </div>
 
-      <div class="meta-row">
-        <div><b>Machine No:</b> <span id="machineNoPreview">—</span></div>
-        <div><b>Week commencing:</b> <span id="weekCommencingPreview">—</span></div>
+      <div class="metaRow">
+        <span>Machine No: <span id="machineNoPreview">—</span></span>
+        <span>Week commencing: <span id="weekCommencingPreview">—</span></span>
       </div>
 
-      <div class="yellowbar">
+      <div class="yellowBar">
         All checks must be carried out in line with Specific Manufacturer’s instructions
       </div>
 
       <div class="typeBtns">
-        <button id="btnExc" type="button">Excavator</button>
+        <button id="btnExc" type="button" class="active">Excavator</button>
         <button id="btnCrane" type="button">Crane</button>
         <button id="btnDump" type="button">Dumper</button>
       </div>
 
-      <div class="grid">
+      <!-- Reordered fields exactly as requested:
+           Date -> Plant ID -> Hours -> Operator -> Site -->
+      <div class="form">
         <div class="field">
-          <label>Site</label>
-          <input id="site" type="text" placeholder="e.g. Sizewell C">
+          <label for="date">Date</label>
+          <input id="date" type="date" />
         </div>
 
         <div class="field">
-          <label>Date</label>
-          <input id="date" type="date">
+          <label for="plantId">Machine / Plant ID</label>
+          <input id="plantId" type="text" inputmode="text" autocapitalize="characters" />
         </div>
 
         <div class="field">
-          <label>Machine / Plant ID</label>
-          <input id="plantId" type="text" placeholder="e.g. EX100">
+          <label for="hours">Machine hours</label>
+          <input id="hours" type="text" inputmode="numeric" />
         </div>
 
         <div class="field">
-          <label>Operator name</label>
-          <input id="operator" type="text" placeholder="Name">
+          <label for="operator">Operator name</label>
+          <input id="operator" type="text" />
         </div>
 
-        <div class="field" style="grid-column:1/-1;">
-          <label>Machine hours</label>
-          <input id="hours" type="text" placeholder="e.g. 4000">
+        <div class="field">
+          <label for="site">Site</label>
+          <input id="site" type="text" />
         </div>
       </div>
 
       <div class="checksTitle">Checks (Mon–Sun)</div>
-      <div class="hint">Only the column for your selected date is editable. Click the small box to cycle ✓ / X / N/A.</div>
+      <p class="checksHelp">
+        Only the column for your selected date is editable. Click the small box to cycle ✓ / X / N/A.
+      </p>
 
+      <!-- Desktop checks table -->
       <div class="tableWrap">
         <table>
           <thead>
             <tr>
-              <th class="itemHead"></th>
+              <th class="itemHead">Item</th>
               <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
             </tr>
           </thead>
@@ -227,42 +401,40 @@
         </table>
       </div>
 
-      <div class="mobileChecks" id="mobileChecks"></div>
+      <!-- Mobile checks list (app.js fills this on mobile) -->
+      <div id="mobileChecks"></div>
 
-      <div class="grid" style="margin-top:14px;">
-        <div class="field" style="grid-column:1/-1;">
-          <label>Defects identified</label>
-          <textarea id="defectsText" placeholder="Write defects (if any)"></textarea>
+      <div class="form" style="padding-top:6px;">
+        <div class="field">
+          <label for="defectsText">Defects identified</label>
+          <textarea id="defectsText" placeholder="Write any defects here…"></textarea>
         </div>
 
-        <div class="field" style="grid-column:1/-1;">
-          <label>Reported to</label>
+        <div class="field">
+          <label for="reportedTo">Reported to</label>
           <select id="reportedTo"></select>
         </div>
 
-        <div class="field" style="grid-column:1/-1;">
-          <label>Action taken</label>
-          <textarea id="actionTaken" placeholder="What was done / what action is required"></textarea>
+        <div class="field">
+          <label for="actionTaken">Action taken</label>
+          <textarea id="actionTaken" placeholder="Describe action taken…"></textarea>
         </div>
       </div>
 
-      <div style="margin-top:12px; font-weight:900; font-size:13px;">Signature</div>
-      <div class="sigBox" style="margin-top:8px;">
+      <div class="sigCard">
+        <div class="sigTop">
+          <div class="label">Signature</div>
+          <button id="clearSig" type="button" class="smallBtn">Clear signature</button>
+        </div>
         <canvas id="sig"></canvas>
-        <div class="sigActions">
-          <button type="button" id="clearSig">Clear</button>
-        </div>
       </div>
 
-      <button class="submitBtn" id="submitBtn" type="button">Submit</button>
-      <div class="status" id="status">Ready.</div>
+      <div class="actions">
+        <button id="submitBtn" type="button">Submit</button>
+      </div>
+
+      <div id="status">Ready.</div>
     </div>
   </div>
-
-  <!-- jsPDF -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-
-  <!-- App -->
-  <script src="/app.js"></script>
 </body>
 </html>
