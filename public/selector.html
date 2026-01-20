@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,11 +11,11 @@
       --text:#111;
       --muted:#6b7280;
       --line:#e5e7eb;
+      --yellow:#ffd600;
       --btn:#111;
       --btnText:#fff;
       --btnAlt:#f3f4f6;
       --radius:16px;
-      --yellow:#ffd600;
     }
     *{box-sizing:border-box}
     body{
@@ -38,18 +37,12 @@
       padding:16px;
       overflow:hidden;
     }
-    .top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px;
-    }
     .logos{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
+      margin-bottom:10px;
     }
     .logoLeft{ width:120px; height:auto; }
     .logoRight{ width:62px; height:auto; }
@@ -84,6 +77,8 @@
       gap:12px;
       margin-top:8px;
     }
+
+    /* IMPORTANT: use <a> links so navigation works even if JS is slow */
     .btn{
       display:flex;
       align-items:center;
@@ -93,9 +88,10 @@
       border-radius:14px;
       border:1px solid var(--line);
       background:var(--btnAlt);
-      cursor:pointer;
       font-weight:900;
       font-size:18px;
+      color:#111;
+      text-decoration:none;
     }
     .btn:active{ transform: translateY(1px); }
     .pill{
@@ -106,6 +102,7 @@
       font-size:13px;
       font-weight:900;
       color:#111;
+      white-space:nowrap;
     }
 
     .bad{
@@ -136,15 +133,15 @@
       <div class="hint">Select the correct plant type to continue</div>
 
       <div class="grid">
-        <button class="btn" id="goExc" type="button">
+        <a class="btn" id="linkExc" href="#">
           Excavator <span class="pill">QPFPL5.2</span>
-        </button>
-        <button class="btn" id="goCrane" type="button">
+        </a>
+        <a class="btn" id="linkCrane" href="#">
           Crane <span class="pill">QPFPL5.0</span>
-        </button>
-        <button class="btn" id="goDump" type="button">
+        </a>
+        <a class="btn" id="linkDump" href="#">
           Dumper <span class="pill">QPFPL5.1</span>
-        </button>
+        </a>
       </div>
 
       <div id="err" class="bad" style="display:none;"></div>
@@ -164,16 +161,12 @@
         return;
       }
 
-      function go(type){
-        // send them to your existing form page
-        // index.html is served at /index.html on Pages, and usually / works too
-        const url = `/index.html?t=${encodeURIComponent(t)}&type=${encodeURIComponent(type)}`;
-        location.href = url;
-      }
+      // IMPORTANT: send to "/" instead of "/index.html" (Cloudflare Pages safest)
+      const base = `/?t=${encodeURIComponent(t)}&type=`;
 
-      document.getElementById("goExc").addEventListener("click", () => go("excavator"));
-      document.getElementById("goCrane").addEventListener("click", () => go("crane"));
-      document.getElementById("goDump").addEventListener("click", () => go("dumper"));
+      document.getElementById("linkExc").href   = base + "excavator";
+      document.getElementById("linkCrane").href = base + "crane";
+      document.getElementById("linkDump").href  = base + "dumper";
     })();
   </script>
 </body>
