@@ -3,22 +3,21 @@
   const BUILD = "v12.3";
   const $ = (id) => document.getElementById(id);
 
-  // ✅ EDIT THIS LIST (names + emails). The selected one will receive the email.
   const RECIPIENTS = [
-    { name: "Alin Pop", email: "APop@activetunnelling.com" },
-    { name: "Andrew Hubbard", email: "AHubbard@activetunnelling.com" },
+    { name: "Alin Pop", email: "apop@activetunnelling.com" },
+    { name: "Andrew Hubbard", email: "ahubbard@activetunnelling.com" },
     { name: "Aureliu Nica", email: "anica@activetunnelling.com" },
-    { name: "Cameron Davies", email: "CDavies@activetunnelling.com" },
-    { name: "Ebenezer Bentum", email: "EBentum@activetunnelling.com" },
-    { name: "Iosif Beghean", email: "IBeghean@activetunnelling.com" },
+    { name: "Cameron Davies", email: "cdavies@activetunnelling.com" },
+    { name: "Ebenezer Bentum", email: "ebentum@activetunnelling.com" },
+    { name: "Iosif Beghean", email: "ibeghean@activetunnelling.com" },
     { name: "James Wallace", email: "jwallace@activetunnelling.com" },
     { name: "John Thorpe", email: "jthorpe@activetunnelling.com" },
     { name: "Josh Furner", email: "jfurner@activetunnelling.com" },
-    { name: "Kamran Muzaffar", email: "KMuzaffar@activetunnelling.com" },
-    { name: "Niall Lynam", email: "NLynam@activetunnelling.com" },
+    { name: "Kamran Muzaffar", email: "kmuzaffar@activetunnelling.com" },
+    { name: "Niall Lynam", email: "nlynam@activetunnelling.com" },
     { name: "Richard Wilson", email: "rwilson@activetunnelling.com" },
-    { name: "Rob Graham", email: "RGraham@activetunnelling.com" },
-    { name: "Scott Carter", email: "SCarter@activetunnelling.com" }
+    { name: "Rob Graham", email: "rgraham@activetunnelling.com" },
+    { name: "Scott Carter", email: "scarter@activetunnelling.com" }
   ];
 
   const CHECKLISTS = {
@@ -88,7 +87,7 @@
       "Grease and lubricate to manufacturer's instructions",
       "Lubricate and maintain ropes and all rope system components",
       "Operation of boom and pinning/extension systems if appropriate",
-      "Battery condition and security (including LV Cables)"
+      "Battery condition and security (including LV cables)"
     ],
     dumper: [
       "Skip/Body Security",
@@ -100,7 +99,7 @@
       "Radiator/Belts",
       "Tracks/Running Gear/Wheels/Tyres",
       "Gauges/Instrumentation",
-      "ROPS/FOPS/ Bodywork",
+      "ROPS/FOPS/Bodywork",
       "Operating Position/Seat/Belt",
       "Lights/Beacons",
       "Audible Warnings/Alarms",
@@ -117,45 +116,104 @@
   const TOKEN = qs.get("t") || "";
 
   let equipmentType = (qs.get("type") || "excavator").toLowerCase();
-  if (!["excavator", "crane", "dumper"].includes(equipmentType)) equipmentType = "excavator";
+  if (!["excavator","crane","dumper"].includes(equipmentType)) equipmentType = "excavator";
 
   let labels = [...CHECKLISTS[equipmentType]];
   let weekStatuses = labels.map(() => Array(7).fill(null));
+  let weekDaily = Array(7).fill(null);
   let activeDay = 0;
+
+  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+  // -----------------------------
+  // NEW: Plant ID cleaner (NO spaces)
+  // -----------------------------
+  const cleanPlantId = (v) =>
+    (v || "")
+      .toUpperCase()
+      .replace(/\s+/g, ""); // removes ALL whitespace
+
+  // -----------------------------
+  // NEW: Persist "Submitted" status for the current key
+  // -----------------------------
+  const LAST_SUBMIT_KEY = "plantChecks_lastSubmitKey";
+
+  const currentSubmitKey = () => {
+    const plantId = cleanPlantId($("plantId")?.value || "");
+    const dateISO = ($("date")?.value || "").trim();
+    if (!plantId || !dateISO) return "";
+    return `${equipmentType}|${plantId}|${dateISO}`;
+  };
+
+  const wasSubmittedForCurrent = () => {
+    try {
+      const key = currentSubmitKey();
+      if (!key) return false;
+      return localStorage.getItem(LAST_SUBMIT_KEY) === key;
+    } catch {
+      return false;
+    }
+  };
+
+  const setSubmittedForCurrent = () => {
+    try {
+      const key = currentSubmitKey();
+      if (!key) return;
+      localStorage.setItem(LAST_SUBMIT_KEY, key);
+    } catch {}
+  };
+
+  const clearSubmittedForCurrent = () => {
+    try {
+      const key = currentSubmitKey();
+      if (!key) return;
+      if (localStorage.getItem(LAST_SUBMIT_KEY) === key) {
+        localStorage.removeItem(LAST_SUBMIT_KEY);
+      }
+    } catch {}
+  };
+
+  const showReady = () => {
+    const status = $("status");
+    if (status) status.textContent = "Ready.";
+  };
+
+  const showSubmitted = () => {
+    const status = $("status");
+    if (status) status.innerHTML = `<span class="ok">Submitted ✓</span>`;
+  };
+
+  const showReadyOrSubmitted = () => {
+    if (wasSubmittedForCurrent()) showSubmitted();
+    else showReady();
+  };
 
   const isoToday = () => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   };
 
   const isoToUK = (iso) => {
     if (!iso || !String(iso).includes("-")) return iso || "";
-    const [y, m, d] = String(iso).split("-");
+    const [y,m,d] = String(iso).split("-");
     return `${d}/${m}/${y}`;
   };
 
   const getWeekCommencingISO = (dateStr) => {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
+    const [y,m,d] = String(dateStr).split("-").map(Number);
+    const dt = new Date(y, m-1, d);
     const day = dt.getDay();
     const diffToMon = (day === 0 ? -6 : 1 - day);
     dt.setDate(dt.getDate() + diffToMon);
-    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
   };
 
   const getDayIndexMon0 = (dateStr) => {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
+    const [y,m,d] = String(dateStr).split("-").map(Number);
+    const dt = new Date(y, m-1, d);
     const day = dt.getDay();
     return day === 0 ? 6 : day - 1;
   };
-
-  // ✅ Change #1: enforce Machine/Plant ID uppercase and no spaces
-  function normalizePlantId(v) {
-    return String(v || "")
-      .toUpperCase()
-      .replace(/\s+/g, "");
-  }
 
   const cycleStatus = (cur) => {
     if (!cur) return "OK";
@@ -199,22 +257,43 @@
 
     const title =
       equipmentType === "excavator" ? "Excavator Pre-Use Inspection Checklist" :
-        equipmentType === "crane" ? "Crane Pre-Use Inspection Checklist" :
-          "Dumper Pre-Use Inspection Checklist";
+      equipmentType === "crane" ? "Crane Pre-Use Inspection Checklist" :
+      "Dumper Pre-Use Inspection Checklist";
     $("sheetTitle").textContent = title;
 
-    // QPFPL mapping (kept as you already had in the working version)
     const formRef =
       equipmentType === "excavator" ? "QPFPL5.2" :
-        equipmentType === "crane" ? "QPFPL5.0" :
-          "QPFPL5.1";
+      equipmentType === "crane" ? "QPFPL5.0" :
+      "QPFPL5.1";
     $("formRef").textContent = formRef;
 
     const dateISO = $("date").value || isoToday();
     $("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
 
-    const pid = normalizePlantId($("plantId").value);
+    // NEW: preview also no-spaces + uppercase
+    const pid = cleanPlantId($("plantId").value || "");
     $("machineNoPreview").textContent = pid || "—";
+  }
+
+  function fillRecipients() {
+    const sel = $("reportedTo");
+    sel.innerHTML = "";
+
+    // NEW: "Choose from" first
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "Choose from";
+    sel.appendChild(opt0);
+
+    RECIPIENTS.forEach((r) => {
+      const opt = document.createElement("option");
+      opt.value = r.email;
+      opt.textContent = r.name; // names only
+      sel.appendChild(opt);
+    });
+
+    // Default to "Choose from" unless something already selected
+    if (!sel.value) sel.value = "";
   }
 
   function renderTable() {
@@ -246,6 +325,10 @@
           btn.disabled = true;
         } else {
           btn.addEventListener("click", () => {
+            // NEW: editing after submit -> switch back to Ready
+            clearSubmittedForCurrent();
+            showReady();
+
             const cur = weekStatuses?.[r]?.[d] || null;
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
@@ -283,6 +366,10 @@
       btn.textContent = markText(weekStatuses?.[r]?.[activeDay] || null);
 
       btn.addEventListener("click", () => {
+        // NEW: editing after submit -> switch back to Ready
+        clearSubmittedForCurrent();
+        showReady();
+
         const cur = weekStatuses?.[r]?.[activeDay] || null;
         const next = cycleStatus(cur);
         weekStatuses[r][activeDay] = next;
@@ -301,27 +388,19 @@
     else renderTable();
   }
 
-  function fillRecipients() {
-    const sel = $("reportedTo");
-    sel.innerHTML = "";
+  function applyDailyToInputs() {
+    const d = weekDaily?.[activeDay] || null;
+    if (!d) return;
 
-    // ✅ Change #2: placeholder at top instead of defaulting to first person
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = "Choose from…";
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    sel.appendChild(placeholder);
-
-    RECIPIENTS.forEach((r) => {
-      const opt = document.createElement("option");
-      opt.value = r.email;
-      opt.textContent = r.name; // cleaner list
-      sel.appendChild(opt);
-    });
+    $("site").value = d.site || $("site").value || "";
+    $("operator").value = d.operator || "";
+    $("hours").value = d.hours || "";
+    $("defectsText").value = d.defectsText || "";
+    $("actionTaken").value = d.actionTaken || "";
+    if (d.reportedToEmail) $("reportedTo").value = d.reportedToEmail;
   }
 
-  // Signature pad
+  // -------- Signature pad --------
   function initSignature() {
     const canvas = $("sig");
     const ctx = canvas.getContext("2d");
@@ -347,8 +426,8 @@
       return { x, y };
     }
 
-    function start(e) { drawing = true; last = pos(e); e.preventDefault(); }
-    function move(e) {
+    function start(e){ drawing = true; last = pos(e); e.preventDefault(); }
+    function move(e){
       if (!drawing) return;
       const p = pos(e);
       ctx.beginPath();
@@ -358,78 +437,67 @@
       last = p;
       e.preventDefault();
     }
-    function end() { drawing = false; last = null; }
+    function end(){ drawing = false; last = null; }
 
     canvas.addEventListener("mousedown", start);
     canvas.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
 
-    canvas.addEventListener("touchstart", start, { passive: false });
-    canvas.addEventListener("touchmove", move, { passive: false });
+    canvas.addEventListener("touchstart", start, { passive:false });
+    canvas.addEventListener("touchmove", move, { passive:false });
     window.addEventListener("touchend", end);
 
-    $("clearSig").addEventListener("click", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
+    $("clearSig").addEventListener("click", () => {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // optional: mark as edited
+      clearSubmittedForCurrent();
+      showReady();
+    });
   }
 
   function signatureDataUrl() {
     const canvas = $("sig");
     const ctx = canvas.getContext("2d");
-
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     let hasInk = false;
     for (let i = 0; i < img.length; i += 4) {
       if (img[i + 3] !== 0) { hasInk = true; break; }
     }
     if (!hasInk) return "";
-
-    const tmp = document.createElement("canvas");
-    tmp.width = canvas.width;
-    tmp.height = canvas.height;
-    const tctx = tmp.getContext("2d");
-
-    tctx.fillStyle = "#fff";
-    tctx.fillRect(0, 0, tmp.width, tmp.height);
-    tctx.drawImage(canvas, 0, 0);
-
-    return tmp.toDataURL("image/jpeg", 0.72);
+    return canvas.toDataURL("image/png");
   }
 
-  // ✅ Change #3 support: allow refreshing week without overwriting “Submitted”
-  async function loadWeekFromKV(silentStatus = false) {
+  // -------- Load week from KV --------
+  async function loadWeekFromKV() {
     const status = $("status");
 
-    // normalize plant id live
-    const plantEl = $("plantId");
-    const cleaned = normalizePlantId(plantEl.value);
-    if (plantEl.value !== cleaned) plantEl.value = cleaned;
-
-    const plantId = cleaned;
+    const plantId = cleanPlantId($("plantId").value || "");
     const dateISO = $("date").value || "";
 
     setHeaderTexts();
+    activeDay = getDayIndexMon0(dateISO);
 
     if (!TOKEN || !plantId || !dateISO) {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
+      weekDaily = Array(7).fill(null);
       renderChecks();
-      if (!silentStatus) {
-        status.textContent = TOKEN ? "Ready." : "⚠️ Missing token (t=...) in link.";
-      }
+      status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
       return;
     }
 
     const url = `/api/week?t=${encodeURIComponent(TOKEN)}&type=${encodeURIComponent(equipmentType)}&plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(dateISO)}`;
-    if (!silentStatus) status.textContent = "Loading week…";
+    status.textContent = "Loading week…";
 
     try {
-      const { resp, data } = await fetchJson(url, { cache: "no-store" }, 12000);
+      const { resp, data } = await fetchJson(url, { cache:"no-store" }, 12000);
+
       if (!resp.ok) {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
+        weekDaily = Array(7).fill(null);
         renderChecks();
-        if (!silentStatus) {
-          status.textContent = `❌ Week load failed (${resp.status}): ${data.error || resp.statusText || "Unknown"}`;
-        }
+        status.innerHTML = `<span class="bad">✖ Week load failed (${resp.status})</span>`;
         return;
       }
 
@@ -437,47 +505,303 @@
       if (rec && Array.isArray(rec.labels) && Array.isArray(rec.statuses)) {
         labels = rec.labels;
         weekStatuses = rec.statuses;
+        weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
+
+        if (rec.site) {
+          for (let i = 0; i < 7; i++) {
+            if (!weekDaily[i]) weekDaily[i] = {};
+            if (!weekDaily[i].site) weekDaily[i].site = rec.site;
+          }
+        }
+
+        renderChecks();
+        applyDailyToInputs();
+
+        // NEW: show Submitted if this record was just submitted
+        showReadyOrSubmitted();
       } else {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
-      }
+        weekDaily = Array(7).fill(null);
+        renderChecks();
 
-      renderChecks();
-
-      if (!silentStatus) {
-        status.textContent = "Ready.";
+        // NEW: show Submitted if this record was just submitted
+        showReadyOrSubmitted();
       }
-    } catch (e) {
+    } catch {
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
+      weekDaily = Array(7).fill(null);
       renderChecks();
-      if (!silentStatus) {
-        status.textContent = `❌ Load error: ${e?.name === "AbortError" ? "timeout" : (e?.message || "unknown")}`;
-      }
+      status.innerHTML = `<span class="bad">✖ Load error</span>`;
     }
   }
 
-  // NOTE: keeping your existing PDF generator as-is (do not change it here).
-  // It must exist in your working file already. If your PDF function name differs,
-  // keep your original implementation and do not delete it.
-  // The submit() below calls makePdfBase64(payload).
+  // -------- PDF: ONE PAGE, no circles, smaller signature box, no extra yellow lines --------
   async function makePdfBase64(payload) {
-    // KEEP YOUR CURRENT WORKING PDF CODE HERE.
-    // If you already have this function in your current working app.js,
-    // paste it in this exact spot and do not change it.
-    throw new Error("makePdfBase64(payload) is missing. Paste your working PDF function here.");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
+
+    const margin = 28;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const tableW = pageW - margin * 2;
+
+    const isoToUK2 = (iso) => {
+      if (!iso || !String(iso).includes("-")) return iso || "";
+      const [y,m,d] = String(iso).split("-");
+      return `${d}/${m}/${y}`;
+    };
+
+    const ellipsize = (text, maxW, fontSize) => {
+      if (!text) return "";
+      doc.setFontSize(fontSize);
+      let t = String(text);
+      while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
+      return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
+    };
+
+    async function fetchAsDataUrl(url) {
+      const res = await fetch(url, { cache:"no-store" });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    function getImageSize(dataUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+    }
+
+    function fitIntoBox(imgW, imgH, boxW, boxH) {
+      const s = Math.min(boxW / imgW, boxH / imgH);
+      return { w: imgW * s, h: imgH * s };
+    }
+
+    function drawOkTick(cx, cy) {
+      doc.setFont("zapfdingbats", "normal");
+      doc.setFontSize(13);
+      doc.text(String.fromCharCode(52), cx, cy, { align:"center", baseline:"middle" });
+    }
+
+    function drawMark(status, cx, cy) {
+      if (status === "OK") return drawOkTick(cx, cy);
+      doc.setFont("helvetica", "bold");
+      if (status === "DEFECT") {
+        doc.setFontSize(10);
+        doc.text("X", cx, cy, { align:"center", baseline:"middle" });
+        return;
+      }
+      if (status === "NA") {
+        doc.setFontSize(7.2);
+        doc.text("N/A", cx, cy, { align:"center", baseline:"middle" });
+      }
+    }
+
+    const dateUK = isoToUK2(payload.date || "");
+    const weekUK = isoToUK2(payload.weekCommencing || "");
+
+    const labels2 = payload.labels || [];
+    const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
+
+    // ---- header ----
+    let y = margin;
+
+    const atl = await fetchAsDataUrl("/assets/atl-logo.png");
+    const tp  = await fetchAsDataUrl("/assets/tp.png");
+
+    const leftBoxW = 150, leftBoxH = 40;
+    const rightBoxW = 56, rightBoxH = 56;
+
+    if (atl) {
+      try {
+        const s = await getImageSize(atl);
+        const fitted = fitIntoBox(s.w, s.h, leftBoxW, leftBoxH);
+        doc.addImage(atl, "PNG", margin, y + 6, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    if (tp) {
+      try {
+        const s = await getImageSize(tp);
+        const fitted = fitIntoBox(s.w, s.h, rightBoxW, rightBoxH);
+        doc.addImage(tp, "PNG", pageW - margin - fitted.w, y + 2, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(13);
+    doc.text(payload.formRef || "QPFPL5.2", pageW/2, y + 24, { align:"center" });
+
+    doc.setFontSize(10);
+    doc.text(payload.sheetTitle || "", pageW/2, y + 40, { align:"center" });
+
+    y += 68;
+
+    doc.setFontSize(9);
+    doc.text(`Machine No: ${payload.plantId || ""}`, margin, y);
+    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align:"right" });
+
+    y += 10;
+
+    doc.setFillColor(255,214,0);
+    doc.rect(margin, y, tableW, 18, "F");
+    doc.setTextColor(0);
+    doc.setFontSize(8.8);
+    doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW/2, y+12.5, { align:"center" });
+    y += 26;
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    const colW = tableW / 4;
+    doc.text(`Site: ${payload.site || ""}`, margin + colW*0.5, y, { align:"center" });
+    doc.text(`Date: ${dateUK}`,          margin + colW*1.5, y, { align:"center" });
+    doc.text(`Operator: ${payload.operator || ""}`, margin + colW*2.5, y, { align:"center" });
+    doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW*3.5, y, { align:"center" });
+    y += 14;
+
+    const itemColW = 420;
+    const dayColW = (tableW - itemColW) / 7;
+    const headH = 16;
+
+    const defectsH = 26;
+    const actionH  = 28;
+    const sigH     = 34;
+
+    const footerTotal =
+      10 +
+      10 + 6 + defectsH + 10 +
+      10 +
+      10 + 6 + actionH + 10 +
+      10 + 6 + sigH + 22;
+
+    const availForTable = (pageH - margin) - y - headH - footerTotal;
+    const totalRows = Math.max(1, labels2.length);
+
+    let rowH = Math.floor(availForTable / totalRows);
+    rowH = Math.max(10, Math.min(16, rowH));
+    const fontItem = rowH <= 11 ? 6.7 : 7.6;
+
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.7);
+
+    doc.setFillColor(255,214,0);
+    doc.rect(margin, y, itemColW, headH, "F");
+    doc.setFillColor(255,255,255);
+    doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
+    doc.rect(margin, y, tableW, headH);
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(8);
+    for (let i = 0; i < 7; i++) {
+      const cx = margin + itemColW + dayColW*i + dayColW/2;
+      doc.text(days[i], cx, y + 11, { align:"center" });
+    }
+    y += headH;
+
+    for (let r = 0; r < totalRows; r++) {
+      doc.rect(margin, y, tableW, rowH);
+
+      doc.line(margin + itemColW, y, margin + itemColW, y + rowH);
+      for (let i = 1; i < 7; i++) {
+        const xx = margin + itemColW + dayColW*i;
+        doc.line(xx, y, xx, y + rowH);
+      }
+
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(fontItem);
+      const label = ellipsize(labels2[r] || "", itemColW - 10, fontItem);
+      doc.text(label, margin + 6, y + rowH*0.72);
+
+      for (let d = 0; d < 7; d++) {
+        const status = weekStatuses2?.[r]?.[d] || null;
+        if (!status) continue;
+        const cx = margin + itemColW + dayColW*d + dayColW/2;
+        const cy = y + rowH/2 + 1;
+        drawMark(status, cx, cy);
+      }
+
+      y += rowH;
+    }
+
+    y += 8;
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
+    y += 10;
+
+    doc.text("Defects identified:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, defectsH);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(8.5);
+    if (payload.defectsText) doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += defectsH + 10;
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
+    y += 12;
+
+    doc.text("Action taken:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, actionH);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(8.5);
+    if (payload.actionTaken) doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += actionH + 10;
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    doc.text("Signature:", margin, y);
+    y += 6;
+
+    doc.rect(margin, y, tableW, sigH);
+
+    if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
+      try {
+        const pad = 4;
+        const innerW = tableW - pad*2;
+        const innerH = sigH - pad*2;
+        const s = await getImageSize(payload.signatureDataUrl);
+        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
+        const imgX = margin + pad + (innerW - fitted.w)/2;
+        const imgY = y + pad + (innerH - fitted.h)/2;
+        doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(7.5);
+    doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
+    doc.text(`BUILD: ${BUILD}`, pageW/2, pageH - 16, { align:"center" });
+
+    const dataUri = doc.output("datauristring");
+    const parts = String(dataUri).split(",");
+    if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
+    return parts[1];
   }
 
+  // -------- Submit --------
   async function submit() {
-    const status = $("status");
+    const statusEl = $("status");
     const btn = $("submitBtn");
 
-    // normalize plant id again at submit time
-    const plantEl = $("plantId");
-    plantEl.value = normalizePlantId(plantEl.value);
+    // NEW: Plant ID no spaces + uppercase
+    const plantId = cleanPlantId($("plantId").value || "");
+    $("plantId").value = plantId;
 
-    const plantId = plantEl.value.trim();
-    const dateISO = $("date").value || "";
+    const dateISO = ($("date").value || "").trim();
     const site = ($("site").value || "").trim();
     const operator = ($("operator").value || "").trim();
     const hours = ($("hours").value || "").trim();
@@ -485,9 +809,9 @@
     const reportedToEmail = $("reportedTo").value;
     const reportedToName = (RECIPIENTS.find(r => r.email === reportedToEmail)?.name) || "";
 
-    if (!TOKEN) { status.textContent = "❌ Missing token (t=...) in link."; return; }
-    if (!plantId || !dateISO) { status.textContent = "❌ Machine / Plant ID and Date are required."; return; }
-    if (!reportedToEmail) { status.textContent = "❌ Please select ‘Reported to’."; return; }
+    if (!TOKEN) { statusEl.innerHTML = `<span class="bad">✖ Missing token (t=...)</span>`; return; }
+    if (!plantId || !dateISO) { statusEl.innerHTML = `<span class="bad">✖ Plant ID and Date are required</span>`; return; }
+    if (!reportedToEmail) { statusEl.innerHTML = `<span class="bad">✖ Please select ‘Reported to’</span>`; return; }
 
     const weekCommencing = getWeekCommencingISO(dateISO);
     const dayIndex = getDayIndexMon0(dateISO);
@@ -499,7 +823,6 @@
       site,
       date: dateISO,
       plantId,
-      machineNo: plantId,
       operator,
       hours,
       weekCommencing,
@@ -514,43 +837,45 @@
     };
 
     btn.disabled = true;
-    status.textContent = "Building PDF…";
+    statusEl.textContent = "Building PDF…";
 
     try {
       const pdfBase64 = await makePdfBase64(payload);
 
-      status.textContent = "Submitting…";
+      statusEl.textContent = "Submitting…";
 
       const { resp, data } = await fetchJson("/api/submit", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type":"application/json" },
         body: JSON.stringify({ token: TOKEN, payload, pdfBase64 })
-      }, 25000);
+      }, 30000);
 
       if (!resp.ok) {
-        status.textContent = `❌ Submit failed (${resp.status}): ${data.error || "Unknown"}`;
+        statusEl.innerHTML = `<span class="bad">✖ Submit failed (${resp.status}): ${data.error || "Unknown"}</span>`;
         btn.disabled = false;
         return;
       }
 
-      // ✅ Change #3: show Submitted with green tick
-      status.textContent = "✅ Submitted";
+      // NEW: store + show Submitted ✓ (green)
+      setSubmittedForCurrent();
+      showSubmitted();
+
       btn.disabled = false;
 
-      // refresh from KV but don't overwrite status text
-      await loadWeekFromKV(true);
-
+      await loadWeekFromKV();
     } catch (e) {
-      status.textContent = `❌ Error: ${e?.message || "unknown"}`;
+      statusEl.innerHTML = `<span class="bad">✖ ${e?.message || "Error"}</span>`;
       btn.disabled = false;
     }
   }
 
+  // -------- Wire events --------
   function wireEvents() {
     $("btnExc").addEventListener("click", async () => {
       equipmentType = "excavator";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
+      clearSubmittedForCurrent();
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
@@ -560,6 +885,7 @@
       equipmentType = "crane";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
+      clearSubmittedForCurrent();
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
@@ -569,43 +895,50 @@
       equipmentType = "dumper";
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
+      clearSubmittedForCurrent();
       setButtonsActive();
       setHeaderTexts();
       await loadWeekFromKV();
     });
 
-    $("date").addEventListener("change", () => loadWeekFromKV());
-
-    // ✅ enforce Plant ID rules while typing
-    $("plantId").addEventListener("input", () => {
-      const el = $("plantId");
-      const cleaned = normalizePlantId(el.value);
-      if (el.value !== cleaned) el.value = cleaned;
-      setHeaderTexts();
+    $("date").addEventListener("change", () => {
+      clearSubmittedForCurrent();
+      loadWeekFromKV();
     });
 
-    $("plantId").addEventListener("blur", () => loadWeekFromKV());
+    // NEW: Plant ID input removes spaces automatically
+    $("plantId").addEventListener("input", () => {
+      $("plantId").value = cleanPlantId($("plantId").value || "");
+      clearSubmittedForCurrent();
+      setHeaderTexts();
+      showReady();
+    });
+
+    $("plantId").addEventListener("blur", loadWeekFromKV);
 
     window.addEventListener("resize", () => renderChecks());
+
+    // Optional: if they change "Reported to", mark as Ready
+    $("reportedTo").addEventListener("change", () => {
+      clearSubmittedForCurrent();
+      showReady();
+    });
 
     $("submitBtn").addEventListener("click", submit);
   }
 
-  // init
-  (function init() {
+  // -------- Init --------
+  (function init(){
     $("buildTag").textContent = `BUILD: ${BUILD}`;
     fillRecipients();
     initSignature();
     wireEvents();
 
     if (!$("date").value) $("date").value = isoToday();
+
     setButtonsActive();
     setHeaderTexts();
     renderChecks();
-
-    // default status
-    $("status").textContent = "Ready.";
-
     loadWeekFromKV();
   })();
 })();
