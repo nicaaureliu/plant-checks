@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v12.9";
+  const BUILD = "v13.0";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -116,7 +116,7 @@
   const qs = new URLSearchParams(location.search);
   const TOKEN = qs.get("t") || "";
 
-  // Force users through selector if type missing (prevents miscompletes)
+  // Force through selector if type missing (prevents miscompletes)
   if (!qs.get("type") && TOKEN) {
     location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
     return;
@@ -131,7 +131,7 @@
   let weekStatuses = labels.map(() => Array(7).fill(null));
   let weekDaily = Array(7).fill(null);
 
-  // Photos are LOCAL ONLY: [row][day] = array of compressed data URLs
+  // Photos are local-only: photos[row][day] = [dataUrl, ...]
   let photos = labels.map(() => Array(7).fill(null).map(() => []));
 
   let activeDay = 0;
@@ -194,7 +194,7 @@
     }
   }
 
-  async function compressImageToDataUrl(file, maxW = 1400, quality = 0.78) {
+  async function compressImageToDataUrl(file, maxW = 1600, quality = 0.82) {
     const original = await new Promise((resolve, reject) => {
       const r = new FileReader();
       r.onload = () => resolve(r.result);
@@ -216,42 +216,47 @@
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, 0, 0, w, h);
 
     return canvas.toDataURL("image/jpeg", quality);
   }
 
   function setButtonsActive() {
-    $("btnExc").classList.toggle("active", equipmentType === "excavator");
-    $("btnCrane").classList.toggle("active", equipmentType === "crane");
-    $("btnDump").classList.toggle("active", equipmentType === "dumper");
+    const a = $("btnExc"), b = $("btnCrane"), c = $("btnDump");
+    if (!a || !b || !c) return;
+    a.classList.toggle("active", equipmentType === "excavator");
+    b.classList.toggle("active", equipmentType === "crane");
+    c.classList.toggle("active", equipmentType === "dumper");
   }
 
   function setHeaderTexts() {
-    $("buildTag").textContent = `BUILD: ${BUILD}`;
-    $("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
+    if ($("buildTag")) $("buildTag").textContent = `BUILD: ${BUILD}`;
+    if ($("selectedType")) $("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
 
     const title =
       equipmentType === "excavator" ? "Excavator Pre-Use Inspection Checklist" :
       equipmentType === "crane" ? "Crane Pre-Use Inspection Checklist" :
       "Dumper Pre-Use Inspection Checklist";
-    $("sheetTitle").textContent = title;
+    if ($("sheetTitle")) $("sheetTitle").textContent = title;
 
     const formRef =
       equipmentType === "excavator" ? "QPFPL5.2" :
       equipmentType === "crane" ? "QPFPL5.0" :
       "QPFPL5.1";
-    $("formRef").textContent = formRef;
+    if ($("formRef")) $("formRef").textContent = formRef;
 
-    const dateISO = $("date").value || isoToday();
-    $("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
+    const dateISO = ($("date")?.value) || isoToday();
+    if ($("weekCommencingPreview")) $("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
 
-    const pid = ($("plantId").value || "").trim();
-    $("machineNoPreview").textContent = pid || "—";
+    const pid = (($("plantId")?.value) || "").trim();
+    if ($("machineNoPreview")) $("machineNoPreview").textContent = pid || "—";
   }
 
   function fillRecipients() {
     const sel = $("reportedTo");
+    if (!sel) return;
     sel.innerHTML = "";
     RECIPIENTS.forEach((r) => {
       const opt = document.createElement("option");
@@ -267,12 +272,11 @@
     if (a) a.style.display = "none";
     if (b) b.style.display = "none";
     if (c) c.style.display = "none";
-
     const wrap = (a && a.parentElement) || (b && b.parentElement) || (c && c.parentElement);
-    if (wrap && wrap.classList) wrap.style.display = "none";
+    if (wrap) wrap.style.display = "none";
   }
 
-  function makePhotoControls(r, d, onUpdated) {
+  function makePhotoControls(rowIndex, dayIndex, rerender) {
     const wrap = document.createElement("div");
     wrap.style.marginTop = "6px";
     wrap.style.display = "flex";
@@ -280,64 +284,65 @@
     wrap.style.flexWrap = "wrap";
     wrap.style.alignItems = "center";
 
-    const add = document.createElement("button");
-    add.type = "button";
-    add.textContent = photos[r][d].length ? `Photos (${photos[r][d].length})` : "Add photo";
-    add.style.fontSize = "12px";
-    add.style.fontWeight = "800";
-    add.style.padding = "6px 10px";
-    add.style.borderRadius = "10px";
-    add.style.border = "1px solid #e5e7eb";
-    add.style.background = "#fff";
+    const count = (photos?.[rowIndex]?.[dayIndex] || []).length;
 
-    add.addEventListener("click", async () => {
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.textContent = count ? `Photos (${count})` : "Add photo";
+    addBtn.style.fontSize = "12px";
+    addBtn.style.fontWeight = "800";
+    addBtn.style.padding = "6px 10px";
+    addBtn.style.borderRadius = "10px";
+    addBtn.style.border = "1px solid #e5e7eb";
+    addBtn.style.background = "#fff";
+
+    addBtn.addEventListener("click", () => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
       input.capture = "environment";
-
       input.onchange = async () => {
         const f = input.files?.[0];
         if (!f) return;
         try {
           const small = await compressImageToDataUrl(f);
-          photos[r][d].push(small);
-          onUpdated();
+          photos[rowIndex][dayIndex].push(small);
+          rerender();
         } catch {
-          // ignore
+          rerender();
         }
       };
-
       input.click();
     });
 
-    wrap.appendChild(add);
+    wrap.appendChild(addBtn);
 
-    if (photos[r][d].length) {
-      const clear = document.createElement("button");
-      clear.type = "button";
-      clear.textContent = "Clear photos";
-      clear.style.fontSize = "12px";
-      clear.style.fontWeight = "800";
-      clear.style.padding = "6px 10px";
-      clear.style.borderRadius = "10px";
-      clear.style.border = "1px solid #e5e7eb";
-      clear.style.background = "#f3f4f6";
-      clear.addEventListener("click", () => {
-        photos[r][d] = [];
-        onUpdated();
+    if (count) {
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.textContent = "Clear photos";
+      clearBtn.style.fontSize = "12px";
+      clearBtn.style.fontWeight = "800";
+      clearBtn.style.padding = "6px 10px";
+      clearBtn.style.borderRadius = "10px";
+      clearBtn.style.border = "1px solid #e5e7eb";
+      clearBtn.style.background = "#f3f4f6";
+      clearBtn.addEventListener("click", () => {
+        photos[rowIndex][dayIndex] = [];
+        rerender();
       });
-      wrap.appendChild(clear);
+      wrap.appendChild(clearBtn);
     }
 
     return wrap;
   }
 
   function renderTable() {
-    const dateISO = $("date").value || isoToday();
+    const dateISO = ($("date")?.value) || isoToday();
     activeDay = getDayIndexMon0(dateISO);
 
     const tbody = $("checksBody");
+    if (!tbody) return;
     tbody.innerHTML = "";
 
     labels.forEach((label, r) => {
@@ -375,6 +380,7 @@
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
 
+            // If not DEFECT, wipe photos for that row/day
             if (next !== "DEFECT") photos[r][d] = [];
 
             btn.textContent = markText(next);
@@ -392,10 +398,11 @@
   }
 
   function renderMobileList() {
-    const dateISO = $("date").value || isoToday();
+    const dateISO = ($("date")?.value) || isoToday();
     activeDay = getDayIndexMon0(dateISO);
 
     const wrap = $("mobileChecks");
+    if (!wrap) return;
     wrap.innerHTML = "";
 
     labels.forEach((label, r) => {
@@ -444,17 +451,18 @@
     const d = weekDaily?.[activeDay] || null;
     if (!d) return;
 
-    $("site").value = d.site || $("site").value || "";
-    $("operator").value = d.operator || "";
-    $("hours").value = d.hours || "";
-    $("defectsText").value = d.defectsText || "";
-    $("actionTaken").value = d.actionTaken || "";
-    if (d.reportedToEmail) $("reportedTo").value = d.reportedToEmail;
+    if ($("site")) $("site").value = d.site || $("site").value || "";
+    if ($("operator")) $("operator").value = d.operator || "";
+    if ($("hours")) $("hours").value = d.hours || "";
+    if ($("defectsText")) $("defectsText").value = d.defectsText || "";
+    if ($("actionTaken")) $("actionTaken").value = d.actionTaken || "";
+    if ($("reportedTo") && d.reportedToEmail) $("reportedTo").value = d.reportedToEmail;
   }
 
   // -------- Signature pad --------
   function initSignature() {
     const canvas = $("sig");
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     let drawing = false;
     let last = null;
@@ -499,11 +507,13 @@
     canvas.addEventListener("touchmove", move, { passive: false });
     window.addEventListener("touchend", end);
 
-    $("clearSig").addEventListener("click", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
+    const clearBtn = $("clearSig");
+    if (clearBtn) clearBtn.addEventListener("click", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
   }
 
   function signatureDataUrl() {
     const canvas = $("sig");
+    if (!canvas) return "";
     const ctx = canvas.getContext("2d");
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     let hasInk = false;
@@ -517,8 +527,9 @@
   // -------- Load week from KV --------
   async function loadWeekFromKV() {
     const status = $("status");
-    const plantId = (($("plantId").value || "").replace(/\s+/g, "")).trim().toUpperCase();
-    const dateISO = $("date").value || "";
+
+    const plantId = (($("plantId")?.value || "").replace(/\s+/g, "")).trim().toUpperCase();
+    const dateISO = ($("date")?.value) || "";
 
     setHeaderTexts();
     activeDay = getDayIndexMon0(dateISO);
@@ -529,12 +540,12 @@
       weekDaily = Array(7).fill(null);
       photos = labels.map(() => Array(7).fill(null).map(() => []));
       renderChecks();
-      status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
+      if (status) status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
       return;
     }
 
     const url = `/api/week?t=${encodeURIComponent(TOKEN)}&type=${encodeURIComponent(equipmentType)}&plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(dateISO)}`;
-    status.textContent = "Loading week…";
+    if (status) status.textContent = "Loading week…";
 
     try {
       const { resp, data } = await fetchJson(url, { cache: "no-store" }, 12000);
@@ -545,7 +556,7 @@
         weekDaily = Array(7).fill(null);
         photos = labels.map(() => Array(7).fill(null).map(() => []));
         renderChecks();
-        status.innerHTML = `<span class="bad">✖ Week load failed (${resp.status})</span>`;
+        if (status) status.innerHTML = `<span class="bad">✖ Week load failed (${resp.status})</span>`;
         return;
       }
 
@@ -555,9 +566,10 @@
         weekStatuses = rec.statuses;
         weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
 
-        // Photos are PDF-only; always start blank
+        // Photos are PDF-only; always start blank on load
         photos = labels.map(() => Array(7).fill(null).map(() => []));
 
+        // Carry week-level site into daily defaults if present
         if (rec.site) {
           for (let i = 0; i < 7; i++) {
             if (!weekDaily[i]) weekDaily[i] = {};
@@ -567,14 +579,14 @@
 
         renderChecks();
         applyDailyToInputs();
-        status.textContent = "Ready.";
+        if (status) status.textContent = "Ready.";
       } else {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
         weekDaily = Array(7).fill(null);
         photos = labels.map(() => Array(7).fill(null).map(() => []));
         renderChecks();
-        status.textContent = "Ready.";
+        if (status) status.textContent = "Ready.";
       }
     } catch {
       labels = [...CHECKLISTS[equipmentType]];
@@ -582,11 +594,11 @@
       weekDaily = Array(7).fill(null);
       photos = labels.map(() => Array(7).fill(null).map(() => []));
       renderChecks();
-      status.innerHTML = `<span class="bad">✖ Load error</span>`;
+      if (status) status.innerHTML = `<span class="bad">✖ Load error</span>`;
     }
   }
 
-  // -------- PDF: checklist page + unlimited photo pages (COVER fit; no shrink) --------
+  // -------- PDF: checklist page + unlimited photo pages (canvas crop; no shrink) --------
   async function makePdfBase64(payload, defectPhotos) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
@@ -636,37 +648,44 @@
       return { w: imgW * s, h: imgH * s };
     }
 
-    function coverIntoBox(imgW, imgH, boxW, boxH) {
-      const s = Math.max(boxW / imgW, boxH / imgH);
-      return { w: imgW * s, h: imgH * s };
+    // Crop-to-box in browser so jsPDF always gets a perfect fill image
+    async function cropToBoxDataUrl(dataUrl, targetWpx, targetHpx, quality = 0.84) {
+      const img = new Image();
+      img.decoding = "async";
+      img.loading = "eager";
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = String(dataUrl);
+      });
+
+      const srcW = img.naturalWidth || img.width;
+      const srcH = img.naturalHeight || img.height;
+
+      const scale = Math.max(targetWpx / srcW, targetHpx / srcH);
+      const drawW = Math.round(srcW * scale);
+      const drawH = Math.round(srcH * scale);
+      const dx = Math.round((targetWpx - drawW) / 2);
+      const dy = Math.round((targetHpx - drawH) / 2);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWpx;
+      canvas.height = targetHpx;
+
+      const ctx = canvas.getContext("2d", { alpha: false });
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, dx, dy, drawW, drawH);
+
+      return canvas.toDataURL("image/jpeg", quality);
     }
 
-    async function addImageCover(dataUrl, x, y, w, h) {
-      // If jsPDF clip APIs exist, do proper cover+crop.
-      // If not, fall back to contain (still no distortion).
-      try {
-        const sz = await getImageSize(String(dataUrl));
-        const fitted = coverIntoBox(sz.w, sz.h, w, h);
-        const drawX = x - (fitted.w - w) / 2;
-        const drawY = y - (fitted.h - h) / 2;
-
-        if (typeof doc.saveGraphicsState === "function" && typeof doc.clip === "function" && typeof doc.restoreGraphicsState === "function") {
-          doc.saveGraphicsState();
-          doc.rect(x, y, w, h);
-          doc.clip();
-          doc.addImage(String(dataUrl), "JPEG", drawX, drawY, fitted.w, fitted.h);
-          doc.restoreGraphicsState();
-        } else {
-          // fallback: contain fit (no crop, no distortion)
-          const contained = fitIntoBox(sz.w, sz.h, w, h);
-          const cx = x + (w - contained.w) / 2;
-          const cy = y + (h - contained.h) / 2;
-          doc.addImage(String(dataUrl), "JPEG", cx, cy, contained.w, contained.h);
-        }
-      } catch {
-        // ignore; caller will show message
-        throw new Error("embed-failed");
-      }
+    async function addImageFillBox(dataUrl, x, y, wPt, hPt) {
+      const pxW = Math.max(600, Math.round(wPt * 2.4));
+      const pxH = Math.max(420, Math.round(hPt * 2.4));
+      const cropped = await cropToBoxDataUrl(dataUrl, pxW, pxH, 0.84);
+      doc.addImage(cropped, "JPEG", x, y, wPt, hPt);
     }
 
     function drawOkTick(cx, cy) {
@@ -695,7 +714,7 @@
     const labels2 = payload.labels || [];
     const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
 
-    // ------------------- PAGE 1 (CHECKLIST) -------------------
+    // ---------------- PAGE 1 (CHECKLIST) ----------------
     let y = margin;
 
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
@@ -868,7 +887,7 @@
     doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
     doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align: "center" });
 
-    // ------------------- PHOTO PAGES (UNLIMITED) -------------------
+    // ---------------- PHOTO PAGES (UNLIMITED) ----------------
     const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
     if (pics.length) {
       const cols = 2;
@@ -878,8 +897,8 @@
       const gapY = 18;
 
       const boxW = (pageW - margin * 2 - gapX) / 2;
-      const boxH = 180;         // a bit taller
-      const imgH = 140;         // bigger photo area
+      const boxH = 190;     // slightly taller frame
+      const imgH = 150;     // larger photo area
 
       let idx = 0;
       while (idx < pics.length) {
@@ -922,11 +941,11 @@
             const boxW2 = boxW - 4;
             const boxH2 = imgH;
 
-            // draw image boundary
+            // visible border
             doc.rect(boxX2, boxY2, boxW2, boxH2);
 
             try {
-              await addImageCover(String(p.dataUrl), boxX2, boxY2, boxW2, boxH2);
+              await addImageFillBox(String(p.dataUrl), boxX2, boxY2, boxW2, boxH2);
             } catch {
               doc.setFont("helvetica", "normal");
               doc.setFontSize(8);
@@ -950,27 +969,26 @@
     const statusEl = $("status");
     const btn = $("submitBtn");
 
-    // Plant ID: uppercase + no spaces
-    let plantId = ($("plantId").value || "");
+    let plantId = ($("plantId")?.value || "");
     plantId = plantId.replace(/\s+/g, "").toUpperCase();
-    $("plantId").value = plantId;
+    if ($("plantId")) $("plantId").value = plantId;
 
-    const dateISO = $("date").value || "";
-    const site = ($("site").value || "").trim();
-    const operator = ($("operator").value || "").trim();
-    const hours = ($("hours").value || "").trim();
+    const dateISO = ($("date")?.value) || "";
+    const site = ($("site")?.value || "").trim();
+    const operator = ($("operator")?.value || "").trim();
+    const hours = ($("hours")?.value || "").trim();
 
-    const reportedToEmail = $("reportedTo").value;
+    const reportedToEmail = $("reportedTo")?.value || "";
     const reportedToName = (RECIPIENTS.find(r => r.email === reportedToEmail)?.name) || "";
 
-    if (!TOKEN) { statusEl.innerHTML = `<span class="bad">✖ Missing token (t=...)</span>`; return; }
-    if (!plantId || !dateISO) { statusEl.innerHTML = `<span class="bad">✖ Plant ID and Date are required</span>`; return; }
-    if (!reportedToEmail) { statusEl.innerHTML = `<span class="bad">✖ Please select ‘Reported to’</span>`; return; }
+    if (!TOKEN) { if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Missing token (t=...)</span>`; return; }
+    if (!plantId || !dateISO) { if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Plant ID and Date are required</span>`; return; }
+    if (!reportedToEmail) { if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Please select ‘Reported to’</span>`; return; }
 
     const weekCommencing = getWeekCommencingISO(dateISO);
     const dayIndex = getDayIndexMon0(dateISO);
 
-    // Gather DEFECT photos for TODAY ONLY (unlimited)
+    // Collect DEFECT photos for TODAY only (unlimited)
     const defectPhotosForPdf = [];
     for (let r = 0; r < labels.length; r++) {
       const st = weekStatuses?.[r]?.[dayIndex] || null;
@@ -985,8 +1003,8 @@
     }
 
     const payload = {
-      formRef: $("formRef").textContent || "",
-      sheetTitle: $("sheetTitle").textContent || "",
+      formRef: $("formRef")?.textContent || "",
+      sheetTitle: $("sheetTitle")?.textContent || "",
       equipmentType,
       site,
       date: dateISO,
@@ -997,21 +1015,20 @@
       dayIndex,
       labels,
       weekStatuses,
-      defectsText: ($("defectsText").value || "").trim(),
+      defectsText: ($("defectsText")?.value || "").trim(),
       reportedToName,
       reportedToEmail,
-      actionTaken: ($("actionTaken").value || "").trim(),
+      actionTaken: ($("actionTaken")?.value || "").trim(),
       signatureDataUrl: signatureDataUrl()
-      // NOTE: No photos saved in payload (PDF-only)
     };
 
-    btn.disabled = true;
-    statusEl.textContent = "Building PDF…";
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = "Building PDF…";
 
     try {
       const pdfBase64 = await makePdfBase64(payload, defectPhotosForPdf);
 
-      statusEl.textContent = "Submitting…";
+      if (statusEl) statusEl.textContent = "Submitting…";
 
       const { resp, data } = await fetchJson("/api/submit", {
         method: "POST",
@@ -1020,13 +1037,14 @@
       }, 30000);
 
       if (!resp.ok) {
-        statusEl.innerHTML = `<span class="bad">✖ Submit failed (${resp.status}): ${data.error || "Unknown"}</span>`;
-        btn.disabled = false;
+        if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Submit failed (${resp.status}): ${data.error || "Unknown"}</span>`;
+        if (btn) btn.disabled = false;
         return;
       }
 
-      btn.disabled = false;
+      if (btn) btn.disabled = false;
 
+      // Redirect to submitted page
       const url =
         `/submitted.html?t=${encodeURIComponent(TOKEN)}` +
         `&type=${encodeURIComponent(equipmentType)}` +
@@ -1037,15 +1055,15 @@
       return;
 
     } catch (e) {
-      statusEl.innerHTML = `<span class="bad">✖ ${e?.message || "Error"}</span>`;
-      btn.disabled = false;
+      if (statusEl) statusEl.innerHTML = `<span class="bad">✖ ${e?.message || "Error"}</span>`;
+      if (btn) btn.disabled = false;
     }
   }
 
   // -------- Wire events --------
   function wireEvents() {
     if (!LOCK_TYPE) {
-      $("btnExc").addEventListener("click", async () => {
+      $("btnExc")?.addEventListener("click", async () => {
         equipmentType = "excavator";
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
@@ -1056,7 +1074,7 @@
         await loadWeekFromKV();
       });
 
-      $("btnCrane").addEventListener("click", async () => {
+      $("btnCrane")?.addEventListener("click", async () => {
         equipmentType = "crane";
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
@@ -1067,7 +1085,7 @@
         await loadWeekFromKV();
       });
 
-      $("btnDump").addEventListener("click", async () => {
+      $("btnDump")?.addEventListener("click", async () => {
         equipmentType = "dumper";
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
@@ -1079,32 +1097,33 @@
       });
     }
 
-    $("date").addEventListener("change", () => {
+    $("date")?.addEventListener("change", () => {
       setHeaderTexts();
       loadWeekFromKV();
     });
 
-    $("plantId").addEventListener("input", () => {
+    $("plantId")?.addEventListener("input", () => {
       const cleaned = ($("plantId").value || "").replace(/\s+/g, "").toUpperCase();
       if ($("plantId").value !== cleaned) $("plantId").value = cleaned;
       setHeaderTexts();
     });
 
-    $("plantId").addEventListener("blur", loadWeekFromKV);
+    $("plantId")?.addEventListener("blur", loadWeekFromKV);
 
     window.addEventListener("resize", () => renderChecks());
 
-    $("submitBtn").addEventListener("click", submit);
+    $("submitBtn")?.addEventListener("click", submit);
   }
 
   // -------- Init --------
   (function init() {
-    $("buildTag").textContent = `BUILD: ${BUILD}`;
+    if ($("buildTag")) $("buildTag").textContent = `BUILD: ${BUILD}`;
+
     fillRecipients();
     initSignature();
     wireEvents();
 
-    if (!$("date").value) $("date").value = isoToday();
+    if ($("date") && !$("date").value) $("date").value = isoToday();
 
     setButtonsActive();
     if (LOCK_TYPE) lockTypeUI();
