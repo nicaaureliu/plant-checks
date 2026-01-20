@@ -51,7 +51,7 @@
       margin-bottom:10px;
     }
 
-    /* ===== Header (FIXED: no absolute logos) ===== */
+    /* ===== Header (no absolute logos) ===== */
     .sheetHeader{
       padding:10px 10px 0;
       text-align:center;
@@ -92,14 +92,22 @@
       line-height:1.15;
     }
 
+    /* ===== FIX: meta row must wrap on small screens ===== */
     .metaRow{
       display:flex;
       justify-content:space-between;
       gap:10px;
       font-weight:700;
       padding:4px 6px 10px;
+      flex-wrap:wrap;               /* allow wrap instead of overflow */
     }
-    .metaRow span{ white-space:nowrap; }
+    .metaRow > span{
+      min-width:0;                  /* allows flex items to shrink */
+      flex:1 1 260px;               /* wrap when space is tight */
+    }
+    .metaRow strong, .metaRow span{
+      white-space:normal;           /* ensure it can wrap */
+    }
 
     .yellowBar{
       background:var(--yellow);
@@ -147,6 +155,7 @@
     }
     .field input, .field select, .field textarea{
       width:100%;
+      max-width:100%;
       padding:14px 14px;
       border-radius:14px;
       border:1px solid var(--line);
@@ -316,20 +325,25 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
-    /* Mobile tweaks + header behaviour */
     @media (max-width: 760px){
       .logoLeft{ width:84px; }
       .logoRight{ width:54px; }
 
-      /* Key: let logos stay on a row, and force title below (prevents overlap) */
-      .headerRow{
-        flex-wrap:wrap;
-      }
+      /* keep logos on one row, title below to prevent overlap */
+      .headerRow{ flex-wrap:wrap; }
       .headerText{
-        flex: 0 0 100%;
-        order: 3;         /* title goes below logos */
-        padding-top: 6px;
+        flex:0 0 100%;
+        order:3;
+        padding-top:6px;
       }
+
+      /* stack meta info to avoid any off-screen */
+      .metaRow{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:6px;
+      }
+      .metaRow > span{ flex:0 0 auto; }
 
       .formRef{ font-size:24px; }
       .sheetTitle{ font-size:18px; }
