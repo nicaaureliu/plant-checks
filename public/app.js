@@ -1,17 +1,7 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v12.4";
+  const BUILD = "v12.5";
   const $ = (id) => document.getElementById(id);
-
-  const qs = new URLSearchParams(location.search);
-  const TOKEN = qs.get("t") || "";
-
-  // Force users through selector if they try to open the form without a type
-  // (prevents wrong checklist submissions)
-  if (!qs.get("type") && TOKEN) {
-    location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
-    return;
-  }
 
   const RECIPIENTS = [
     { name: "Choose from", email: "" },
@@ -123,6 +113,18 @@
     ]
   };
 
+  const qs = new URLSearchParams(location.search);
+  const TOKEN = qs.get("t") || "";
+
+  // Force users through selector if they open form without type
+  if (!qs.get("type") && TOKEN) {
+    location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
+    return;
+  }
+
+  // If a type is present, we lock the UI so it cannot be changed on the form page
+  const LOCK_TYPE = !!qs.get("type");
+
   let equipmentType = (qs.get("type") || "excavator").toLowerCase();
   if (!["excavator","crane","dumper"].includes(equipmentType)) equipmentType = "excavator";
 
@@ -230,7 +232,23 @@
       sel.appendChild(opt);
     });
 
-    sel.value = ""; // default to "Choose from"
+    sel.value = ""; // default "Choose from"
+  }
+
+  function lockTypeUI() {
+    const a = $("btnExc"), b = $("btnCrane"), c = $("btnDump");
+    if (a) a.style.display = "none";
+    if (b) b.style.display = "none";
+    if (c) c.style.display = "none";
+
+    // If they live inside a common wrapper, hide that wrapper too (optional)
+    const wrap = (a && a.parentElement) || (b && b.parentElement) || (c && c.parentElement);
+    if (wrap && wrap.classList) {
+      const txt = (wrap.innerText || "").toLowerCase();
+      if (txt.includes("excavator") && txt.includes("crane") && txt.includes("dumper")) {
+        wrap.style.display = "none";
+      }
+    }
   }
 
   function renderTable() {
@@ -795,32 +813,35 @@
 
   // -------- Wire events --------
   function wireEvents() {
-    $("btnExc").addEventListener("click", async () => {
-      equipmentType = "excavator";
-      labels = [...CHECKLISTS[equipmentType]];
-      weekStatuses = labels.map(() => Array(7).fill(null));
-      setButtonsActive();
-      setHeaderTexts();
-      await loadWeekFromKV();
-    });
+    // Only allow switching types when NOT locked (i.e. direct internal use)
+    if (!LOCK_TYPE) {
+      $("btnExc").addEventListener("click", async () => {
+        equipmentType = "excavator";
+        labels = [...CHECKLISTS[equipmentType]];
+        weekStatuses = labels.map(() => Array(7).fill(null));
+        setButtonsActive();
+        setHeaderTexts();
+        await loadWeekFromKV();
+      });
 
-    $("btnCrane").addEventListener("click", async () => {
-      equipmentType = "crane";
-      labels = [...CHECKLISTS[equipmentType]];
-      weekStatuses = labels.map(() => Array(7).fill(null));
-      setButtonsActive();
-      setHeaderTexts();
-      await loadWeekFromKV();
-    });
+      $("btnCrane").addEventListener("click", async () => {
+        equipmentType = "crane";
+        labels = [...CHECKLISTS[equipmentType]];
+        weekStatuses = labels.map(() => Array(7).fill(null));
+        setButtonsActive();
+        setHeaderTexts();
+        await loadWeekFromKV();
+      });
 
-    $("btnDump").addEventListener("click", async () => {
-      equipmentType = "dumper";
-      labels = [...CHECKLISTS[equipmentType]];
-      weekStatuses = labels.map(() => Array(7).fill(null));
-      setButtonsActive();
-      setHeaderTexts();
-      await loadWeekFromKV();
-    });
+      $("btnDump").addEventListener("click", async () => {
+        equipmentType = "dumper";
+        labels = [...CHECKLISTS[equipmentType]];
+        weekStatuses = labels.map(() => Array(7).fill(null));
+        setButtonsActive();
+        setHeaderTexts();
+        await loadWeekFromKV();
+      });
+    }
 
     $("date").addEventListener("change", () => {
       setHeaderTexts();
@@ -851,6 +872,8 @@
     if (!$("date").value) $("date").value = isoToday();
 
     setButtonsActive();
+    if (LOCK_TYPE) lockTypeUI();
+
     setHeaderTexts();
     renderChecks();
     loadWeekFromKV();
