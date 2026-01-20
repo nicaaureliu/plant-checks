@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v12.6";
+  const BUILD = "v12.8";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -122,7 +122,6 @@
     return;
   }
 
-  // If type is present, lock UI (no switching on form page)
   const LOCK_TYPE = !!qs.get("type");
 
   let equipmentType = (qs.get("type") || "excavator").toLowerCase();
@@ -132,7 +131,7 @@
   let weekStatuses = labels.map(() => Array(7).fill(null));
   let weekDaily = Array(7).fill(null);
 
-  // Photos: [row][day] = array of strings (either dataUrl before upload, or URL after upload)
+  // Photos are LOCAL ONLY: [row][day] = array of compressed data URLs
   let photos = labels.map(() => Array(7).fill(null).map(() => []));
 
   let activeDay = 0;
@@ -193,20 +192,6 @@
     } finally {
       clearTimeout(t);
     }
-  }
-
-  function normalizePhotos(p, rowCount) {
-    const out = Array(rowCount).fill(null).map(() => Array(7).fill(null).map(() => []));
-    if (!Array.isArray(p)) return out;
-
-    for (let r = 0; r < Math.min(rowCount, p.length); r++) {
-      if (!Array.isArray(p[r])) continue;
-      for (let d = 0; d < 7; d++) {
-        const arr = p[r]?.[d];
-        if (Array.isArray(arr)) out[r][d] = arr.filter(Boolean).map(String);
-      }
-    }
-    return out;
   }
 
   async function compressImageToDataUrl(file, maxW = 1280, quality = 0.75) {
@@ -274,7 +259,7 @@
       opt.textContent = r.name;
       sel.appendChild(opt);
     });
-    sel.value = ""; // "Choose from"
+    sel.value = "";
   }
 
   function lockTypeUI() {
@@ -319,7 +304,6 @@
       input.onchange = async () => {
         const f = input.files?.[0];
         if (!f) return;
-
         try {
           const small = await compressImageToDataUrl(f);
           photos[r][d].push(small);
@@ -335,22 +319,20 @@
     wrap.appendChild(add);
 
     if (photos[r][d].length) {
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.textContent = "Remove last";
-      remove.style.fontSize = "12px";
-      remove.style.fontWeight = "800";
-      remove.style.padding = "6px 10px";
-      remove.style.borderRadius = "10px";
-      remove.style.border = "1px solid #e5e7eb";
-      remove.style.background = "#f3f4f6";
-
-      remove.addEventListener("click", () => {
-        photos[r][d].pop();
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.textContent = "Clear photos";
+      clear.style.fontSize = "12px";
+      clear.style.fontWeight = "800";
+      clear.style.padding = "6px 10px";
+      clear.style.borderRadius = "10px";
+      clear.style.border = "1px solid #e5e7eb";
+      clear.style.background = "#f3f4f6";
+      clear.addEventListener("click", () => {
+        photos[r][d] = [];
         onUpdated();
       });
-
-      wrap.appendChild(remove);
+      wrap.appendChild(clear);
     }
 
     return wrap;
@@ -373,7 +355,6 @@
       labelDiv.textContent = label;
       tdItem.appendChild(labelDiv);
 
-      // If DEFECT today, show photo controls next to label
       const todayStatus = weekStatuses?.[r]?.[activeDay] || null;
       if (todayStatus === "DEFECT") {
         tdItem.appendChild(makePhotoControls(r, activeDay, () => renderTable()));
@@ -399,11 +380,11 @@
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
 
-            // If status is NOT DEFECT, clear photos for that item/day (keeps evidence consistent)
+            // if not DEFECT, clear photos for that row/day (keeps evidence consistent)
             if (next !== "DEFECT") photos[r][d] = [];
 
             btn.textContent = markText(next);
-            renderTable(); // re-render so photo button appears/disappears
+            renderTable();
             if (isMobile()) renderMobileList();
           });
         }
@@ -542,8 +523,6 @@
   // -------- Load week from KV --------
   async function loadWeekFromKV() {
     const status = $("status");
-
-    // Plant ID: no spaces, uppercase
     const plantId = (($("plantId").value || "").replace(/\s+/g,"")).trim().toUpperCase();
     const dateISO = $("date").value || "";
 
@@ -581,7 +560,9 @@
         labels = rec.labels;
         weekStatuses = rec.statuses;
         weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
-        photos = normalizePhotos(rec.photos, labels.length);
+
+        // Photos are NOT loaded/saved from KV in Option 1 (PDF-only). Always start blank.
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
 
         if (rec.site) {
           for (let i = 0; i < 7; i++) {
@@ -611,8 +592,8 @@
     }
   }
 
-  // -------- PDF (unchanged) --------
-  async function makePdfBase64(payload) {
+  // -------- PDF: checklist page as before + unlimited photo pages --------
+  async function makePdfBase64(payload, defectPhotos) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
 
@@ -687,6 +668,7 @@
     const labels2 = payload.labels || [];
     const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
 
+    // ------------------- PAGE 1 (CHECKLIST) -------------------
     let y = margin;
 
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
@@ -859,6 +841,79 @@
     doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
     doc.text(`BUILD: ${BUILD}`, pageW/2, pageH - 16, { align:"center" });
 
+    // ------------------- PHOTO PAGES (UNLIMITED) -------------------
+    const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
+    if (pics.length) {
+      const perPage = 6;        // 2 columns x 3 rows
+      const cols = 2;
+      const rows = 3;
+
+      const gapX = 10;
+      const gapY = 18;
+
+      const boxW = (pageW - margin*2 - gapX) / 2;
+      const boxH = 170;
+
+      const thumbW = boxW;
+      const thumbH = 130;
+
+      let idx = 0;
+      while (idx < pics.length) {
+        doc.addPage();
+        let yy = margin;
+
+        doc.setFont("helvetica","bold");
+        doc.setFontSize(12);
+        doc.text("Defect Photos", margin, yy);
+
+        doc.setFont("helvetica","normal");
+        doc.setFontSize(9);
+        doc.text(
+          `Machine: ${payload.plantId || ""}   Date: ${dateUK}   Type: ${payload.equipmentType || ""}`,
+          margin,
+          yy + 16
+        );
+
+        yy += 34;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (idx >= pics.length) break;
+
+            const p = pics[idx];
+            const x = margin + c * (boxW + gapX);
+            const yTop = yy + r * (boxH + gapY);
+
+            // Frame
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.7);
+            doc.rect(x, yTop, boxW, boxH);
+
+            // Caption (row + label)
+            doc.setFont("helvetica","bold");
+            doc.setFontSize(8);
+            const cap = `Row ${p.rowIndex + 1}: ${p.label || ""}`;
+            doc.text(ellipsize(cap, boxW - 8, 8), x + 4, yTop + 12);
+
+            // Image area
+            const imgX = x + 0;
+            const imgY = yTop + 18;
+
+            try {
+              // Fill the thumbnail area (cropping not applied; it will fit by scaling in addImage box)
+              doc.addImage(String(p.dataUrl), "JPEG", imgX + 2, imgY + 2, thumbW - 4, thumbH - 4);
+            } catch {
+              doc.setFont("helvetica","normal");
+              doc.setFontSize(8);
+              doc.text("Photo could not be embedded.", x + 4, imgY + 22);
+            }
+
+            idx++;
+          }
+        }
+      }
+    }
+
     const dataUri = doc.output("datauristring");
     const parts = String(dataUri).split(",");
     if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
@@ -890,51 +945,17 @@
     const weekCommencing = getWeekCommencingISO(dateISO);
     const dayIndex = getDayIndexMon0(dateISO);
 
-    // Upload photos (optional) — only those that are still data URLs
-    const toUpload = [];
-    for (let r = 0; r < photos.length; r++) {
-      for (let d = 0; d < 7; d++) {
-        for (let i = 0; i < (photos[r][d] || []).length; i++) {
-          const p = photos[r][d][i];
-          if (typeof p === "string" && p.startsWith("data:image/")) {
-            toUpload.push({ r, d, i, dataUrl: p });
-          }
+    // Gather DEFECT photos for TODAY ONLY (unlimited)
+    const defectPhotosForPdf = [];
+    for (let r = 0; r < labels.length; r++) {
+      const st = weekStatuses?.[r]?.[dayIndex] || null;
+      if (st !== "DEFECT") continue;
+
+      const arr = photos?.[r]?.[dayIndex] || [];
+      for (const p of arr) {
+        if (typeof p === "string" && p.startsWith("data:image/")) {
+          defectPhotosForPdf.push({ rowIndex: r, label: labels[r], dataUrl: p });
         }
-      }
-    }
-
-    if (toUpload.length) statusEl.textContent = `Uploading photos (0/${toUpload.length})…`;
-
-    for (let k = 0; k < toUpload.length; k++) {
-      const it = toUpload[k];
-      statusEl.textContent = `Uploading photos (${k+1}/${toUpload.length})…`;
-
-      const { resp, data } = await fetchJson("/api/upload-photo", {
-        method: "POST",
-        headers: { "content-type":"application/json" },
-        body: JSON.stringify({
-          token: TOKEN,
-          plantId,
-          date: dateISO,
-          type: equipmentType,
-          rowIndex: it.r,
-          dayIndex: it.d,
-          dataUrl: it.dataUrl
-        })
-      }, 30000);
-
-      if (resp.ok && data.url) {
-        photos[it.r][it.d][it.i] = data.url; // replace dataUrl with URL
-      } else {
-        // If upload fails, we keep the submission working and just drop that photo
-        photos[it.r][it.d][it.i] = null;
-      }
-    }
-
-    // Clean nulls after upload attempts
-    for (let r = 0; r < photos.length; r++) {
-      for (let d = 0; d < 7; d++) {
-        photos[r][d] = (photos[r][d] || []).filter(Boolean);
       }
     }
 
@@ -955,17 +976,15 @@
       reportedToName,
       reportedToEmail,
       actionTaken: ($("actionTaken").value || "").trim(),
-      signatureDataUrl: signatureDataUrl(),
-
-      // NEW: photo URLs (optional)
-      photos
+      signatureDataUrl: signatureDataUrl()
+      // NOTE: No photos included in payload (Option 1 PDF-only)
     };
 
     btn.disabled = true;
     statusEl.textContent = "Building PDF…";
 
     try {
-      const pdfBase64 = await makePdfBase64(payload);
+      const pdfBase64 = await makePdfBase64(payload, defectPhotosForPdf);
 
       statusEl.textContent = "Submitting…";
 
@@ -983,7 +1002,6 @@
 
       btn.disabled = false;
 
-      // Redirect to confirmation
       const url =
         `/submitted.html?t=${encodeURIComponent(TOKEN)}` +
         `&type=${encodeURIComponent(equipmentType)}` +
@@ -1048,7 +1066,9 @@
     });
 
     $("plantId").addEventListener("blur", loadWeekFromKV);
+
     window.addEventListener("resize", () => renderChecks());
+
     $("submitBtn").addEventListener("click", submit);
   }
 
