@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v12.5";
+  const BUILD = "v12.6";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -116,13 +116,13 @@
   const qs = new URLSearchParams(location.search);
   const TOKEN = qs.get("t") || "";
 
-  // Force users through selector if they open form without type
+  // Force users through selector if type missing
   if (!qs.get("type") && TOKEN) {
     location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
     return;
   }
 
-  // If a type is present, we lock the UI so it cannot be changed on the form page
+  // If type is present, lock UI (no switching on form page)
   const LOCK_TYPE = !!qs.get("type");
 
   let equipmentType = (qs.get("type") || "excavator").toLowerCase();
@@ -131,8 +131,11 @@
   let labels = [...CHECKLISTS[equipmentType]];
   let weekStatuses = labels.map(() => Array(7).fill(null));
   let weekDaily = Array(7).fill(null);
-  let activeDay = 0;
 
+  // Photos: [row][day] = array of strings (either dataUrl before upload, or URL after upload)
+  let photos = labels.map(() => Array(7).fill(null).map(() => []));
+
+  let activeDay = 0;
   const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
   const isoToday = () => {
@@ -192,6 +195,47 @@
     }
   }
 
+  function normalizePhotos(p, rowCount) {
+    const out = Array(rowCount).fill(null).map(() => Array(7).fill(null).map(() => []));
+    if (!Array.isArray(p)) return out;
+
+    for (let r = 0; r < Math.min(rowCount, p.length); r++) {
+      if (!Array.isArray(p[r])) continue;
+      for (let d = 0; d < 7; d++) {
+        const arr = p[r]?.[d];
+        if (Array.isArray(arr)) out[r][d] = arr.filter(Boolean).map(String);
+      }
+    }
+    return out;
+  }
+
+  async function compressImageToDataUrl(file, maxW = 1280, quality = 0.75) {
+    const original = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = original;
+    });
+
+    const scale = Math.min(1, maxW / img.width);
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+
+    return canvas.toDataURL("image/jpeg", quality);
+  }
+
   function setButtonsActive() {
     $("btnExc").classList.toggle("active", equipmentType === "excavator");
     $("btnCrane").classList.toggle("active", equipmentType === "crane");
@@ -224,15 +268,13 @@
   function fillRecipients() {
     const sel = $("reportedTo");
     sel.innerHTML = "";
-
     RECIPIENTS.forEach((r) => {
       const opt = document.createElement("option");
       opt.value = r.email;
       opt.textContent = r.name;
       sel.appendChild(opt);
     });
-
-    sel.value = ""; // default "Choose from"
+    sel.value = ""; // "Choose from"
   }
 
   function lockTypeUI() {
@@ -241,7 +283,6 @@
     if (b) b.style.display = "none";
     if (c) c.style.display = "none";
 
-    // If they live inside a common wrapper, hide that wrapper too (optional)
     const wrap = (a && a.parentElement) || (b && b.parentElement) || (c && c.parentElement);
     if (wrap && wrap.classList) {
       const txt = (wrap.innerText || "").toLowerCase();
@@ -249,6 +290,70 @@
         wrap.style.display = "none";
       }
     }
+  }
+
+  function makePhotoControls(r, d, onUpdated) {
+    const wrap = document.createElement("div");
+    wrap.style.marginTop = "6px";
+    wrap.style.display = "flex";
+    wrap.style.gap = "8px";
+    wrap.style.flexWrap = "wrap";
+    wrap.style.alignItems = "center";
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.textContent = photos[r][d].length ? `Photos (${photos[r][d].length})` : "Add photo";
+    add.style.fontSize = "12px";
+    add.style.fontWeight = "800";
+    add.style.padding = "6px 10px";
+    add.style.borderRadius = "10px";
+    add.style.border = "1px solid #e5e7eb";
+    add.style.background = "#fff";
+
+    add.addEventListener("click", async () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.capture = "environment";
+
+      input.onchange = async () => {
+        const f = input.files?.[0];
+        if (!f) return;
+
+        try {
+          const small = await compressImageToDataUrl(f);
+          photos[r][d].push(small);
+          onUpdated();
+        } catch {
+          // ignore
+        }
+      };
+
+      input.click();
+    });
+
+    wrap.appendChild(add);
+
+    if (photos[r][d].length) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "Remove last";
+      remove.style.fontSize = "12px";
+      remove.style.fontWeight = "800";
+      remove.style.padding = "6px 10px";
+      remove.style.borderRadius = "10px";
+      remove.style.border = "1px solid #e5e7eb";
+      remove.style.background = "#f3f4f6";
+
+      remove.addEventListener("click", () => {
+        photos[r][d].pop();
+        onUpdated();
+      });
+
+      wrap.appendChild(remove);
+    }
+
+    return wrap;
   }
 
   function renderTable() {
@@ -263,7 +368,17 @@
 
       const tdItem = document.createElement("td");
       tdItem.className = "item";
-      tdItem.textContent = label;
+
+      const labelDiv = document.createElement("div");
+      labelDiv.textContent = label;
+      tdItem.appendChild(labelDiv);
+
+      // If DEFECT today, show photo controls next to label
+      const todayStatus = weekStatuses?.[r]?.[activeDay] || null;
+      if (todayStatus === "DEFECT") {
+        tdItem.appendChild(makePhotoControls(r, activeDay, () => renderTable()));
+      }
+
       tr.appendChild(tdItem);
 
       for (let d = 0; d < 7; d++) {
@@ -283,7 +398,12 @@
             const cur = weekStatuses?.[r]?.[d] || null;
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
+
+            // If status is NOT DEFECT, clear photos for that item/day (keeps evidence consistent)
+            if (next !== "DEFECT") photos[r][d] = [];
+
             btn.textContent = markText(next);
+            renderTable(); // re-render so photo button appears/disappears
             if (isMobile()) renderMobileList();
           });
         }
@@ -320,12 +440,22 @@
         const cur = weekStatuses?.[r]?.[activeDay] || null;
         const next = cycleStatus(cur);
         weekStatuses[r][activeDay] = next;
+
+        if (next !== "DEFECT") photos[r][activeDay] = [];
+
         btn.textContent = markText(next);
+        renderMobileList();
         if (!isMobile()) renderTable();
       });
 
       row.appendChild(lab);
       row.appendChild(btn);
+
+      const st = weekStatuses?.[r]?.[activeDay] || null;
+      if (st === "DEFECT") {
+        row.appendChild(makePhotoControls(r, activeDay, () => renderMobileList()));
+      }
+
       wrap.appendChild(row);
     });
   }
@@ -412,6 +542,8 @@
   // -------- Load week from KV --------
   async function loadWeekFromKV() {
     const status = $("status");
+
+    // Plant ID: no spaces, uppercase
     const plantId = (($("plantId").value || "").replace(/\s+/g,"")).trim().toUpperCase();
     const dateISO = $("date").value || "";
 
@@ -422,6 +554,7 @@
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       weekDaily = Array(7).fill(null);
+      photos = labels.map(() => Array(7).fill(null).map(() => []));
       renderChecks();
       status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
       return;
@@ -437,6 +570,7 @@
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
         weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
         renderChecks();
         status.innerHTML = `<span class="bad">✖ Week load failed (${resp.status})</span>`;
         return;
@@ -447,6 +581,7 @@
         labels = rec.labels;
         weekStatuses = rec.statuses;
         weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
+        photos = normalizePhotos(rec.photos, labels.length);
 
         if (rec.site) {
           for (let i = 0; i < 7; i++) {
@@ -462,6 +597,7 @@
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
         weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
         renderChecks();
         status.textContent = "Ready.";
       }
@@ -469,12 +605,13 @@
       labels = [...CHECKLISTS[equipmentType]];
       weekStatuses = labels.map(() => Array(7).fill(null));
       weekDaily = Array(7).fill(null);
+      photos = labels.map(() => Array(7).fill(null).map(() => []));
       renderChecks();
       status.innerHTML = `<span class="bad">✖ Load error</span>`;
     }
   }
 
-  // -------- PDF: ONE PAGE, no circles, smaller signature box, no extra yellow lines --------
+  // -------- PDF (unchanged) --------
   async function makePdfBase64(payload) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:"pt", format:"a4", orientation:"portrait" });
@@ -733,7 +870,7 @@
     const statusEl = $("status");
     const btn = $("submitBtn");
 
-    // Plant ID: UPPERCASE + NO SPACES
+    // Plant ID: uppercase + no spaces
     let plantId = ($("plantId").value || "");
     plantId = plantId.replace(/\s+/g, "").toUpperCase();
     $("plantId").value = plantId;
@@ -753,6 +890,54 @@
     const weekCommencing = getWeekCommencingISO(dateISO);
     const dayIndex = getDayIndexMon0(dateISO);
 
+    // Upload photos (optional) — only those that are still data URLs
+    const toUpload = [];
+    for (let r = 0; r < photos.length; r++) {
+      for (let d = 0; d < 7; d++) {
+        for (let i = 0; i < (photos[r][d] || []).length; i++) {
+          const p = photos[r][d][i];
+          if (typeof p === "string" && p.startsWith("data:image/")) {
+            toUpload.push({ r, d, i, dataUrl: p });
+          }
+        }
+      }
+    }
+
+    if (toUpload.length) statusEl.textContent = `Uploading photos (0/${toUpload.length})…`;
+
+    for (let k = 0; k < toUpload.length; k++) {
+      const it = toUpload[k];
+      statusEl.textContent = `Uploading photos (${k+1}/${toUpload.length})…`;
+
+      const { resp, data } = await fetchJson("/api/upload-photo", {
+        method: "POST",
+        headers: { "content-type":"application/json" },
+        body: JSON.stringify({
+          token: TOKEN,
+          plantId,
+          date: dateISO,
+          type: equipmentType,
+          rowIndex: it.r,
+          dayIndex: it.d,
+          dataUrl: it.dataUrl
+        })
+      }, 30000);
+
+      if (resp.ok && data.url) {
+        photos[it.r][it.d][it.i] = data.url; // replace dataUrl with URL
+      } else {
+        // If upload fails, we keep the submission working and just drop that photo
+        photos[it.r][it.d][it.i] = null;
+      }
+    }
+
+    // Clean nulls after upload attempts
+    for (let r = 0; r < photos.length; r++) {
+      for (let d = 0; d < 7; d++) {
+        photos[r][d] = (photos[r][d] || []).filter(Boolean);
+      }
+    }
+
     const payload = {
       formRef: $("formRef").textContent || "",
       sheetTitle: $("sheetTitle").textContent || "",
@@ -770,7 +955,10 @@
       reportedToName,
       reportedToEmail,
       actionTaken: ($("actionTaken").value || "").trim(),
-      signatureDataUrl: signatureDataUrl()
+      signatureDataUrl: signatureDataUrl(),
+
+      // NEW: photo URLs (optional)
+      photos
     };
 
     btn.disabled = true;
@@ -795,7 +983,7 @@
 
       btn.disabled = false;
 
-      // Redirect to confirmation page
+      // Redirect to confirmation
       const url =
         `/submitted.html?t=${encodeURIComponent(TOKEN)}` +
         `&type=${encodeURIComponent(equipmentType)}` +
@@ -813,12 +1001,13 @@
 
   // -------- Wire events --------
   function wireEvents() {
-    // Only allow switching types when NOT locked (i.e. direct internal use)
     if (!LOCK_TYPE) {
       $("btnExc").addEventListener("click", async () => {
         equipmentType = "excavator";
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
+        weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
         setButtonsActive();
         setHeaderTexts();
         await loadWeekFromKV();
@@ -828,6 +1017,8 @@
         equipmentType = "crane";
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
+        weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
         setButtonsActive();
         setHeaderTexts();
         await loadWeekFromKV();
@@ -837,6 +1028,8 @@
         equipmentType = "dumper";
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
+        weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
         setButtonsActive();
         setHeaderTexts();
         await loadWeekFromKV();
@@ -848,7 +1041,6 @@
       loadWeekFromKV();
     });
 
-    // Plant ID: UPPERCASE + NO SPACES (live)
     $("plantId").addEventListener("input", () => {
       const cleaned = ($("plantId").value || "").replace(/\s+/g, "").toUpperCase();
       if ($("plantId").value !== cleaned) $("plantId").value = cleaned;
@@ -856,9 +1048,7 @@
     });
 
     $("plantId").addEventListener("blur", loadWeekFromKV);
-
     window.addEventListener("resize", () => renderChecks());
-
     $("submitBtn").addEventListener("click", submit);
   }
 
