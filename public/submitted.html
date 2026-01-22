@@ -7,7 +7,7 @@
   <title>Submitted</title>
   <style>
     :root{
-      --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
+      --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
       --ok:#16a34a; --btn:#111; --btnText:#fff; --radius:16px;
 
       /* Smiley face */
@@ -16,14 +16,25 @@
     }
 
     *{box-sizing:border-box}
-    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
-    .wrap{ max-width:640px; margin:24px auto 40px; padding:0 14px; }
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      color:var(--text);
+
+      /* Premium dark background (like your screenshot) */
+      background:
+        radial-gradient(1100px 700px at 50% 0%, #1f2937 0%, #0b1220 55%, #05070c 100%);
+      min-height:100vh;
+    }
+
+    .wrap{ max-width:640px; margin:24px auto 30px; padding:0 14px; }
 
     .card{
       background:var(--card);
-      border:1px solid var(--line);
+      border:1px solid rgba(255,255,255,0.08);
       border-radius:var(--radius);
-      box-shadow:0 2px 14px rgba(0,0,0,.05);
+      box-shadow:0 18px 50px rgba(0,0,0,.35);
       padding:18px;
       overflow:hidden;
       text-align:center;
@@ -115,19 +126,21 @@
       border:1px solid var(--line);
     }
 
-    /* ===== LANE IS NOW OUTSIDE THE CARD ===== */
+    /* ===== LANE IS OUTSIDE THE CARD ===== */
     .laneWrap{
-      margin-top:18px;              /* pushes it clearly below the card */
-      padding:0 6px;                /* small inset to match the card look */
+      margin-top:28px;    /* pushed lower */
+      padding:0 6px;
     }
     .plantLane{
       height:78px;
       position:relative;
       overflow:hidden;
-      border:1px solid var(--line);
+      border:1px solid rgba(255,255,255,0.10);
       border-radius:14px;
-      background:#fff;
-      box-shadow:0 2px 14px rgba(0,0,0,.04);
+      background:rgba(255,255,255,0.06);
+      box-shadow:0 18px 50px rgba(0,0,0,.25);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
 
     /* Excavator drive-by inside lane */
@@ -146,12 +159,10 @@
       opacity:1;
       animation: excavatorRun 3.4s ease-in-out 0s 1 forwards;
     }
-
-    /* Slight “dig dip” mid-run */
     @keyframes excavatorRun{
       0%   { left:-55%; transform: translateY(0); }
       50%  { transform: translateY(0); }
-      58%  { transform: translateY(4px); } /* dip like a small dig */
+      58%  { transform: translateY(4px); }
       65%  { transform: translateY(0); }
       100% { left:120%; transform: translateY(0); opacity:0; }
     }
@@ -160,11 +171,11 @@
       width:220px;
       height:10px;
       border-radius:8px;
-      opacity:0.16;
+      opacity:0.14;
       background: repeating-linear-gradient(
         90deg,
-        rgba(17,17,17,0.85) 0 14px,
-        rgba(17,17,17,0.0) 14px 22px
+        rgba(255,255,255,0.55) 0 14px,
+        rgba(255,255,255,0.0) 14px 22px
       );
       transform: translateY(6px);
     }
@@ -179,7 +190,7 @@
     .excavator svg{
       width:160px;
       height:auto;
-      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.12));
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.35));
     }
 
     /* Dig dust puff */
@@ -191,12 +202,12 @@
       height:6px;
       border-radius:50%;
       opacity:0;
-      background:#92400e;
+      background:#d97706;
       box-shadow:
-        -10px 8px 0 #b45309,
-        -18px 2px 0 #92400e,
-        -26px 10px 0 #b45309,
-        -34px 5px 0 #92400e;
+        -10px 8px 0 #f59e0b,
+        -18px 2px 0 #d97706,
+        -26px 10px 0 #f59e0b,
+        -34px 5px 0 #d97706;
       transform: scale(0.6);
     }
     .excavator.run .digDust{
@@ -215,6 +226,13 @@
       .excavator, .excavator.run{ animation:none !important; opacity:0 !important; }
       .excavator.run .trackline{ animation:none !important; }
       .excavator.run .digDust{ animation:none !important; }
+    }
+
+    /* Print safety */
+    @media print{
+      body{ background:#fff !important; }
+      .card, .plantLane{ box-shadow:none !important; }
+      .laneWrap{ display:none !important; }
     }
   </style>
 </head>
@@ -252,15 +270,14 @@
       </div>
     </div>
 
-    <!-- Lane moved BELOW the card, so it cannot overlap the buttons -->
+    <!-- Lane BELOW the card -->
     <div class="laneWrap" aria-hidden="true">
       <div class="plantLane">
         <div id="excavator" class="excavator">
           <span class="trackline"></span>
 
-          <!-- Option B: Safety-yellow but clean/pro -->
+          <!-- Option B excavator -->
           <svg viewBox="0 0 420 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <!-- Tracks -->
             <rect x="48" y="138" width="210" height="44" rx="22" fill="#111"/>
             <rect x="70" y="152" width="166" height="16" rx="8" fill="#2b2b2b" opacity="0.85"/>
             <g fill="#111" opacity="0.55">
@@ -272,7 +289,6 @@
               <circle cx="236" cy="160" r="6"/>
             </g>
 
-            <!-- Upper body + cabin -->
             <g stroke="#111" stroke-width="4" stroke-linejoin="round">
               <path d="M112 138
                        h138
@@ -302,7 +318,6 @@
                     fill="#e5e7eb"/>
             </g>
 
-            <!-- Boom + dipper -->
             <path d="M270 116 C305 98, 332 86, 360 78"
                   stroke="#facc15" stroke-width="18" stroke-linecap="round" fill="none"/>
             <path d="M270 116 C305 98, 332 86, 360 78"
@@ -313,7 +328,6 @@
             <path d="M360 78 C380 78, 396 92, 406 112"
                   stroke="#111" stroke-width="4" stroke-linecap="round" fill="none"/>
 
-            <!-- Bucket -->
             <path d="M404 112
                      l12 12
                      q8 8-2 16
