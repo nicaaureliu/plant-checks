@@ -30,22 +30,54 @@ function getDayIndexMon0(dateStr) {
   return day === 0 ? 6 : day - 1;
 }
 
-function hasDefectForDay(payload, dayIndex) {
-  // IMPORTANT: only "DEFECT" counts as damage.
-  // N/A must NOT count.
-  const statuses = payload?.weekStatuses;
-  if (!Array.isArray(statuses)) return false;
-
-  for (let r = 0; r < statuses.length; r++) {
-    const row = statuses[r];
-    if (!Array.isArray(row)) continue;
-    if (row[dayIndex] === "DEFECT") return true;
-  }
-  return false;
-}
-
 function safeEmailKey(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function normalizeNone(s) {
+  const t = String(s || "").trim();
+  if (!t) return "";
+  if (t.toLowerCase() === "none" || t.toLowerCase() === "n/a") return "None";
+  return t;
+}
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function deriveLabels(payload) {
+  const labels = (payload.labels && payload.labels.length)
+    ? payload.labels
+    : (payload.checks || []).map(c => c.label);
+
+  return Array.isArray(labels) ? labels.map(x => String(x || "").trim()) : [];
+}
+
+function getDefectSummaryForDay(payload, dayIndex) {
+  // IMPORTANT: only "DEFECT" counts as damage.
+  // N/A must NOT count.
+  const labels = deriveLabels(payload);
+  const statuses = payload?.weekStatuses;
+
+  const defectLabels = [];
+  let defectsCount = 0;
+
+  if (Array.isArray(statuses)) {
+    for (let r = 0; r < statuses.length; r++) {
+      const row = statuses[r];
+      if (!Array.isArray(row)) continue;
+      if (row[dayIndex] === "DEFECT") {
+        defectsCount++;
+        defectLabels.push(labels[r] || `Item ${r + 1}`);
+      }
+    }
+  }
+
+  return { defectsCount, defectLabels, hasDefect: defectsCount > 0 };
 }
 
 export async function onRequestPost(context) {
@@ -67,6 +99,10 @@ export async function onRequestPost(context) {
       return Response.json({ error: "KV binding missing (CHECKS_KV)" }, { status: 500 });
     }
 
+    if (!payload.date || !payload.plantId || !payload.equipmentType) {
+      return Response.json({ error: "Missing required fields (date, plantId, equipmentType)" }, { status: 400 });
+    }
+
     // ---- Save to KV (ticks + daily fields) ----
     const week = getWeekCommencingISO(payload.date);
     const dayIndex = getDayIndexMon0(payload.date);
@@ -74,9 +110,7 @@ export async function onRequestPost(context) {
 
     let record = await env.CHECKS_KV.get(key, "json");
 
-    const labels = (payload.labels && payload.labels.length)
-      ? payload.labels
-      : (payload.checks || []).map(c => c.label);
+    const labels = deriveLabels(payload);
 
     if (!record) {
       record = {
@@ -112,6 +146,9 @@ export async function onRequestPost(context) {
       }
     }
 
+    // Defect summary for today (counts only DEFECT)
+    const { defectsCount, defectLabels, hasDefect } = getDefectSummaryForDay(payload, dayIndex);
+
     // daily fields (last input fix)
     record.daily[dayIndex] = {
       site: payload.site || record.site || "",
@@ -121,6 +158,8 @@ export async function onRequestPost(context) {
       actionTaken: payload.actionTaken || "",
       reportedToName: payload.reportedToName || "",
       reportedToEmail: payload.reportedToEmail || "",
+      defectsCount,
+      defectItems: defectLabels, // helpful for later reporting / dashboards
       submittedAt: new Date().toISOString(),
     };
 
@@ -137,9 +176,11 @@ export async function onRequestPost(context) {
     const authHeader = `Basic ${base64Utf8(`${apiKey}:${secretKey}`)}`;
 
     const equipmentType = String(payload.equipmentType || "").toUpperCase() || "PLANT";
-    const plantId = String(payload.plantId || "");
-    const date = String(payload.date || "");
-    const subject = `${equipmentType} check - ${plantId} - ${date}`.trim();
+    const plantId = String(payload.plantId || "").trim();
+    const date = String(payload.date || "").trim();
+
+    // Subject: add DEFECT marker if applicable
+    const subject = `${equipmentType} check - ${plantId} - ${date}${hasDefect ? " - DEFECT" : ""}`.trim();
 
     const toEmail = (payload.reportedToEmail || "").trim();
     const toName = (payload.reportedToName || "Recipient").trim();
@@ -148,11 +189,10 @@ export async function onRequestPost(context) {
       return Response.json({ error: "No recipient email (reportedToEmail missing)" }, { status: 400 });
     }
 
-    // Alfie / Yard (only if there is a DEFECT today)
+    // Yard (only if there is a DEFECT today)
     const YARD_EMAIL = "wshop@activetunnelling.com";
     const YARD_NAME = "TP Yard";
-
-    const includeYard = hasDefectForDay(payload, dayIndex);
+    const includeYard = hasDefect;
 
     // Build recipient list (dedupe)
     const recipientsMap = new Map();
@@ -164,13 +204,14 @@ export async function onRequestPost(context) {
 
     const toList = Array.from(recipientsMap.values());
 
-    // Optional: defect summary for today (counts only DEFECT)
-    let defectsCount = 0;
-    if (Array.isArray(payload?.weekStatuses)) {
-      for (let r = 0; r < payload.weekStatuses.length; r++) {
-        if (payload.weekStatuses?.[r]?.[dayIndex] === "DEFECT") defectsCount++;
-      }
-    }
+    const defectsTextClean = normalizeNone(payload.defectsText);
+    const actionTakenClean = normalizeNone(payload.actionTaken);
+
+    // Text email
+    const defectLines =
+      defectLabels.length
+        ? defectLabels.slice(0, 25).map((x, i) => `  - ${x}`).join("\n") + (defectLabels.length > 25 ? `\n  (+${defectLabels.length - 25} more)` : "")
+        : "  - None";
 
     const textLines = [
       `Site: ${payload.site || ""}`,
@@ -179,16 +220,59 @@ export async function onRequestPost(context) {
       `Operator: ${payload.operator || ""}`,
       `Machine hours: ${payload.hours || ""}`,
       `Reported to: ${payload.reportedToName || ""}`,
-      includeYard ? `Damage/defects today: YES (${defectsCount})` : `Damage/defects today: NO`,
+      hasDefect ? `Damage/defects today: YES (${defectsCount})` : `Damage/defects today: NO`,
       "",
-      `Defects identified:`,
-      `${payload.defectsText || ""}`,
+      "Defect items (today):",
+      defectLines,
       "",
-      `Action taken:`,
-      `${payload.actionTaken || ""}`,
+      "Defects identified:",
+      defectsTextClean || "",
+      "",
+      "Action taken:",
+      actionTakenClean || "",
       "",
       "PDF attached."
     ];
+
+    // HTML email (reads much better on mobile)
+    const htmlDefectItems =
+      defectLabels.length
+        ? `<ul style="margin:8px 0 0 18px;padding:0;">${defectLabels.slice(0, 25).map(x => `<li>${escapeHtml(x)}</li>`).join("")}${defectLabels.length > 25 ? `<li>(+${defectLabels.length - 25} more)</li>` : ""}</ul>`
+        : `<div style="margin-top:8px;">None</div>`;
+
+    const htmlBody = `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; font-size:14px; color:#111;">
+        <div style="font-weight:800; font-size:16px; margin-bottom:10px;">Plant Check Submission</div>
+
+        <table style="border-collapse:collapse; width:100%; max-width:720px;">
+          <tr><td style="padding:6px 0; color:#6b7280; font-weight:800; width:160px;">Site</td><td style="padding:6px 0;">${escapeHtml(payload.site || "")}</td></tr>
+          <tr><td style="padding:6px 0; color:#6b7280; font-weight:800;">Date</td><td style="padding:6px 0;">${escapeHtml(payload.date || "")}</td></tr>
+          <tr><td style="padding:6px 0; color:#6b7280; font-weight:800;">Plant</td><td style="padding:6px 0;">${escapeHtml(payload.plantId || "")}</td></tr>
+          <tr><td style="padding:6px 0; color:#6b7280; font-weight:800;">Operator</td><td style="padding:6px 0;">${escapeHtml(payload.operator || "")}</td></tr>
+          <tr><td style="padding:6px 0; color:#6b7280; font-weight:800;">Machine hours</td><td style="padding:6px 0;">${escapeHtml(payload.hours || "")}</td></tr>
+          <tr><td style="padding:6px 0; color:#6b7280; font-weight:800;">Reported to</td><td style="padding:6px 0;">${escapeHtml(payload.reportedToName || "")}</td></tr>
+        </table>
+
+        <div style="margin:14px 0 6px; font-weight:900;">
+          Damage/defects today: <span style="color:${hasDefect ? "#dc2626" : "#16a34a"}">${hasDefect ? `YES (${defectsCount})` : "NO"}</span>
+        </div>
+
+        <div style="margin-top:10px; font-weight:900;">Defect items (today):</div>
+        ${htmlDefectItems}
+
+        <div style="margin-top:14px; font-weight:900;">Defects identified:</div>
+        <div style="white-space:pre-wrap; border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-top:6px;">
+          ${escapeHtml(defectsTextClean || "")}
+        </div>
+
+        <div style="margin-top:14px; font-weight:900;">Action taken:</div>
+        <div style="white-space:pre-wrap; border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-top:6px;">
+          ${escapeHtml(actionTakenClean || "")}
+        </div>
+
+        <div style="margin-top:14px; color:#6b7280; font-weight:800;">PDF attached.</div>
+      </div>
+    `.trim();
 
     const mjBody = {
       Messages: [
@@ -197,6 +281,7 @@ export async function onRequestPost(context) {
           To: toList,
           Subject: subject,
           TextPart: textLines.join("\n"),
+          HTMLPart: htmlBody,
           Attachments: [
             {
               Filename: `${equipmentType}-${plantId}-${date}.pdf`.replace(/\s+/g, "_"),
@@ -225,7 +310,7 @@ export async function onRequestPost(context) {
       return Response.json({ error: "Email send failed", details }, { status: 502 });
     }
 
-    return Response.json({ ok: true, includeYard, defectsCount });
+    return Response.json({ ok: true, includeYard, defectsCount, defectItems: defectLabels });
   } catch (e) {
     return Response.json({ error: e?.message || "Server error" }, { status: 500 });
   }
