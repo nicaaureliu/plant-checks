@@ -110,13 +110,14 @@
       padding:4px 6px 10px;
       flex-wrap:wrap;
     }
-    /* stop equal sharing */
+
+    /* Stop the equal-share layout */
     .metaRow > span{ flex:0 1 auto; white-space:normal; }
 
     /* Hide Today in UI, keep DOM for app.js */
     .todayMeta{ display:none !important; }
 
-    /* Push week commencing right (desktop) */
+    /* Push week commencing toward the right */
     .metaLeft{ min-width:240px; }
     .metaRight{
       margin-left:auto;
@@ -124,7 +125,7 @@
       min-width:320px;
     }
 
-    /* missing machine number style */
+    /* Make missing machine no obvious */
     #machineNoPreview.missing{
       color:var(--bad);
       font-weight:900;
@@ -186,6 +187,7 @@
     }
     .field textarea{ min-height:80px; resize:vertical; }
 
+    /* Small helper under the Date input */
     .dayHint{
       margin-top:6px;
       font-size:12.5px;
@@ -194,18 +196,20 @@
       line-height:1.35;
     }
 
-    /* ===== Checks section ===== */
     .checksTitle{
       font-size:34px;
       font-weight:950;
       margin:18px 6px 4px;
       letter-spacing:-0.5px;
     }
+    .checksHelp{
+      margin:0 6px 8px;
+      color:var(--muted);
+      line-height:1.4;
+      font-weight:800;
+    }
 
-    /* Always hide these two (even if app.js tries to show them) */
-    .checksHelp{ display:none !important; }
-    .cycleLegend{ display:none !important; }
-
+    /* Progress line */
     .progressLine{
       margin:0 6px 12px;
       font-weight:900;
@@ -220,7 +224,7 @@
       font-weight:900;
     }
 
-    /* kept for compatibility, but hidden */
+    /* Legend */
     .cycleLegend{
       margin:0 6px 12px;
       display:flex;
@@ -302,6 +306,7 @@
       background:var(--activeCol);
     }
 
+    /* Larger tap targets */
     .markBtn{
       width:44px;
       height:40px;
@@ -413,6 +418,7 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
+    /* Toast */
     .toast{
       position:fixed;
       left:50%;
@@ -429,6 +435,7 @@
       text-align:center;
     }
 
+    /* Overlays */
     .overlay{
       position:fixed;
       inset:0;
@@ -522,7 +529,7 @@
         padding-top:6px;
       }
 
-      /* On mobile keep it stacked/clean */
+      /* On mobile, keep a clean stack */
       .metaRow{
         flex-direction:column;
         align-items:flex-start;
@@ -664,17 +671,13 @@
         </div>
       </div>
 
-      <!-- ONLY thing the user should see here -->
-      <div class="checksTitle">Plant Checks</div>
-
-      <!-- kept for compatibility; always hidden via CSS -->
+      <div class="checksTitle">Checks (Mon–Sun)</div>
       <p class="checksHelp">
         Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
       </p>
 
       <div id="progressLine" class="progressLine"></div>
 
-      <!-- kept for compatibility; always hidden via CSS -->
       <div class="cycleLegend" aria-hidden="true">
         <span class="legendBox"></span>
         <span class="legendArrow">→</span>
@@ -732,59 +735,8 @@
     </div>
   </div>
 
+  <!-- Toast -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-  <!-- Safe enforcement (non-destructive): only touches .checksTitle + #buildTag and hides small helper nodes if injected) -->
-  <script>
-    (function(){
-      function enforce(){
-        // Force title text ONLY on the title element (never on generic divs)
-        var titleEl = document.querySelector(".checksTitle");
-        if (titleEl && titleEl.textContent.trim() !== "Plant Checks") {
-          titleEl.textContent = "Plant Checks";
-        }
-
-        // Always hide known helper/legend classes
-        document.querySelectorAll(".checksHelp, .cycleLegend").forEach(function(el){
-          el.style.display = "none";
-        });
-
-        // If app.js injects helper text without classes, hide only simple leaf nodes
-        document.querySelectorAll("p,div,small,span").forEach(function(el){
-          if (el.children && el.children.length) return; // don't touch containers
-          var txt = (el.textContent || "").trim();
-          if (!txt || txt.length > 220) return;
-
-          var t = txt.toLowerCase().replace(/\s+/g," ").replace(/\u2013|\u2014/g,"-");
-          if (t.indexOf("only the column for your selected date is editable") !== -1) {
-            el.style.display = "none";
-          }
-          if (t.indexOf("select") !== -1 && t.indexOf("ok") !== -1 && (t.indexOf("defect") !== -1 || t.indexOf(" x ") !== -1) && t.indexOf("n/a") !== -1) {
-            el.style.display = "none";
-          }
-        });
-
-        // BUILD label → Followed by Aureliu Nica
-        var buildEl = document.getElementById("buildTag");
-        if (buildEl) {
-          if (!buildEl.dataset.orig) buildEl.dataset.orig = (buildEl.textContent || "").trim();
-          buildEl.textContent = "Followed by Aureliu Nica";
-        }
-      }
-
-      document.addEventListener("DOMContentLoaded", function(){
-        enforce();
-        setTimeout(enforce, 100);
-        setTimeout(enforce, 300);
-
-        if (window.MutationObserver) {
-          var obs = new MutationObserver(function(){ enforce(); });
-          obs.observe(document.body, { childList:true, subtree:true });
-          setTimeout(function(){ try{ obs.disconnect(); }catch(e){} }, 8000);
-        }
-      });
-    })();
-  </script>
 
 </body>
 </html>
