@@ -30,6 +30,27 @@ function getDayIndexMon0(dateStr) {
   return day === 0 ? 6 : day - 1;
 }
 
+function computeDamageFlag(payload, dayIndex) {
+  const defectsText = String(payload?.defectsText || "").trim();
+  const hasDefectsText = defectsText.length > 0;
+
+  // Prefer weekStatuses if present (your v13 payload sends it)
+  let hasChecklistDefect = false;
+
+  if (Array.isArray(payload?.weekStatuses)) {
+    for (const row of payload.weekStatuses) {
+      const st = row?.[dayIndex] || null;
+      if (st === "DEFECT") { hasChecklistDefect = true; break; }
+    }
+  } else if (Array.isArray(payload?.checks) && payload.checks.length) {
+    // Fallback (older payload style): if any check is marked DEFECT for that day
+    // Note: older structure may not be day-specific; keep it conservative.
+    hasChecklistDefect = payload.checks.some(c => String(c?.status || "").toUpperCase() === "DEFECT");
+  }
+
+  return hasChecklistDefect || hasDefectsText;
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -122,27 +143,51 @@ export async function onRequestPost(context) {
     const plantId = String(payload.plantId || "");
     const date = String(payload.date || "");
 
-    const subject = `${equipmentType} check - ${plantId} - ${date}`.trim();
+    // Damage detection (server-side, so frontend changes are optional)
+    const damageFlag = computeDamageFlag(payload, dayIndex);
 
-    const toEmail = (payload.reportedToEmail || env.DEST_EMAIL || "").trim();
-    const toName  = (payload.reportedToName || "Recipient").trim();
+    // Recipients:
+    // - No damage => TO: selected person
+    // - Damage => TO: Yard, CC: selected person (one email)
+    const reportedToEmail = (payload.reportedToEmail || "").trim();
+    const reportedToName  = (payload.reportedToName || "Recipient").trim();
 
-    if (!toEmail) {
-      return Response.json({ error: "No recipient email (reportedToEmail / DEST_EMAIL missing)" }, { status: 400 });
+    // Preferred yard setting: YARD_EMAIL. Fallback to DEST_EMAIL for backward compatibility.
+    const yardEmail = (env.YARD_EMAIL || env.DEST_EMAIL || "").trim();
+    const yardName = (env.YARD_NAME || "Yard").trim();
+
+    if (!reportedToEmail) {
+      return Response.json({ error: "No recipient email (reportedToEmail missing)" }, { status: 400 });
     }
+
+    const toEmail = (damageFlag && yardEmail) ? yardEmail : reportedToEmail;
+    const toName  = (damageFlag && yardEmail) ? yardName : reportedToName;
+
+    // CC only when damage, and only if it’s not the same address as TO
+    const ccList = (damageFlag && yardEmail && reportedToEmail && reportedToEmail !== yardEmail)
+      ? [{ Email: reportedToEmail, Name: reportedToName }]
+      : [];
+
+    const subject = damageFlag
+      ? `${equipmentType} check - DAMAGE - ${plantId} - ${date}`.trim()
+      : `${equipmentType} check - ${plantId} - ${date}`.trim();
 
     const mjBody = {
       Messages: [
         {
           From: { Email: env.MAIL_FROM, Name: "Plant Checks" },
           To: [{ Email: toEmail, Name: toName }],
+          ...(ccList.length ? { Cc: ccList } : {}),
           Subject: subject,
           TextPart:
             `Site: ${payload.site || ""}\n` +
             `Date: ${payload.date || ""}\n` +
             `Plant: ${payload.plantId || ""}\n` +
             `Operator: ${payload.operator || ""}\n` +
-            `Reported to: ${payload.reportedToName || ""}\n\n` +
+            `Reported to: ${payload.reportedToName || ""}\n` +
+            `Damage flagged: ${damageFlag ? "YES" : "NO"}\n\n` +
+            `Defects identified:\n${String(payload.defectsText || "").trim() || "None"}\n\n` +
+            `Action taken:\n${String(payload.actionTaken || "").trim() || "—"}\n\n` +
             `PDF attached.`,
           Attachments: [
             {
@@ -172,7 +217,13 @@ export async function onRequestPost(context) {
       return Response.json({ error: "Email send failed", details }, { status: 502 });
     }
 
-    return Response.json({ ok: true });
+    // If damageFlag is true but no yardEmail was configured, email still goes to reportedToEmail.
+    // Returning a warning can help you spot misconfig without breaking submissions.
+    const warning = (damageFlag && !yardEmail)
+      ? "Damage detected, but YARD_EMAIL (or DEST_EMAIL) is not configured; email sent only to selected recipient."
+      : undefined;
+
+    return Response.json({ ok: true, ...(warning ? { warning } : {}) });
   } catch (e) {
     return Response.json({ error: e?.message || "Server error" }, { status: 500 });
   }
