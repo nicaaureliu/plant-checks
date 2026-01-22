@@ -24,8 +24,8 @@
       --activeColHead: rgba(255,214,0,.35);
     }
 
-    *{ box-sizing:border-box; }
-    html, body { width:100%; max-width:100%; overflow-x:hidden; }
+    *{box-sizing:border-box}
+    html, body{ width:100%; max-width:100%; overflow-x:hidden; }
 
     body{
       margin:0;
@@ -34,8 +34,6 @@
       color:var(--text);
     }
 
-    img{ max-width:100%; height:auto; display:block; }
-
     .hidden{ display:none !important; }
 
     .wrap{
@@ -43,18 +41,15 @@
       margin:18px auto 40px;
       padding:0 14px;
       width:100%;
-      max-width:100%;
     }
-
     .card{
       background:var(--card);
       border:1px solid var(--line);
       border-radius:var(--radius);
       box-shadow: 0 2px 14px rgba(0,0,0,.05);
       padding:14px;
+      overflow:hidden;
       width:100%;
-      max-width:100%;
-      overflow:hidden; /* important: stops child overflow affecting page */
     }
 
     .topbar{
@@ -78,8 +73,16 @@
       justify-content:space-between;
       gap:10px;
     }
-    .logoLeft{ width:92px; flex:0 0 auto; }
-    .logoRight{ width:58px; flex:0 0 auto; }
+    .logoLeft{
+      width:92px;
+      height:auto;
+      flex:0 0 auto;
+    }
+    .logoRight{
+      width:58px;
+      height:auto;
+      flex:0 0 auto;
+    }
     .headerText{
       flex:1 1 auto;
       min-width:0;
@@ -116,15 +119,16 @@
       flex:1 1 220px;
       white-space:normal;
     }
+
     #machineNoPreview.missing{
       color:var(--bad);
       font-weight:900;
     }
 
-    /* Hide Today but keep in DOM (app.js safety) */
+    /* Remove Today */
     .todayMeta{ display:none !important; }
 
-    /* Push week commencing to the right */
+    /* Push Week commencing right */
     .weekMeta{ text-align:right; }
 
     .yellowBar{
@@ -165,10 +169,8 @@
       gap:12px;
       padding:0 6px 8px;
       min-width:0;
-      max-width:100%;
     }
-
-    .field{ min-width:0; max-width:100%; }
+    .field{ min-width:0; }
 
     .field label{
       display:block;
@@ -176,27 +178,46 @@
       color:var(--muted);
       margin:4px 0 6px;
     }
-
     .field input, .field select, .field textarea{
       width:100%;
       max-width:100%;
-      min-width:0;
-      display:block;
       padding:14px 14px;
       border-radius:14px;
       border:1px solid var(--line);
       background:#fff;
       font-size:16px;
       outline:none;
+      display:block;
+      min-width:0;
     }
     .field textarea{ min-height:80px; resize:vertical; }
 
-    /* Extra hardening for iOS/Safari */
-    input[type="date"]{
+    /* ---- Date field FIX (iPad/Safari) ----
+       Show a normal text input that always fits.
+       Keep the real date input (id="date") invisible on top so tapping still opens the native picker.
+    */
+    .dateShell{
+      position:relative;
       width:100%;
       max-width:100%;
-      min-width:0;
+    }
+    .dateShell .datePretty{
+      width:100%;
+      max-width:100%;
       display:block;
+    }
+    .dateShell #date{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      opacity:0;              /* invisible, but still clickable */
+      -webkit-appearance:none;
+      appearance:none;
+      border-radius:14px;
+      border:0;
+      background:transparent;
+      cursor:pointer;
     }
 
     .dayHint{
@@ -225,31 +246,20 @@
       font-weight:900;
       color:#111;
     }
-    .progressLine .muted{ color:var(--muted); font-weight:800; }
-    .progressLine .bad{ color:var(--bad); font-weight:900; }
 
-    /* CRITICAL: contain table overflow inside its own box */
     .tableWrap{
       margin:0 6px 14px;
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
-
-      width:100%;
-      max-width:100%;
-
-      overflow-x:auto;
-      overflow-y:hidden;
-
+      overflow:auto;
       -webkit-overflow-scrolling:touch;
     }
-
     table{
       width:100%;
       border-collapse:collapse;
       min-width:720px;
     }
-
     thead th{
       background:#fafafa;
       border-bottom:1px solid var(--line);
@@ -267,7 +277,6 @@
       padding-left:12px;
       z-index:3;
     }
-
     tbody td{
       border-top:1px solid var(--line);
       padding:10px 8px;
@@ -278,7 +287,10 @@
       font-size:14px;
       padding-left:12px;
     }
-    td.day{ text-align:center; width:7.7%; }
+    td.day{
+      text-align:center;
+      width:7.7%;
+    }
 
     .markBtn{
       width:44px;
@@ -290,7 +302,10 @@
       cursor:pointer;
       font-size:16px;
     }
-    .markBtn.disabled{ opacity:.35; cursor:not-allowed; }
+    .markBtn.disabled{
+      opacity:.35;
+      cursor:not-allowed;
+    }
 
     #mobileChecks{ display:none; }
     .mobileRow{
@@ -307,7 +322,6 @@
       line-height:1.25;
       flex:1;
       padding-right:6px;
-      min-width:0;
     }
     .mobileBtn{
       min-width:62px;
@@ -374,6 +388,7 @@
       cursor:pointer;
       font-size:16px;
     }
+    .actions button:disabled{ opacity:.6; cursor:not-allowed; }
 
     #status{
       margin:14px 6px 0;
@@ -384,6 +399,104 @@
       background:#fff;
       text-align:center;
       font-weight:900;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%);
+      z-index:10000;
+      background:#111;
+      color:#fff;
+      padding:12px 14px;
+      border-radius:14px;
+      box-shadow:0 12px 30px rgba(0,0,0,.25);
+      font-weight:900;
+      max-width:min(560px, calc(100vw - 28px));
+      text-align:center;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(17,17,17,.35);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:9999;
+    }
+    .overlayCard{
+      width:100%;
+      max-width:520px;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:0 18px 60px rgba(0,0,0,.22);
+      padding:18px;
+      text-align:center;
+    }
+    .overlayTitle{
+      font-weight:950;
+      font-size:22px;
+      margin:2px 0 6px;
+    }
+    .overlayText{
+      color:var(--muted);
+      margin:0 0 14px;
+      line-height:1.35;
+      font-weight:800;
+    }
+    .overlayBtns{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    .overlayBtns button{
+      padding:14px 14px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.6);
+      background:var(--btn);
+      color:var(--btnText);
+      font-weight:950;
+      cursor:pointer;
+      font-size:16px;
+    }
+    .overlayBtns button.alt{
+      background:var(--btnAlt);
+      color:var(--text);
+      border:1px solid var(--line);
+    }
+    .tickBadge{
+      width:66px;
+      height:66px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      margin:6px auto 8px;
+      background:rgba(22,163,74,.12);
+      border:2px solid rgba(22,163,74,.35);
+      color:var(--ok);
+      font-size:34px;
+      font-weight:950;
+    }
+    .successDetails{
+      margin:6px 0 12px;
+      font-weight:900;
+      color:var(--muted);
+    }
+    .funnyWrap{
+      display:flex;
+      justify-content:center;
+      margin:10px 0 14px;
+    }
+    .funnyWrap svg{
+      width:220px;
+      max-width:100%;
+      height:auto;
     }
 
     @media (max-width: 760px){
@@ -477,7 +590,7 @@
   <div id="appRoot" class="wrap hidden">
     <div class="card">
       <div class="topbar">
-        <div id="buildTag">BUILD: v13.6</div>
+        <div id="buildTag">BUILD: v13.7</div>
         <div id="selectedType">Selected:</div>
       </div>
 
@@ -511,7 +624,13 @@
       <div class="form">
         <div class="field">
           <label for="date">Date</label>
-          <input id="date" type="date" />
+
+          <!-- FIXED date control -->
+          <div class="dateShell">
+            <input id="datePretty" class="datePretty" type="text" readonly value="" />
+            <input id="date" type="date" />
+          </div>
+
           <div id="dayHint" class="dayHint"></div>
         </div>
 
@@ -588,6 +707,37 @@
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <!-- Keep this small helper in index so we don't touch app.js -->
+  <script>
+    (function(){
+      function fmt(iso){
+        if(!iso) return "";
+        const d = new Date(iso + "T00:00:00");
+        if (isNaN(d.getTime())) return "";
+        return new Intl.DateTimeFormat("en-GB", { day:"2-digit", month:"short", year:"numeric" }).format(d);
+      }
+
+      function sync(){
+        const real = document.getElementById("date");
+        const pretty = document.getElementById("datePretty");
+        if(!real || !pretty) return;
+        pretty.value = fmt(real.value);
+      }
+
+      // Update when user changes date
+      document.addEventListener("change", function(e){
+        if(e.target && e.target.id === "date") sync();
+      });
+
+      // Also sync after app.js populates date on load
+      window.addEventListener("load", function(){
+        sync();
+        setTimeout(sync, 200);
+        setTimeout(sync, 800);
+      });
+    })();
+  </script>
 
 </body>
 </html>
