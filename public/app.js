@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13.5";
+  const BUILD = "v13.6";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -315,7 +315,6 @@
     const pid = cleanedPlantId();
     if ($("machineNoPreview")) $("machineNoPreview").textContent = pid || "—";
 
-    // Clean/simple help text (no “freezed” bar)
     const help = document.querySelector(".checksHelp");
     if (help) {
       help.textContent = "Only the column for your selected date is editable. Select ✓ OK, X Defect, or N/A.";
@@ -383,9 +382,6 @@
     wrap.appendChild(bDef);
     wrap.appendChild(bNa);
 
-    // Visual rules:
-    // - If one is selected: selected = active, others = inactive (grey)
-    // - If none selected: all normal
     if (current) {
       const all = [bOk, bDef, bNa];
       all.forEach((b) => b.classList.remove("active", "inactive"));
@@ -739,6 +735,13 @@
       return `${d}/${m}/${y}`;
     };
 
+    const normalizeNone = (s) => {
+      const t = String(s || "").trim();
+      if (!t) return "None";
+      if (t.toLowerCase() === "none" || t.toLowerCase() === "n/a") return "None";
+      return t;
+    };
+
     const ellipsize = (text, maxW, fontSize) => {
       if (!text) return "";
       doc.setFontSize(fontSize);
@@ -746,6 +749,15 @@
       while (t.length > 0 && doc.getTextWidth(t) > maxW) t = t.slice(0, -1);
       return (t.length < String(text).length) ? (t.slice(0, -1) + "…") : t;
     };
+
+    function splitToFit(text, maxW, maxLines, fontSize) {
+      doc.setFontSize(fontSize);
+      const lines = doc.splitTextToSize(String(text || ""), maxW);
+      if (lines.length <= maxLines) return lines;
+      const trimmed = lines.slice(0, maxLines);
+      trimmed[maxLines - 1] = ellipsize(trimmed[maxLines - 1], maxW, fontSize);
+      return trimmed;
+    }
 
     async function fetchAsDataUrl(url) {
       const res = await fetch(url, { cache: "no-store" });
@@ -814,7 +826,7 @@
 
     function drawOkTick(cx, cy) {
       doc.setFont("zapfdingbats", "normal");
-      doc.setFontSize(13);
+      doc.setFontSize(12.5);
       doc.text(String.fromCharCode(52), cx, cy, { align: "center", baseline: "middle" });
     }
 
@@ -832,11 +844,37 @@
       }
     }
 
+    function hasDefectInRowForDay(weekStatuses2, row, dayIdx) {
+      return (weekStatuses2?.[row]?.[dayIdx] || null) === "DEFECT";
+    }
+
+    function footer(pageNum, pageCount) {
+      const y = pageH - 16;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(0);
+
+      const left = `Submitted: ${new Date().toISOString()}`;
+      const mid = `Compiled by Aureliu Nica • Plant Checks • BUILD: ${BUILD}`;
+      const right = `Page ${pageNum} of ${pageCount}`;
+
+      doc.text(left, margin, y);
+      doc.text(mid, pageW / 2, y, { align: "center" });
+      doc.text(right, pageW - margin, y, { align: "right" });
+    }
+
     const dateUK = isoToUK2(payload.date || "");
     const weekUK = isoToUK2(payload.weekCommencing || "");
 
     const labels2 = payload.labels || [];
     const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
+    const dayIndex = Number.isFinite(payload.dayIndex) ? payload.dayIndex : 0;
+
+    // pre-calc page count (1 + photo pages)
+    const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
+    const picsPerPage = 6;
+    const photoPages = pics.length ? Math.ceil(pics.length / picsPerPage) : 0;
+    const totalPages = 1 + photoPages;
 
     // ---------------- PAGE 1 ----------------
     let y = margin;
@@ -847,6 +885,7 @@
     const leftBoxW = 150, leftBoxH = 40;
     const rightBoxW = 56, rightBoxH = 56;
 
+    // Logos
     if (atl) {
       try {
         const s = await getImageSize(atl);
@@ -863,6 +902,8 @@
       } catch {}
     }
 
+    // Title
+    doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.text(payload.formRef || "QPFPL5.2", pageW / 2, y + 24, { align: "center" });
@@ -870,21 +911,26 @@
     doc.setFontSize(10);
     doc.text(payload.sheetTitle || "", pageW / 2, y + 40, { align: "center" });
 
-    y += 68;
+    // Tighter spacing
+    y += 62;
 
+    // Machine / Week line
     doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
     doc.text(`Machine No: ${payload.plantId || ""}`, margin, y);
     doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align: "right" });
+    y += 12;
 
-    y += 10;
-
+    // Yellow bar
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, tableW, 18, "F");
     doc.setTextColor(0);
     doc.setFontSize(8.8);
+    doc.setFont("helvetica", "bold");
     doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW / 2, y + 12.5, { align: "center" });
     y += 26;
 
+    // Meta row
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     const colW = tableW / 4;
@@ -894,20 +940,24 @@
     doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW * 3.5, y, { align: "center" });
     y += 14;
 
-    const itemColW = 420;
-    const dayColW = (tableW - itemColW) / 7;
+    // Table sizing (wider item col, consistent day cols)
+    const dayColW = 18; // consistent and readable
+    const itemColW = tableW - (dayColW * 7);
     const headH = 16;
 
-    const defectsH = 26;
-    const actionH = 28;
-    const sigH = 34;
+    // Bigger boxes
+    const defectsH = 34;
+    const actionH = 36;
+    const sigH = 44;
 
+    // Reserve footer space
     const footerTotal =
-      10 +
+      8 +
       10 + 6 + defectsH + 10 +
       10 +
       10 + 6 + actionH + 10 +
-      10 + 6 + sigH + 22;
+      10 + 6 + sigH + 18 +   // signature section
+      18;                     // bottom padding
 
     const availForTable = (pageH - margin) - y - headH - footerTotal;
     const totalRows = Math.max(1, labels2.length);
@@ -916,6 +966,7 @@
     rowH = Math.max(10, Math.min(16, rowH));
     const fontItem = rowH <= 11 ? 6.7 : 7.6;
 
+    // Table header
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
@@ -923,30 +974,74 @@
     doc.rect(margin, y, itemColW, headH, "F");
     doc.setFillColor(255, 255, 255);
     doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
+
     doc.rect(margin, y, tableW, headH);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
+
+    // "Item" label
+    doc.setTextColor(0);
+    doc.text("Item", margin + 6, y + 11);
+
     for (let i = 0; i < 7; i++) {
       const cx = margin + itemColW + dayColW * i + dayColW / 2;
       doc.text(days[i], cx, y + 11, { align: "center" });
     }
     y += headH;
 
+    // Body rows with striping + defect highlight for selected day
     for (let r = 0; r < totalRows; r++) {
+      const isStripe = (r % 2) === 1;
+      const isDefectToday = hasDefectInRowForDay(weekStatuses2, r, dayIndex);
+
+      // background fill
+      if (isDefectToday) {
+        doc.setFillColor(255, 235, 235); // light red
+        doc.rect(margin, y, tableW, rowH, "F");
+      } else if (isStripe) {
+        doc.setFillColor(247, 247, 247); // light grey
+        doc.rect(margin, y, tableW, rowH, "F");
+      }
+
+      // borders
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.7);
       doc.rect(margin, y, tableW, rowH);
 
+      // vertical grid
       doc.line(margin + itemColW, y, margin + itemColW, y + rowH);
       for (let i = 1; i < 7; i++) {
         const xx = margin + itemColW + dayColW * i;
         doc.line(xx, y, xx, y + rowH);
       }
 
+      // label text
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontItem);
-      const label = ellipsize(labels2[r] || "", itemColW - 10, fontItem);
+      doc.setTextColor(0);
+
+      const label = ellipsize(labels2[r] || "", itemColW - 44, fontItem);
       doc.text(label, margin + 6, y + rowH * 0.72);
 
+      // DEFECT tag (today)
+      if (isDefectToday) {
+        const tag = "DEFECT";
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.2);
+        const tagW = doc.getTextWidth(tag) + 10;
+        const tagH = Math.min(12, rowH - 2);
+        const tx = margin + itemColW - tagW - 6;
+        const ty = y + (rowH - tagH) / 2;
+
+        doc.setFillColor(220, 38, 38);
+        doc.rect(tx, ty, tagW, tagH, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.text(tag, tx + tagW / 2, ty + tagH / 2 + 2.2, { align: "center" });
+        doc.setTextColor(0);
+      }
+
+      // marks
       for (let d = 0; d < 7; d++) {
         const status = weekStatuses2?.[r]?.[d] || null;
         if (!status) continue;
@@ -958,34 +1053,49 @@
       y += rowH;
     }
 
-    y += 8;
+    y += 10;
 
+    // Footer fields
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
+    doc.setTextColor(0);
     doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
     y += 10;
 
+    // Defects box
     doc.text("Defects identified:", margin, y);
     y += 6;
+    doc.setDrawColor(0);
     doc.rect(margin, y, tableW, defectsH);
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    if (payload.defectsText) doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    const defectsTxt = normalizeNone(payload.defectsText);
+    const defectLines = splitToFit(defectsTxt, tableW - 12, Math.max(1, Math.floor((defectsH - 10) / 10)), 8.5);
+    doc.text(defectLines, margin + 6, y + 14);
+
     y += defectsH + 10;
 
+    // Reported to
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
     y += 12;
 
+    // Action box
     doc.text("Action taken:", margin, y);
     y += 6;
     doc.rect(margin, y, tableW, actionH);
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    if (payload.actionTaken) doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    const actionTxt = normalizeNone(payload.actionTaken);
+    const actionLines = splitToFit(actionTxt, tableW - 12, Math.max(1, Math.floor((actionH - 10) / 10)), 8.5);
+    doc.text(actionLines, margin + 6, y + 14);
+
     y += actionH + 10;
 
+    // Signature
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Signature:", margin, y);
@@ -995,7 +1105,7 @@
 
     if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
       try {
-        const pad = 4;
+        const pad = 5;
         const innerW = tableW - pad * 2;
         const innerH = sigH - pad * 2;
         const s = await getImageSize(payload.signatureDataUrl);
@@ -1006,13 +1116,10 @@
       } catch {}
     }
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
-    doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align: "center" });
+    // Footer page 1
+    footer(1, totalPages);
 
     // ---------------- PHOTO PAGES ----------------
-    const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
     if (pics.length) {
       const cols = 2;
       const rows = 3;
@@ -1025,12 +1132,17 @@
       const imgH = 150;
 
       let idx = 0;
+      let pageNum = 1;
+
       while (idx < pics.length) {
+        pageNum += 1;
         doc.addPage();
+
         let yy = margin;
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
+        doc.setTextColor(0);
         doc.text("Defect Photos", margin, yy);
 
         doc.setFont("helvetica", "normal");
@@ -1057,6 +1169,7 @@
 
             doc.setFont("helvetica", "bold");
             doc.setFontSize(8);
+            doc.setTextColor(0);
             const cap = `Row ${p.rowIndex + 1}: ${p.label || ""}`;
             doc.text(ellipsize(cap, boxW - 8, 8), x + 4, yTop + 12);
 
@@ -1078,6 +1191,8 @@
             idx++;
           }
         }
+
+        footer(pageNum, totalPages);
       }
     }
 
