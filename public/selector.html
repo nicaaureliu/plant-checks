@@ -147,27 +147,23 @@
       display:flex;
       justify-content:center;
       align-items:center;
+      height:64px;
     }
 
-    /* Proper image icons */
     .iconImg{
       width:64px;
       height:64px;
       object-fit:contain;
       display:block;
-      filter:none;
+      image-rendering:auto;
     }
 
-    /* On dark hover/press, invert black icons to white */
+    /* If your icons are black, this makes them white on hover/press */
     @media (hover: hover) and (pointer: fine){
-      .btn:hover .iconImg{
-        filter: invert(1);
-      }
+      .btn:hover .iconImg{ filter: invert(1); }
     }
     @media (hover: none) and (pointer: coarse){
-      .btn:active .iconImg{
-        filter: invert(1);
-      }
+      .btn:active .iconImg{ filter: invert(1); }
     }
 
     .name{
@@ -222,7 +218,7 @@
       <div class="grid">
         <a class="btn" id="linkExc" href="#" aria-label="Excavator checklist">
           <span class="icon" aria-hidden="true">
-            <img class="iconImg" src="/assets/icon-excavator.svg" alt="" />
+            <img class="iconImg" src="/assets/icon-excavator.png" alt="" />
           </span>
           <span class="name">Excavator</span>
           <span class="meta">Form: QPFPL5.2</span>
@@ -230,7 +226,7 @@
 
         <a class="btn" id="linkCrane" href="#" aria-label="Crane checklist">
           <span class="icon" aria-hidden="true">
-            <img class="iconImg" src="/assets/icon-crane.svg" alt="" />
+            <img class="iconImg" src="/assets/icon-crane.png" alt="" />
           </span>
           <span class="name">Crane</span>
           <span class="meta">Form: QPFPL5.0</span>
@@ -238,7 +234,7 @@
 
         <a class="btn" id="linkDump" href="#" aria-label="Dumper checklist">
           <span class="icon" aria-hidden="true">
-            <img class="iconImg" src="/assets/icon-dumper.svg" alt="" />
+            <img class="iconImg" src="/assets/icon-dumper.png" alt="" />
           </span>
           <span class="name">Dumper</span>
           <span class="meta">Form: QPFPL5.1</span>
