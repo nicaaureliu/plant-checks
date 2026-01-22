@@ -9,6 +9,10 @@
     :root{
       --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
       --ok:#16a34a; --btn:#111; --btnText:#fff; --radius:16px;
+
+      /* New: smiley face color */
+      --face:#fde047;        /* yellow */
+      --faceStroke:#f59e0b;  /* amber stroke */
     }
     *{box-sizing:border-box}
     body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
@@ -21,7 +25,106 @@
       padding:18px;
       overflow:hidden;
       text-align:center;
+
+      /* New: needed for overlay */
+      position:relative;
     }
+
+    /* Celebration overlay */
+    #celebrateLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:5;
+      border-radius:var(--radius);
+    }
+
+    /* Confetti container */
+    #confettiLayer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .confetti-piece{
+      position:absolute;
+      top:-14px;
+      width:10px;
+      height:14px;
+      border-radius:2px;
+      opacity:0.95;
+      transform: translate3d(0,0,0) rotate(0deg);
+      animation: confettiFall var(--dur, 1400ms) linear var(--delay, 0ms) forwards;
+      will-change: transform, opacity;
+    }
+
+    @keyframes confettiFall{
+      0%   { transform: translate3d(0,0,0) rotate(0deg); opacity:1; }
+      100% { transform: translate3d(var(--drift, 0px), var(--endY, 520px), 0) rotate(var(--rot, 360deg)); opacity:0.95; }
+    }
+
+    /* Excavator drive-by */
+    .excavator{
+      position:absolute;
+      left:-45%;
+      bottom:18px;
+      display:inline-flex;
+      align-items:flex-end;
+      gap:10px;
+      opacity:0;
+      transform: translateY(0);
+      will-change: left, transform, opacity;
+    }
+
+    .excavator.run{
+      opacity:1;
+      animation: excavatorRun 3.0s ease-in-out 0s 1 forwards;
+    }
+
+    @keyframes excavatorRun{
+      0%   { left:-45%; transform: translateY(0) rotate(-0.5deg); }
+      20%  { transform: translateY(-2px) rotate(0deg); }
+      45%  { transform: translateY(0) rotate(0.5deg); }
+      70%  { transform: translateY(-2px) rotate(0deg); }
+      100% { left:120%; transform: translateY(0) rotate(0deg); opacity:0; }
+    }
+
+    .trackline{
+      width:220px;
+      height:10px;
+      border-radius:8px;
+      opacity:0.35;
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(17,17,17,0.85) 0 14px,
+        rgba(17,17,17,0.0) 14px 22px
+      );
+      transform: translateY(6px);
+    }
+
+    .excavator.run .trackline{
+      animation: trackMove 260ms linear infinite;
+    }
+
+    @keyframes trackMove{
+      from { background-position: 0 0; }
+      to   { background-position: 22px 0; }
+    }
+
+    .excavator svg{
+      width:120px;
+      height:auto;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.12));
+    }
+
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .confetti-piece{ animation:none !important; opacity:0 !important; }
+      .excavator, .excavator.run{ animation:none !important; opacity:0 !important; }
+      .excavator.run .trackline{ animation:none !important; }
+    }
+
     .tick{
       display:inline-flex;
       align-items:center;
@@ -86,6 +189,44 @@
 <body>
   <div class="wrap">
     <div class="card">
+
+      <!-- New: Celebration overlay -->
+      <div id="celebrateLayer" aria-hidden="true">
+        <div id="confettiLayer"></div>
+
+        <div id="excavator" class="excavator">
+          <span class="trackline"></span>
+
+          <!-- Simple excavator SVG (yellow/black) -->
+          <svg viewBox="0 0 180 96" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="excavator">
+            <!-- tracks -->
+            <rect x="18" y="72" width="110" height="18" rx="9" fill="#111"/>
+            <circle cx="34" cy="81" r="6" fill="#2b2b2b"/>
+            <circle cx="58" cy="81" r="6" fill="#2b2b2b"/>
+            <circle cx="82" cy="81" r="6" fill="#2b2b2b"/>
+            <circle cx="106" cy="81" r="6" fill="#2b2b2b"/>
+
+            <!-- body -->
+            <rect x="38" y="46" width="78" height="22" rx="6" fill="#facc15" stroke="#111" stroke-width="2"/>
+            <!-- cabin -->
+            <path d="M60 46 L60 26 Q60 18 68 18 H92 Q100 18 100 26 V46 Z" fill="#facc15" stroke="#111" stroke-width="2"/>
+            <rect x="70" y="26" width="24" height="16" rx="3" fill="#e5e7eb" stroke="#111" stroke-width="2"/>
+
+            <!-- boom/arm -->
+            <path d="M112 44 C135 34, 148 30, 156 26" fill="none" stroke="#111" stroke-width="7" stroke-linecap="round"/>
+            <path d="M154 26 C160 22, 166 22, 170 26" fill="none" stroke="#111" stroke-width="7" stroke-linecap="round"/>
+
+            <!-- bucket -->
+            <path d="M169 26 L175 36 Q176 40 170 40 L162 40 Q158 40 158 36 L160 30"
+                  fill="#facc15" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+
+            <!-- little details -->
+            <rect x="44" y="52" width="12" height="6" rx="2" fill="#111" opacity="0.9"/>
+            <rect x="98" y="52" width="12" height="6" rx="2" fill="#111" opacity="0.9"/>
+          </svg>
+        </div>
+      </div>
+
       <div class="tick">✓</div>
       <h1>Submitted</h1>
       <p class="sub">Nice one. The checklist has been sent and saved.</p>
@@ -93,11 +234,11 @@
 
       <div class="meta" id="metaBox" style="display:none;"></div>
 
-      <!-- Big smile, no writing inside -->
+      <!-- Big smile, now yellow -->
       <div class="art" aria-hidden="true">
         <svg viewBox="0 0 520 280" width="100%" height="auto">
           <rect x="12" y="12" width="496" height="256" rx="22" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2"/>
-          <circle cx="260" cy="140" r="92" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+          <circle cx="260" cy="140" r="92" style="fill: var(--face); stroke: var(--faceStroke);" stroke-width="2"/>
 
           <circle cx="225" cy="125" r="8.5" fill="#111"/>
           <circle cx="295" cy="125" r="8.5" fill="#111"/>
@@ -140,6 +281,71 @@
         newBtn.href = `/selector.html?t=${encodeURIComponent(t)}`;
         if (type) backBtn.href = `/index.html?t=${encodeURIComponent(t)}&type=${encodeURIComponent(type)}`;
         else backBtn.href = `/index.html?t=${encodeURIComponent(t)}`;
+      }
+
+      // Run celebration on load
+      runCelebration();
+
+      function runCelebration(){
+        // Respect reduced motion
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        // Confetti burst (offline, no libs)
+        const confettiLayer = document.getElementById("confettiLayer");
+        const card = document.querySelector(".card");
+        if (confettiLayer && card) launchConfetti(confettiLayer, card);
+
+        // Excavator drive-by
+        const ex = document.getElementById("excavator");
+        if (ex) {
+          ex.classList.remove("run");
+          void ex.offsetWidth; // restart animation reliably
+          ex.classList.add("run");
+        }
+
+        // tiny haptic on supported phones
+        if (navigator.vibrate) navigator.vibrate(35);
+      }
+
+      function launchConfetti(layer, card){
+        layer.innerHTML = "";
+
+        const colors = [
+          "#16a34a", "#22c55e", "#facc15", "#f59e0b",
+          "#60a5fa", "#a78bfa", "#fb7185", "#111827"
+        ];
+
+        const pieceCount = 90;
+        const endY = (card.clientHeight + 120);
+
+        for (let i = 0; i < pieceCount; i++) {
+          const p = document.createElement("div");
+          p.className = "confetti-piece";
+
+          const left = Math.random() * 100;
+          const sizeW = 6 + Math.random() * 8;
+          const sizeH = 10 + Math.random() * 12;
+          const drift = (Math.random() * 140) - 70; // -70..+70px
+          const rot = (Math.random() * 720) + 180;  // 180..900deg
+          const dur = 900 + Math.random() * 900;    // 900..1800ms
+          const delay = Math.random() * 180;        // 0..180ms
+
+          p.style.left = left + "%";
+          p.style.width = sizeW + "px";
+          p.style.height = sizeH + "px";
+          p.style.background = colors[Math.floor(Math.random() * colors.length)];
+
+          p.style.setProperty("--drift", drift + "px");
+          p.style.setProperty("--rot", rot + "deg");
+          p.style.setProperty("--dur", dur + "ms");
+          p.style.setProperty("--delay", delay + "ms");
+          p.style.setProperty("--endY", endY + "px");
+
+          layer.appendChild(p);
+        }
+
+        // Cleanup
+        setTimeout(() => { layer.innerHTML = ""; }, 2300);
       }
 
       function escapeHtml(s){
