@@ -153,8 +153,8 @@ export async function onRequestPost(context) {
     const reportedToName  = (payload.reportedToName || "Recipient").trim();
 
     // Preferred yard setting: YARD_EMAIL. Fallback to DEST_EMAIL for backward compatibility.
-    const yardEmail = (env.YARD_EMAIL || env.DEST_EMAIL || "").trim();
-    const yardName = (env.YARD_NAME || "Yard").trim();
+    const yardEmail = (env.wshop@activetunnelling.com || env.DEST_EMAIL || "").trim();
+    const yardName = (env. TP Yard || "Yard").trim();
 
     if (!reportedToEmail) {
       return Response.json({ error: "No recipient email (reportedToEmail missing)" }, { status: 400 });
