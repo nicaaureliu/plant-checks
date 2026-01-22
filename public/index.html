@@ -115,12 +115,13 @@
       white-space:normal;
     }
 
+    /* Make missing machine no obvious */
     #machineNoPreview.missing{
       color:var(--bad);
       font-weight:900;
     }
 
-    /* Hide Today line (keep in DOM for app.js safety) */
+    /* CHANGE: hide Today line (keep in DOM for JS compatibility) */
     .todayMeta{ display:none !important; }
 
     .yellowBar{
@@ -179,6 +180,7 @@
     }
     .field textarea{ min-height:80px; resize:vertical; }
 
+    /* Small helper under the Date input */
     .dayHint{
       margin-top:6px;
       font-size:12.5px;
@@ -200,6 +202,7 @@
       font-weight:800;
     }
 
+    /* Progress line */
     .progressLine{
       margin:0 6px 12px;
       font-weight:900;
@@ -214,6 +217,7 @@
       font-weight:900;
     }
 
+    /* Legend */
     .cycleLegend{
       margin:0 6px 12px;
       display:flex;
@@ -247,6 +251,8 @@
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
+
+      /* allow sticky header to work nicely */
       overflow:auto;
       -webkit-overflow-scrolling:touch;
     }
@@ -263,6 +269,7 @@
       color:var(--muted);
       text-align:center;
       font-weight:900;
+
       position:sticky;
       top:0;
       z-index:2;
@@ -295,6 +302,7 @@
       background:var(--activeCol);
     }
 
+    /* Larger tap targets */
     .markBtn{
       width:44px;
       height:40px;
@@ -406,6 +414,7 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
+    /* ===== Toast tip ===== */
     .toast{
       position:fixed;
       left:50%;
@@ -422,6 +431,7 @@
       text-align:center;
     }
 
+    /* ===== Overlays ===== */
     .overlay{
       position:fixed;
       inset:0;
@@ -536,17 +546,6 @@
         background:#fff;
       }
     }
-
-    /* ============================
-       CHANGE: Hide the Mon–Sun checks module (but keep DOM for app.js)
-       ============================ */
-    #progressLine,
-    .checksHelp,
-    .cycleLegend,
-    .tableWrap,
-    #mobileChecks{
-      display:none !important;
-    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
@@ -619,11 +618,10 @@
         </div>
       </div>
 
+      <!-- CHANGE: Today removed from view -->
       <div class="metaRow">
         <span>Machine No: <span id="machineNoPreview" class="missing">—</span></span>
         <span>Week commencing: <span id="weekCommencingPreview">—</span></span>
-
-        <!-- Kept but hidden for JS compatibility -->
         <span class="todayMeta">Today: <span id="todayPreview">—</span></span>
       </div>
 
@@ -665,10 +663,9 @@
         </div>
       </div>
 
-      <!-- CHANGE: title text only -->
+      <!-- CHANGE: Heading text -->
       <div class="checksTitle">Plant Checks</div>
 
-      <!-- Kept in DOM (hidden by CSS) so app.js doesn’t break -->
       <p class="checksHelp">
         Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
       </p>
@@ -732,6 +729,7 @@
     </div>
   </div>
 
+  <!-- Toast (cycle help / required plant id tip) -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 </body>
