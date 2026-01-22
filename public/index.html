@@ -124,7 +124,7 @@
       min-width:320px;
     }
 
-    /* Make missing machine no obvious */
+    /* missing machine number style */
     #machineNoPreview.missing{
       color:var(--bad);
       font-weight:900;
@@ -186,7 +186,6 @@
     }
     .field textarea{ min-height:80px; resize:vertical; }
 
-    /* Small helper under the Date input */
     .dayHint{
       margin-top:6px;
       font-size:12.5px;
@@ -195,6 +194,7 @@
       line-height:1.35;
     }
 
+    /* ===== Checks section ===== */
     .checksTitle{
       font-size:34px;
       font-weight:950;
@@ -202,10 +202,10 @@
       letter-spacing:-0.5px;
     }
 
-    /* We will force-hide any helper + legend, even if app.js injects them */
-    .checksHelp, .cycleLegend{ display:none !important; }
+    /* Always hide these two (even if app.js tries to show them) */
+    .checksHelp{ display:none !important; }
+    .cycleLegend{ display:none !important; }
 
-    /* (3) Progress line */
     .progressLine{
       margin:0 6px 12px;
       font-weight:900;
@@ -220,7 +220,7 @@
       font-weight:900;
     }
 
-    /* (Cycle clarity) Legend (kept for compatibility but hidden above) */
+    /* kept for compatibility, but hidden */
     .cycleLegend{
       margin:0 6px 12px;
       display:flex;
@@ -254,7 +254,6 @@
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
-
       overflow:auto;
       -webkit-overflow-scrolling:touch;
     }
@@ -271,7 +270,6 @@
       color:var(--muted);
       text-align:center;
       font-weight:900;
-
       position:sticky;
       top:0;
       z-index:2;
@@ -415,7 +413,6 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
-    /* ===== Toast ===== */
     .toast{
       position:fixed;
       left:50%;
@@ -432,7 +429,6 @@
       text-align:center;
     }
 
-    /* ===== Overlays ===== */
     .overlay{
       position:fixed;
       inset:0;
@@ -668,16 +664,17 @@
         </div>
       </div>
 
-      <!-- You want only "Plant Checks" visible here -->
+      <!-- ONLY thing the user should see here -->
       <div class="checksTitle">Plant Checks</div>
 
-      <!-- app.js may re-inject old help/legend; we keep these blocks but they are hidden by CSS + script -->
+      <!-- kept for compatibility; always hidden via CSS -->
       <p class="checksHelp">
         Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
       </p>
 
       <div id="progressLine" class="progressLine"></div>
 
+      <!-- kept for compatibility; always hidden via CSS -->
       <div class="cycleLegend" aria-hidden="true">
         <span class="legendBox"></span>
         <span class="legendArrow">→</span>
@@ -735,98 +732,55 @@
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <!-- UI enforcement: app.js keeps re-injecting "Checks (Mon–Sun)" + helper + legend.
-       This forces the UI to show ONLY "Plant Checks", and hides the rest.
-       Also replaces BUILD text with "Followed by Aureliu Nica". -->
+  <!-- Safe enforcement (non-destructive): only touches .checksTitle + #buildTag and hides small helper nodes if injected) -->
   <script>
     (function(){
-      function norm(s){
-        return String(s || "")
-          .replace(/\s+/g," ")
-          .replace(/\u2013|\u2014/g,"-")
-          .trim()
-          .toLowerCase();
-      }
-
-      function hideBlock(el){
-        if (!el) return;
-        var block = el.closest ? el.closest("p,div,section,header,small") : el;
-        (block || el).style.display = "none";
-      }
-
-      function looksLikeLegend(el){
-        var t = norm(el.textContent);
-        if (!t) return false;
-        var hasOk = t.includes("ok") || t.includes("✓");
-        var hasDef = t.includes("defect") || t.includes("x") || t.includes("✗");
-        var hasNa = t.includes("n/a") || t.includes("na");
-        return (t.length < 240) && hasOk && hasDef && hasNa;
-      }
-
-      function applyPlantChecks(){
-        // Force heading text to "Plant Checks" if "Checks (Mon–Sun)" appears anywhere
-        var nodes = document.querySelectorAll("h1,h2,h3,div");
-        for (var i=0; i<nodes.length; i++){
-          var t = norm(nodes[i].textContent);
-          if (t.includes("checks") && t.includes("mon") && t.includes("sun")){
-            nodes[i].textContent = "Plant Checks";
-          }
+      function enforce(){
+        // Force title text ONLY on the title element (never on generic divs)
+        var titleEl = document.querySelector(".checksTitle");
+        if (titleEl && titleEl.textContent.trim() !== "Plant Checks") {
+          titleEl.textContent = "Plant Checks";
         }
 
-        // Hide helper sentence anywhere (even if injected)
-        var all = document.querySelectorAll("p,div,small,span");
-        for (var j=0; j<all.length; j++){
-          var tt = norm(all[j].textContent);
-          if (tt.includes("only the column for your selected date is editable")){
-            hideBlock(all[j]);
-            break;
-          }
-        }
-
-        // Hide legend anywhere (even if injected)
-        for (var k=0; k<all.length; k++){
-          if (looksLikeLegend(all[k])){
-            hideBlock(all[k]);
-            break;
-          }
-        }
-
-        // Also hide any known class hooks (if app.js uses them)
-        document.querySelectorAll(".checksHelp,.cycleLegend").forEach(function(el){
+        // Always hide known helper/legend classes
+        document.querySelectorAll(".checksHelp, .cycleLegend").forEach(function(el){
           el.style.display = "none";
         });
-      }
 
-      function applyCredit(){
-        var el = document.getElementById("buildTag");
-        if (!el) return;
-        var current = (el.textContent || "").trim();
-        if (current && !el.dataset.buildStored) {
-          el.dataset.buildStored = "1";
-          el.title = current; // keep original build as tooltip
+        // If app.js injects helper text without classes, hide only simple leaf nodes
+        document.querySelectorAll("p,div,small,span").forEach(function(el){
+          if (el.children && el.children.length) return; // don't touch containers
+          var txt = (el.textContent || "").trim();
+          if (!txt || txt.length > 220) return;
+
+          var t = txt.toLowerCase().replace(/\s+/g," ").replace(/\u2013|\u2014/g,"-");
+          if (t.indexOf("only the column for your selected date is editable") !== -1) {
+            el.style.display = "none";
+          }
+          if (t.indexOf("select") !== -1 && t.indexOf("ok") !== -1 && (t.indexOf("defect") !== -1 || t.indexOf(" x ") !== -1) && t.indexOf("n/a") !== -1) {
+            el.style.display = "none";
+          }
+        });
+
+        // BUILD label → Followed by Aureliu Nica
+        var buildEl = document.getElementById("buildTag");
+        if (buildEl) {
+          if (!buildEl.dataset.orig) buildEl.dataset.orig = (buildEl.textContent || "").trim();
+          buildEl.textContent = "Followed by Aureliu Nica";
         }
-        el.textContent = "Followed by Aureliu Nica";
       }
 
       document.addEventListener("DOMContentLoaded", function(){
-        // Multiple passes to beat defer timing / mobile rendering
-        applyPlantChecks();
-        applyCredit();
-        setTimeout(function(){ applyPlantChecks(); applyCredit(); }, 80);
-        setTimeout(function(){ applyPlantChecks(); applyCredit(); }, 220);
+        enforce();
+        setTimeout(enforce, 100);
+        setTimeout(enforce, 300);
 
-        // Watch for app.js injecting/replacing content after load
-        if (window.MutationObserver){
-          var obs = new MutationObserver(function(){
-            applyPlantChecks();
-            applyCredit();
-          });
-          obs.observe(document.body, { childList:true, subtree:true, characterData:true });
-          // stop after it settles to avoid overhead
-          setTimeout(function(){ try{ obs.disconnect(); }catch(e){} }, 6000);
+        if (window.MutationObserver) {
+          var obs = new MutationObserver(function(){ enforce(); });
+          obs.observe(document.body, { childList:true, subtree:true });
+          setTimeout(function(){ try{ obs.disconnect(); }catch(e){} }, 8000);
         }
       });
     })();
