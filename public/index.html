@@ -85,6 +85,7 @@
       padding:0 6px;
     }
 
+    /* (5) Improve hierarchy: reduce ref dominance slightly, keep title strong */
     .formRef{
       font-weight:900;
       font-size:22px;
@@ -104,28 +105,18 @@
     .metaRow{
       display:flex;
       justify-content:space-between;
-      align-items:baseline;
       gap:10px;
       font-weight:800;
       padding:4px 6px 10px;
       flex-wrap:wrap;
     }
-
-    /* Stop the equal-share layout */
-    .metaRow > span{ flex:0 1 auto; white-space:normal; }
-
-    /* Hide Today in UI, keep DOM for app.js */
-    .todayMeta{ display:none !important; }
-
-    /* Push week commencing toward the right */
-    .metaLeft{ min-width:240px; }
-    .metaRight{
-      margin-left:auto;
-      text-align:right;
-      min-width:320px;
+    .metaRow > span{
+      min-width:0;
+      flex:1 1 220px;
+      white-space:normal;
     }
 
-    /* Make missing machine no obvious */
+    /* (2) Make missing machine no obvious */
     #machineNoPreview.missing{
       color:var(--bad);
       font-weight:900;
@@ -209,7 +200,7 @@
       font-weight:800;
     }
 
-    /* Progress line */
+    /* (3) Progress line */
     .progressLine{
       margin:0 6px 12px;
       font-weight:900;
@@ -224,7 +215,7 @@
       font-weight:900;
     }
 
-    /* Legend */
+    /* (Cycle clarity) Legend */
     .cycleLegend{
       margin:0 6px 12px;
       display:flex;
@@ -258,13 +249,15 @@
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
+
+      /* (4) allow sticky header to work nicely */
       overflow:auto;
       -webkit-overflow-scrolling:touch;
     }
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:720px;
+      min-width:720px; /* keeps columns readable on small screens when table is shown */
     }
     thead th{
       background:#fafafa;
@@ -274,6 +267,8 @@
       color:var(--muted);
       text-align:center;
       font-weight:900;
+
+      /* (4) sticky table header */
       position:sticky;
       top:0;
       z-index:2;
@@ -306,7 +301,7 @@
       background:var(--activeCol);
     }
 
-    /* Larger tap targets */
+    /* (4) Larger tap targets */
     .markBtn{
       width:44px;
       height:40px;
@@ -418,7 +413,7 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
-    /* Toast */
+    /* ===== Toast tip (cycle clarity) ===== */
     .toast{
       position:fixed;
       left:50%;
@@ -435,7 +430,7 @@
       text-align:center;
     }
 
-    /* Overlays */
+    /* ===== Overlays ===== */
     .overlay{
       position:fixed;
       inset:0;
@@ -529,17 +524,12 @@
         padding-top:6px;
       }
 
-      /* On mobile, keep a clean stack */
       .metaRow{
         flex-direction:column;
         align-items:flex-start;
         gap:6px;
       }
-      .metaLeft, .metaRight{
-        min-width:0;
-        margin-left:0;
-        text-align:left;
-      }
+      .metaRow > span{ flex:0 0 auto; }
 
       .formRef{ font-size:20px; }
       .sheetTitle{ font-size:20px; }
@@ -627,10 +617,11 @@
         </div>
       </div>
 
+      <!-- (1) Add Today preview + (2) highlight missing Machine No -->
       <div class="metaRow">
-        <span class="metaLeft">Machine No: <span id="machineNoPreview" class="missing">—</span></span>
-        <span class="metaRight">Week commencing: <span id="weekCommencingPreview">—</span></span>
-        <span class="todayMeta">Today: <span id="todayPreview">—</span></span>
+        <span>Machine No: <span id="machineNoPreview" class="missing">—</span></span>
+        <span>Week commencing: <span id="weekCommencingPreview">—</span></span>
+        <span>Today: <span id="todayPreview">—</span></span>
       </div>
 
       <div class="yellowBar">
@@ -676,8 +667,10 @@
         Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
       </p>
 
+      <!-- (3) Progress -->
       <div id="progressLine" class="progressLine"></div>
 
+      <!-- (Cycle clarity) Legend -->
       <div class="cycleLegend" aria-hidden="true">
         <span class="legendBox"></span>
         <span class="legendArrow">→</span>
@@ -735,7 +728,7 @@
     </div>
   </div>
 
-  <!-- Toast -->
+  <!-- Toast (cycle help / required plant id tip) -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 </body>
