@@ -23,16 +23,18 @@
       --activeCol: rgba(255,214,0,.20);
       --activeColHead: rgba(255,214,0,.35);
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+    html, body { width:100%; max-width:100%; overflow-x:hidden; }
+
     body{
       margin:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background:var(--bg);
       color:var(--text);
-
-      /* FIX: prevent any element from creating a wider-than-screen layout */
-      overflow-x:hidden;
     }
+
+    img{ max-width:100%; height:auto; display:block; }
 
     .hidden{ display:none !important; }
 
@@ -40,20 +42,19 @@
       max-width:860px;
       margin:18px auto 40px;
       padding:0 14px;
-
-      /* FIX: ensure wrap always respects viewport width */
       width:100%;
+      max-width:100%;
     }
+
     .card{
       background:var(--card);
       border:1px solid var(--line);
       border-radius:var(--radius);
       box-shadow: 0 2px 14px rgba(0,0,0,.05);
       padding:14px;
-      overflow:hidden;
-
-      /* FIX: ensure card never exceeds wrap */
       width:100%;
+      max-width:100%;
+      overflow:hidden; /* important: stops child overflow affecting page */
     }
 
     .topbar{
@@ -77,16 +78,8 @@
       justify-content:space-between;
       gap:10px;
     }
-    .logoLeft{
-      width:92px;
-      height:auto;
-      flex:0 0 auto;
-    }
-    .logoRight{
-      width:58px;
-      height:auto;
-      flex:0 0 auto;
-    }
+    .logoLeft{ width:92px; flex:0 0 auto; }
+    .logoRight{ width:58px; flex:0 0 auto; }
     .headerText{
       flex:1 1 auto;
       min-width:0;
@@ -123,13 +116,15 @@
       flex:1 1 220px;
       white-space:normal;
     }
-
     #machineNoPreview.missing{
       color:var(--bad);
       font-weight:900;
     }
 
+    /* Hide Today but keep in DOM (app.js safety) */
     .todayMeta{ display:none !important; }
+
+    /* Push week commencing to the right */
     .weekMeta{ text-align:right; }
 
     .yellowBar{
@@ -169,15 +164,11 @@
       grid-template-columns:1fr;
       gap:12px;
       padding:0 6px 8px;
-
-      /* FIX: stop grid children forcing overflow */
       min-width:0;
+      max-width:100%;
     }
 
-    .field{
-      /* FIX: stop any child input from expanding outside */
-      min-width:0;
-    }
+    .field{ min-width:0; max-width:100%; }
 
     .field label{
       display:block;
@@ -189,26 +180,24 @@
     .field input, .field select, .field textarea{
       width:100%;
       max-width:100%;
+      min-width:0;
+      display:block;
       padding:14px 14px;
       border-radius:14px;
       border:1px solid var(--line);
       background:#fff;
       font-size:16px;
       outline:none;
-
-      /* FIX: prevents native controls from insisting on wider min sizes */
-      min-width:0;
-      display:block;
     }
+    .field textarea{ min-height:80px; resize:vertical; }
 
-    /* FIX: specifically force the date control to stay inside card */
+    /* Extra hardening for iOS/Safari */
     input[type="date"]{
       width:100%;
       max-width:100%;
       min-width:0;
+      display:block;
     }
-
-    .field textarea{ min-height:80px; resize:vertical; }
 
     .dayHint{
       margin-top:6px;
@@ -224,11 +213,11 @@
       margin:18px 6px 4px;
       letter-spacing:-0.5px;
     }
-    .checksHelp{
-      margin:0 6px 8px;
-      color:var(--muted);
-      line-height:1.4;
-      font-weight:800;
+
+    /* Remove the highlighted instruction + legend */
+    .checksHelp,
+    .cycleLegend{
+      display:none !important;
     }
 
     .progressLine{
@@ -236,62 +225,31 @@
       font-weight:900;
       color:#111;
     }
-    .progressLine .muted{
-      color:var(--muted);
-      font-weight:800;
-    }
-    .progressLine .bad{
-      color:var(--bad);
-      font-weight:900;
-    }
+    .progressLine .muted{ color:var(--muted); font-weight:800; }
+    .progressLine .bad{ color:var(--bad); font-weight:900; }
 
-    .cycleLegend{
-      margin:0 6px 12px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
-      color:var(--muted);
-      font-weight:900;
-      font-size:12.5px;
-    }
-    .legendBox{
-      width:34px;
-      height:30px;
-      border-radius:10px;
-      border:1px solid var(--line);
-      background:#fff;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:950;
-      color:#111;
-    }
-    .legendArrow{
-      font-weight:950;
-      color:var(--muted);
-    }
-
-    /* Remove the highlighted instruction + legend under Plant Checks */
-    .checksHelp,
-    .cycleLegend{
-      display:none !important;
-    }
-
+    /* CRITICAL: contain table overflow inside its own box */
     .tableWrap{
       margin:0 6px 14px;
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
-      overflow:auto;
+
+      width:100%;
+      max-width:100%;
+
+      overflow-x:auto;
+      overflow-y:hidden;
+
       -webkit-overflow-scrolling:touch;
     }
+
     table{
       width:100%;
       border-collapse:collapse;
       min-width:720px;
     }
+
     thead th{
       background:#fafafa;
       border-bottom:1px solid var(--line);
@@ -309,10 +267,6 @@
       padding-left:12px;
       z-index:3;
     }
-    thead th.activeCol{
-      background:var(--activeColHead);
-      color:#111;
-    }
 
     tbody td{
       border-top:1px solid var(--line);
@@ -324,13 +278,7 @@
       font-size:14px;
       padding-left:12px;
     }
-    td.day{
-      text-align:center;
-      width:7.7%;
-    }
-    td.day.activeCol{
-      background:var(--activeCol);
-    }
+    td.day{ text-align:center; width:7.7%; }
 
     .markBtn{
       width:44px;
@@ -342,10 +290,7 @@
       cursor:pointer;
       font-size:16px;
     }
-    .markBtn.disabled{
-      opacity:.35;
-      cursor:not-allowed;
-    }
+    .markBtn.disabled{ opacity:.35; cursor:not-allowed; }
 
     #mobileChecks{ display:none; }
     .mobileRow{
@@ -362,6 +307,7 @@
       line-height:1.25;
       flex:1;
       padding-right:6px;
+      min-width:0;
     }
     .mobileBtn{
       min-width:62px;
@@ -428,7 +374,6 @@
       cursor:pointer;
       font-size:16px;
     }
-    .actions button:disabled{ opacity:.6; cursor:not-allowed; }
 
     #status{
       margin:14px 6px 0;
@@ -439,106 +384,6 @@
       background:#fff;
       text-align:center;
       font-weight:900;
-    }
-    .ok{ color:var(--ok); }
-    .bad{ color:var(--bad); }
-
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom:18px;
-      transform:translateX(-50%);
-      z-index:10000;
-      background:#111;
-      color:#fff;
-      padding:12px 14px;
-      border-radius:14px;
-      box-shadow:0 12px 30px rgba(0,0,0,.25);
-      font-weight:900;
-      max-width:min(560px, calc(100vw - 28px));
-      text-align:center;
-    }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      background:rgba(17,17,17,.35);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      z-index:9999;
-    }
-    .overlayCard{
-      width:100%;
-      max-width:520px;
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:18px;
-      box-shadow:0 18px 60px rgba(0,0,0,.22);
-      padding:18px;
-      text-align:center;
-    }
-    .overlayTitle{
-      font-weight:950;
-      font-size:22px;
-      margin:2px 0 6px;
-    }
-    .overlayText{
-      color:var(--muted);
-      margin:0 0 14px;
-      line-height:1.35;
-      font-weight:800;
-    }
-    .overlayBtns{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-      margin-top:10px;
-    }
-    .overlayBtns button{
-      padding:14px 14px;
-      border-radius:14px;
-      border:1px solid rgba(0,0,0,.6);
-      background:var(--btn);
-      color:var(--btnText);
-      font-weight:950;
-      cursor:pointer;
-      font-size:16px;
-    }
-    .overlayBtns button.alt{
-      background:var(--btnAlt);
-      color:var(--text);
-      border:1px solid var(--line);
-    }
-    .tickBadge{
-      width:66px;
-      height:66px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      margin:6px auto 8px;
-      background:rgba(22,163,74,.12);
-      border:2px solid rgba(22,163,74,.35);
-      color:var(--ok);
-      font-size:34px;
-      font-weight:950;
-    }
-    .successDetails{
-      margin:6px 0 12px;
-      font-weight:900;
-      color:var(--muted);
-    }
-    .funnyWrap{
-      display:flex;
-      justify-content:center;
-      margin:10px 0 14px;
-    }
-    .funnyWrap svg{
-      width:220px;
-      max-width:100%;
-      height:auto;
     }
 
     @media (max-width: 760px){
@@ -632,7 +477,7 @@
   <div id="appRoot" class="wrap hidden">
     <div class="card">
       <div class="topbar">
-        <div id="buildTag">BUILD:</div>
+        <div id="buildTag">BUILD: v13.6</div>
         <div id="selectedType">Selected:</div>
       </div>
 
