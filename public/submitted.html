@@ -7,41 +7,34 @@
   <title>Submitted</title>
   <style>
     :root{
-      --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
+      --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
       --ok:#16a34a; --btn:#111; --btnText:#fff; --radius:16px;
 
       /* Smiley face */
       --face:#fde047;
       --faceStroke:#f59e0b;
     }
-
     *{box-sizing:border-box}
-
     body{
       margin:0;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:var(--bg);
       color:var(--text);
-
-      /* Premium dark background (like your screenshot) */
-      background:
-        radial-gradient(1100px 700px at 50% 0%, #1f2937 0%, #0b1220 55%, #05070c 100%);
-      min-height:100vh;
     }
-
-    .wrap{ max-width:640px; margin:24px auto 30px; padding:0 14px; }
+    .wrap{ max-width:640px; margin:24px auto 40px; padding:0 14px; }
 
     .card{
       background:var(--card);
-      border:1px solid rgba(255,255,255,0.08);
+      border:1px solid var(--line);
       border-radius:var(--radius);
-      box-shadow:0 18px 50px rgba(0,0,0,.35);
+      box-shadow:0 2px 14px rgba(0,0,0,.05);
       padding:18px;
       overflow:hidden;
       text-align:center;
       position:relative;
     }
 
-    /* Confetti overlay (only inside card) */
+    /* Confetti overlay (inside card) */
     #celebrateLayer{
       position:absolute;
       inset:0;
@@ -126,41 +119,37 @@
       border:1px solid var(--line);
     }
 
-    /* ===== LANE IS OUTSIDE THE CARD ===== */
-    .laneWrap{
-      margin-top:28px;    /* pushed lower */
-      padding:0 6px;
-    }
+    /* Excavator lane (below buttons, NOT overlay) */
     .plantLane{
-      height:78px;
+      margin-top:16px;
+      height:82px;
       position:relative;
       overflow:hidden;
-      border:1px solid rgba(255,255,255,0.10);
+      border:1px solid var(--line);
       border-radius:14px;
-      background:rgba(255,255,255,0.06);
-      box-shadow:0 18px 50px rgba(0,0,0,.25);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      background:#fff;
     }
 
-    /* Excavator drive-by inside lane */
     .excavator{
       position:absolute;
-      left:-55%;
-      bottom:12px;
+      left:-60%;
+      bottom:14px;
       display:inline-flex;
       align-items:flex-end;
       gap:10px;
       opacity:0;
       transform: translateY(0);
-      will-change: left, transform, opacity;
+      will-change:left, transform, opacity;
     }
+
     .excavator.run{
       opacity:1;
       animation: excavatorRun 3.4s ease-in-out 0s 1 forwards;
     }
+
+    /* Small “dig dip” mid-run */
     @keyframes excavatorRun{
-      0%   { left:-55%; transform: translateY(0); }
+      0%   { left:-60%; transform: translateY(0); }
       50%  { transform: translateY(0); }
       58%  { transform: translateY(4px); }
       65%  { transform: translateY(0); }
@@ -171,11 +160,11 @@
       width:220px;
       height:10px;
       border-radius:8px;
-      opacity:0.14;
+      opacity:0.18;
       background: repeating-linear-gradient(
         90deg,
-        rgba(255,255,255,0.55) 0 14px,
-        rgba(255,255,255,0.0) 14px 22px
+        rgba(17,17,17,0.85) 0 14px,
+        rgba(17,17,17,0.0) 14px 22px
       );
       transform: translateY(6px);
     }
@@ -190,24 +179,24 @@
     .excavator svg{
       width:160px;
       height:auto;
-      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.35));
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.12));
     }
 
-    /* Dig dust puff */
+    /* Dust puff (dig moment) */
     .digDust{
       position:absolute;
       right:12px;
-      bottom:36px;
+      bottom:38px;
       width:6px;
       height:6px;
       border-radius:50%;
       opacity:0;
-      background:#d97706;
+      background:#92400e;
       box-shadow:
-        -10px 8px 0 #f59e0b,
-        -18px 2px 0 #d97706,
-        -26px 10px 0 #f59e0b,
-        -34px 5px 0 #d97706;
+        -10px 8px 0 #b45309,
+        -18px 2px 0 #92400e,
+        -26px 10px 0 #b45309,
+        -34px 5px 0 #92400e;
       transform: scale(0.6);
     }
     .excavator.run .digDust{
@@ -219,28 +208,13 @@
       20%  { opacity:0.9; }
       100% { opacity:0; transform: translateY(-18px) scale(1.25); }
     }
-
-    /* Respect reduced motion */
-    @media (prefers-reduced-motion: reduce){
-      .confetti-piece{ animation:none !important; opacity:0 !important; }
-      .excavator, .excavator.run{ animation:none !important; opacity:0 !important; }
-      .excavator.run .trackline{ animation:none !important; }
-      .excavator.run .digDust{ animation:none !important; }
-    }
-
-    /* Print safety */
-    @media print{
-      body{ background:#fff !important; }
-      .card, .plantLane{ box-shadow:none !important; }
-      .laneWrap{ display:none !important; }
-    }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-
     <div class="card">
+
       <!-- Confetti overlay -->
       <div id="celebrateLayer" aria-hidden="true">
         <div id="confettiLayer"></div>
@@ -268,11 +242,9 @@
         <a class="secondary" id="newBtn" href="/selector.html">New check</a>
         <a id="backBtn" href="/index.html">Back to form</a>
       </div>
-    </div>
 
-    <!-- Lane BELOW the card -->
-    <div class="laneWrap" aria-hidden="true">
-      <div class="plantLane">
+      <!-- Excavator lane (below buttons) -->
+      <div class="plantLane" aria-hidden="true">
         <div id="excavator" class="excavator">
           <span class="trackline"></span>
 
@@ -290,31 +262,11 @@
             </g>
 
             <g stroke="#111" stroke-width="4" stroke-linejoin="round">
-              <path d="M112 138
-                       h138
-                       q22 0 22-22
-                       v-10
-                       q0-22-22-22
-                       h-122
-                       q-22 0-22 22
-                       v10
-                       q0 22 28 22Z"
+              <path d="M112 138 h138 q22 0 22-22 v-10 q0-22-22-22 h-122 q-22 0-22 22 v10 q0 22 28 22Z"
                     fill="#facc15"/>
-              <path d="M178 106
-                       v-34
-                       q0-20 20-20
-                       h50
-                       q20 0 20 20
-                       v66
-                       h-90Z"
+              <path d="M178 106 v-34 q0-20 20-20 h50 q20 0 20 20 v66 h-90Z"
                     fill="#facc15"/>
-              <path d="M196 76
-                       h48
-                       q10 0 10 10
-                       v26
-                       h-68
-                       v-26
-                       q0-10 10-10Z"
+              <path d="M196 76 h48 q10 0 10 10 v26 h-68 v-26 q0-10 10-10Z"
                     fill="#e5e7eb"/>
             </g>
 
@@ -328,20 +280,15 @@
             <path d="M360 78 C380 78, 396 92, 406 112"
                   stroke="#111" stroke-width="4" stroke-linecap="round" fill="none"/>
 
-            <path d="M404 112
-                     l12 12
-                     q8 8-2 16
-                     q-22 16-52 6
-                     q-14-5-7-18
-                     l12-18Z"
+            <path d="M404 112 l12 12 q8 8-2 16 q-22 16-52 6 q-14-5-7-18 l12-18Z"
                   fill="#facc15" stroke="#111" stroke-width="4" stroke-linejoin="round"/>
           </svg>
 
           <span class="digDust"></span>
         </div>
       </div>
-    </div>
 
+    </div>
   </div>
 
   <script>
@@ -357,27 +304,25 @@
       const meta = document.getElementById("metaBox");
       if (niceType || plantId || date) {
         meta.style.display = "inline-block";
-        meta.innerHTML = `
-          <div>Type: <span>${escapeHtml(niceType)}</span></div>
-          <div>Plant ID: <span>${escapeHtml(plantId)}</span></div>
-          <div>Date: <span>${escapeHtml(date)}</span></div>
-        `;
+        meta.innerHTML =
+          '<div>Type: <span>' + escapeHtml(niceType) + '</span></div>' +
+          '<div>Plant ID: <span>' + escapeHtml(plantId) + '</span></div>' +
+          '<div>Date: <span>' + escapeHtml(date) + '</span></div>';
       }
 
       const newBtn = document.getElementById("newBtn");
       const backBtn = document.getElementById("backBtn");
 
       if (t) {
-        newBtn.href = `/selector.html?t=${encodeURIComponent(t)}`;
-        if (type) backBtn.href = `/index.html?t=${encodeURIComponent(t)}&type=${encodeURIComponent(type)}`;
-        else backBtn.href = `/index.html?t=${encodeURIComponent(t)}`;
+        newBtn.href = '/selector.html?t=' + encodeURIComponent(t);
+        if (type) backBtn.href = '/index.html?t=' + encodeURIComponent(t) + '&type=' + encodeURIComponent(type);
+        else backBtn.href = '/index.html?t=' + encodeURIComponent(t);
       }
 
+      // Run celebration on load (mobile-friendly)
       runCelebration();
 
       function runCelebration(){
-        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
         const confettiLayer = document.getElementById("confettiLayer");
         const card = document.querySelector(".card");
         if (confettiLayer && card) launchConfetti(confettiLayer, card);
@@ -385,11 +330,9 @@
         const ex = document.getElementById("excavator");
         if (ex) {
           ex.classList.remove("run");
-          void ex.offsetWidth;
+          void ex.offsetWidth; // restart animation reliably
           ex.classList.add("run");
         }
-
-        if (navigator.vibrate) navigator.vibrate(35);
       }
 
       function launchConfetti(layer, card){
@@ -429,16 +372,16 @@
           layer.appendChild(p);
         }
 
-        setTimeout(() => { layer.innerHTML = ""; }, 2300);
+        setTimeout(function(){ layer.innerHTML = ""; }, 2300);
       }
 
       function escapeHtml(s){
         return String(s)
-          .replaceAll("&","&amp;")
-          .replaceAll("<","&lt;")
-          .replaceAll(">","&gt;")
-          .replaceAll('"',"&quot;")
-          .replaceAll("'","&#39;");
+          .replace(/&/g,"&amp;")
+          .replace(/</g,"&lt;")
+          .replace(/>/g,"&gt;")
+          .replace(/"/g,"&quot;")
+          .replace(/'/g,"&#39;");
       }
     })();
   </script>
