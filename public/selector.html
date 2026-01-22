@@ -5,33 +5,174 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Select Checklist Type</title>
+
   <style>
     :root{
-      --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
-      --yellow:#ffd600; --btnAlt:#f3f4f6; --radius:16px;
+      --bg:#f6f7f9;
+      --card:#fff;
+      --text:#111;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --yellow:#ffd600;
+      --radius:18px;
     }
     *{box-sizing:border-box}
-    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
-    .wrap{ max-width:640px; margin:24px auto 40px; padding:0 14px; }
-    .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 2px 14px rgba(0,0,0,.05); padding:16px; overflow:hidden; }
-    .logos{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
-    .logoLeft{ width:120px; height:auto; } .logoRight{ width:62px; height:auto; }
-    h1{ margin:10px 0 6px; font-size:22px; font-weight:900; text-align:center; letter-spacing:-0.2px; }
-    p{ margin:0 0 14px; color:var(--muted); text-align:center; font-weight:700; line-height:1.35; }
-    .hint{ margin:0 0 16px; background:var(--yellow); border:1px solid rgba(0,0,0,.15); border-radius:14px; padding:12px 14px; text-align:center; font-weight:900; }
-    .grid{ display:grid; grid-template-columns:1fr; gap:12px; margin-top:8px; }
-    .btn{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:16px; border-radius:14px; border:1px solid var(--line);
-      background:var(--btnAlt); font-weight:900; font-size:18px;
-      color:#111; text-decoration:none;
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:var(--bg);
+      color:var(--text);
     }
-    .pill{ background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:13px; font-weight:900; white-space:nowrap; }
-    .bad{ color:#dc2626; font-weight:900; text-align:center; margin-top:12px; }
+
+    .wrap{
+      max-width:920px;
+      margin:22px auto 40px;
+      padding:0 14px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:0 2px 14px rgba(0,0,0,.05);
+      padding:16px;
+      overflow:hidden;
+    }
+
+    /* Header */
+    .header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:14px 16px;
+      box-shadow:0 2px 14px rgba(0,0,0,.05);
+    }
+
+    .logoLeft{ width:92px; height:auto; }
+    .logoRight{ width:64px; height:auto; }
+
+    .headerText{
+      flex:1;
+      text-align:center;
+      padding:0 8px;
+      min-width:0;
+    }
+
+    h1{
+      margin:0;
+      font-size:23px;
+      font-weight:950;
+      letter-spacing:-0.3px;
+      line-height:1.15;
+    }
+
+    .hint{
+      margin:10px auto 0;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      background:var(--yellow);
+      border:1px solid rgba(0,0,0,.2);
+      border-radius:999px;
+      padding:10px 14px;
+      font-weight:900;
+      font-size:14px;
+      max-width:100%;
+    }
+
+    /* Buttons grid */
+    .grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+
+    .btn{
+      width:100%;
+      border-radius:18px;
+      padding:18px 14px;
+      cursor:pointer;
+
+      border:2px solid #111;
+      background:#fff;
+      color:#111;
+      text-decoration:none;
+
+      display:grid;
+      gap:10px;
+      text-align:center;
+
+      box-shadow:0 10px 24px rgba(0,0,0,.08);
+      transition:transform .06s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:hover{
+      background:#111;
+      color:#fff;
+      transform:translateY(-1px);
+    }
+
+    .btn:active{
+      transform:translateY(0px) scale(0.99);
+      box-shadow:0 6px 14px rgba(0,0,0,.10);
+    }
+
+    .btn:focus-visible{
+      outline:3px solid rgba(255,214,0,.95);
+      outline-offset:4px;
+    }
+
+    .icon{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+    }
+
+    .icon svg{
+      width:38px;
+      height:38px;
+      fill:currentColor; /* inherits color from .btn */
+    }
+
+    .name{
+      font-size:19px;
+      font-weight:950;
+      line-height:1.1;
+    }
+
+    .meta{
+      font-size:12px;
+      font-weight:900;
+      color:rgba(0,0,0,.65);
+      justify-self:center;
+    }
+
+    .btn:hover .meta{
+      color:rgba(255,255,255,.85);
+    }
+
+    .bad{
+      color:#dc2626;
+      font-weight:900;
+      text-align:center;
+      margin-top:12px;
+    }
+
     @media (min-width:680px){
       .grid{ grid-template-columns:1fr 1fr 1fr; }
-      .btn{ justify-content:center; flex-direction:column; }
-      .pill{ margin-top:6px; }
+    }
+
+    @media (max-width:760px){
+      .logoLeft{ width:84px; }
+      .logoRight{ width:54px; }
+      h1{ font-size:20px; }
     }
   </style>
 </head>
@@ -39,18 +180,51 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="logos">
+
+      <div class="header">
         <img class="logoLeft" src="/assets/atl-logo.png" alt="Active Tunnelling" />
+
+        <div class="headerText">
+          <h1>Plant Pre-Use Inspection Checklist</h1>
+          <div class="hint">Choose plant type to start</div>
+        </div>
+
         <img class="logoRight" src="/assets/tp.png" alt="TP" />
       </div>
 
-      <h1>Daily Plant Pre-Use Inspection Checklist</h1>
-      <div class="hint">Select the correct plant type to continue</div>
-
       <div class="grid">
-        <a class="btn" id="linkExc" href="#">Excavator <span class="pill">QPFPL5.2</span></a>
-        <a class="btn" id="linkCrane" href="#">Crane <span class="pill">QPFPL5.0</span></a>
-        <a class="btn" id="linkDump" href="#">Dumper <span class="pill">QPFPL5.1</span></a>
+        <a class="btn" id="linkExc" href="#" data-type="excavator" aria-label="Excavator checklist">
+          <span class="icon" aria-hidden="true">
+            <!-- excavator icon (simple) -->
+            <svg viewBox="0 0 24 24">
+              <path d="M3 16h9l2 2h7v2H2v-2h1v-2zm3-2h7l-2-2H6v2zm9-6 5 3-1 2-5-3 1-2zM9 6h5v4H9V6z"/>
+            </svg>
+          </span>
+          <span class="name">Excavator</span>
+          <span class="meta">Form: QPFPL5.2</span>
+        </a>
+
+        <a class="btn" id="linkCrane" href="#" data-type="crane" aria-label="Crane checklist">
+          <span class="icon" aria-hidden="true">
+            <!-- crane icon (simple) -->
+            <svg viewBox="0 0 24 24">
+              <path d="M6 21h2V8h6l2 2h2v11h2V9l-4-4H6v16zm4-6h4v2h-4v-2z"/>
+            </svg>
+          </span>
+          <span class="name">Crane</span>
+          <span class="meta">Form: QPFPL5.0</span>
+        </a>
+
+        <a class="btn" id="linkDump" href="#" data-type="dumper" aria-label="Dumper checklist">
+          <span class="icon" aria-hidden="true">
+            <!-- dumper icon (simple) -->
+            <svg viewBox="0 0 24 24">
+              <path d="M3 16h10l3-5h5v5h-2v2H5v-2H3v-0zM6 18a1.5 1.5 0 1 0 .001 0zM18 18a1.5 1.5 0 1 0 .001 0z"/>
+            </svg>
+          </span>
+          <span class="name">Dumper</span>
+          <span class="meta">Form: QPFPL5.1</span>
+        </a>
       </div>
 
       <div id="err" class="bad" style="display:none;"></div>
