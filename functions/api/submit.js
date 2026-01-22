@@ -30,24 +30,22 @@ function getDayIndexMon0(dateStr) {
   return day === 0 ? 6 : day - 1;
 }
 
-function computeDamageFlag(payload, dayIndex) {
-  const defectsText = String(payload?.defectsText || "").trim();
-  const hasDefectsText = defectsText.length > 0;
+function hasDefectForDay(payload, dayIndex) {
+  // IMPORTANT: only "DEFECT" counts as damage.
+  // N/A must NOT count.
+  const statuses = payload?.weekStatuses;
+  if (!Array.isArray(statuses)) return false;
 
-  let hasChecklistDefect = false;
-
-  // v13 payload (preferred)
-  if (Array.isArray(payload?.weekStatuses)) {
-    for (const row of payload.weekStatuses) {
-      const st = row?.[dayIndex] || null;
-      if (st === "DEFECT") { hasChecklistDefect = true; break; }
-    }
-  } else if (Array.isArray(payload?.checks) && payload.checks.length) {
-    // fallback older payload style
-    hasChecklistDefect = payload.checks.some(c => String(c?.status || "").toUpperCase() === "DEFECT");
+  for (let r = 0; r < statuses.length; r++) {
+    const row = statuses[r];
+    if (!Array.isArray(row)) continue;
+    if (row[dayIndex] === "DEFECT") return true;
   }
+  return false;
+}
 
-  return hasChecklistDefect || hasDefectsText;
+function safeEmailKey(email) {
+  return String(email || "").trim().toLowerCase();
 }
 
 export async function onRequestPost(context) {
@@ -114,7 +112,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // daily fields
+    // daily fields (last input fix)
     record.daily[dayIndex] = {
       site: payload.site || record.site || "",
       operator: payload.operator || "",
@@ -141,50 +139,64 @@ export async function onRequestPost(context) {
     const equipmentType = String(payload.equipmentType || "").toUpperCase() || "PLANT";
     const plantId = String(payload.plantId || "");
     const date = String(payload.date || "");
+    const subject = `${equipmentType} check - ${plantId} - ${date}`.trim();
 
-    // HARD-CODED yard routing
-    const YARD_EMAIL = "wshop@activetunnelling.com";
-    const YARD_NAME  = "TP Yard";
+    const toEmail = (payload.reportedToEmail || "").trim();
+    const toName = (payload.reportedToName || "Recipient").trim();
 
-    const damageFlag = computeDamageFlag(payload, dayIndex);
-
-    const reportedToEmail = (payload.reportedToEmail || "").trim();
-    const reportedToName  = (payload.reportedToName || "Recipient").trim();
-
-    if (!reportedToEmail) {
+    if (!toEmail) {
       return Response.json({ error: "No recipient email (reportedToEmail missing)" }, { status: 400 });
     }
 
-    // - No damage => TO: selected person
-    // - Damage => TO: yard, CC: selected person (one email)
-    const toEmail = damageFlag ? YARD_EMAIL : reportedToEmail;
-    const toName  = damageFlag ? YARD_NAME : reportedToName;
+    // Alfie / Yard (only if there is a DEFECT today)
+    const YARD_EMAIL = "wshop@activetunnelling.com";
+    const YARD_NAME = "TP Yard";
 
-    const ccList = (damageFlag && reportedToEmail && reportedToEmail !== YARD_EMAIL)
-      ? [{ Email: reportedToEmail, Name: reportedToName }]
-      : [];
+    const includeYard = hasDefectForDay(payload, dayIndex);
 
-    const subject = damageFlag
-      ? `${equipmentType} check - DAMAGE - ${plantId} - ${date}`.trim()
-      : `${equipmentType} check - ${plantId} - ${date}`.trim();
+    // Build recipient list (dedupe)
+    const recipientsMap = new Map();
+    recipientsMap.set(safeEmailKey(toEmail), { Email: toEmail, Name: toName });
+
+    if (includeYard) {
+      recipientsMap.set(safeEmailKey(YARD_EMAIL), { Email: YARD_EMAIL, Name: YARD_NAME });
+    }
+
+    const toList = Array.from(recipientsMap.values());
+
+    // Optional: defect summary for today (counts only DEFECT)
+    let defectsCount = 0;
+    if (Array.isArray(payload?.weekStatuses)) {
+      for (let r = 0; r < payload.weekStatuses.length; r++) {
+        if (payload.weekStatuses?.[r]?.[dayIndex] === "DEFECT") defectsCount++;
+      }
+    }
+
+    const textLines = [
+      `Site: ${payload.site || ""}`,
+      `Date: ${payload.date || ""}`,
+      `Plant: ${payload.plantId || ""}`,
+      `Operator: ${payload.operator || ""}`,
+      `Machine hours: ${payload.hours || ""}`,
+      `Reported to: ${payload.reportedToName || ""}`,
+      includeYard ? `Damage/defects today: YES (${defectsCount})` : `Damage/defects today: NO`,
+      "",
+      `Defects identified:`,
+      `${payload.defectsText || ""}`,
+      "",
+      `Action taken:`,
+      `${payload.actionTaken || ""}`,
+      "",
+      "PDF attached."
+    ];
 
     const mjBody = {
       Messages: [
         {
           From: { Email: env.MAIL_FROM, Name: "Plant Checks" },
-          To: [{ Email: toEmail, Name: toName }],
-          ...(ccList.length ? { Cc: ccList } : {}),
+          To: toList,
           Subject: subject,
-          TextPart:
-            `Site: ${payload.site || ""}\n` +
-            `Date: ${payload.date || ""}\n` +
-            `Plant: ${payload.plantId || ""}\n` +
-            `Operator: ${payload.operator || ""}\n` +
-            `Reported to: ${payload.reportedToName || ""}\n` +
-            `Damage flagged: ${damageFlag ? "YES" : "NO"}\n\n` +
-            `Defects identified:\n${String(payload.defectsText || "").trim() || "None"}\n\n` +
-            `Action taken:\n${String(payload.actionTaken || "").trim() || "—"}\n\n` +
-            `PDF attached.`,
+          TextPart: textLines.join("\n"),
           Attachments: [
             {
               Filename: `${equipmentType}-${plantId}-${date}.pdf`.replace(/\s+/g, "_"),
@@ -213,7 +225,7 @@ export async function onRequestPost(context) {
       return Response.json({ error: "Email send failed", details }, { status: 502 });
     }
 
-    return Response.json({ ok: true, damageFlag, toEmail, cc: ccList.map(x => x.Email) });
+    return Response.json({ ok: true, includeYard, defectsCount });
   } catch (e) {
     return Response.json({ error: e?.message || "Server error" }, { status: 500 });
   }
