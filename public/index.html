@@ -190,14 +190,8 @@
     .checksTitle{
       font-size:34px;
       font-weight:950;
-      margin:18px 6px 4px;
+      margin:18px 6px 10px;
       letter-spacing:-0.5px;
-    }
-    .checksHelp{
-      margin:0 6px 8px;
-      color:var(--muted);
-      line-height:1.4;
-      font-weight:800;
     }
 
     /* (3) Progress line */
@@ -213,35 +207,6 @@
     .progressLine .bad{
       color:var(--bad);
       font-weight:900;
-    }
-
-    /* (Cycle clarity) Legend */
-    .cycleLegend{
-      margin:0 6px 12px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
-      color:var(--muted);
-      font-weight:900;
-      font-size:12.5px;
-    }
-    .legendBox{
-      width:34px;
-      height:30px;
-      border-radius:10px;
-      border:1px solid var(--line);
-      background:#fff;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:950;
-      color:#111;
-    }
-    .legendArrow{
-      font-weight:950;
-      color:var(--muted);
     }
 
     .tableWrap{
@@ -662,24 +627,11 @@
         </div>
       </div>
 
-      <div class="checksTitle">Checks (Mon–Sun)</div>
-      <p class="checksHelp">
-        Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
-      </p>
+      <!-- CHANGED: Title only -->
+      <div class="checksTitle">Plant Checks</div>
 
       <!-- (3) Progress -->
       <div id="progressLine" class="progressLine"></div>
-
-      <!-- (Cycle clarity) Legend -->
-      <div class="cycleLegend" aria-hidden="true">
-        <span class="legendBox"></span>
-        <span class="legendArrow">→</span>
-        <span class="legendBox">✓</span>
-        <span class="legendArrow">→</span>
-        <span class="legendBox">X</span>
-        <span class="legendArrow">→</span>
-        <span class="legendBox">N/A</span>
-      </div>
 
       <div class="tableWrap">
         <table>
