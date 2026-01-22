@@ -110,14 +110,13 @@
       padding:4px 6px 10px;
       flex-wrap:wrap;
     }
-
-    /* Stop the equal-share layout */
+    /* stop equal sharing */
     .metaRow > span{ flex:0 1 auto; white-space:normal; }
 
     /* Hide Today in UI, keep DOM for app.js */
     .todayMeta{ display:none !important; }
 
-    /* Push week commencing toward the right */
+    /* Push week commencing right (desktop) */
     .metaLeft{ min-width:240px; }
     .metaRight{
       margin-left:auto;
@@ -202,14 +201,11 @@
       margin:18px 6px 4px;
       letter-spacing:-0.5px;
     }
-    .checksHelp{
-      margin:0 6px 8px;
-      color:var(--muted);
-      line-height:1.4;
-      font-weight:800;
-    }
 
-    /* Progress line */
+    /* We will force-hide any helper + legend, even if app.js injects them */
+    .checksHelp, .cycleLegend{ display:none !important; }
+
+    /* (3) Progress line */
     .progressLine{
       margin:0 6px 12px;
       font-weight:900;
@@ -224,7 +220,7 @@
       font-weight:900;
     }
 
-    /* Legend */
+    /* (Cycle clarity) Legend (kept for compatibility but hidden above) */
     .cycleLegend{
       margin:0 6px 12px;
       display:flex;
@@ -258,6 +254,7 @@
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
+
       overflow:auto;
       -webkit-overflow-scrolling:touch;
     }
@@ -274,6 +271,7 @@
       color:var(--muted);
       text-align:center;
       font-weight:900;
+
       position:sticky;
       top:0;
       z-index:2;
@@ -306,7 +304,6 @@
       background:var(--activeCol);
     }
 
-    /* Larger tap targets */
     .markBtn{
       width:44px;
       height:40px;
@@ -418,7 +415,7 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
-    /* Toast */
+    /* ===== Toast ===== */
     .toast{
       position:fixed;
       left:50%;
@@ -435,7 +432,7 @@
       text-align:center;
     }
 
-    /* Overlays */
+    /* ===== Overlays ===== */
     .overlay{
       position:fixed;
       inset:0;
@@ -529,7 +526,7 @@
         padding-top:6px;
       }
 
-      /* On mobile, keep a clean stack */
+      /* On mobile keep it stacked/clean */
       .metaRow{
         flex-direction:column;
         align-items:flex-start;
@@ -671,7 +668,10 @@
         </div>
       </div>
 
-      <div class="checksTitle">Checks (Mon–Sun)</div>
+      <!-- You want only "Plant Checks" visible here -->
+      <div class="checksTitle">Plant Checks</div>
+
+      <!-- app.js may re-inject old help/legend; we keep these blocks but they are hidden by CSS + script -->
       <p class="checksHelp">
         Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
       </p>
@@ -737,6 +737,100 @@
 
   <!-- Toast -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <!-- UI enforcement: app.js keeps re-injecting "Checks (Mon–Sun)" + helper + legend.
+       This forces the UI to show ONLY "Plant Checks", and hides the rest.
+       Also replaces BUILD text with "Followed by Aureliu Nica". -->
+  <script>
+    (function(){
+      function norm(s){
+        return String(s || "")
+          .replace(/\s+/g," ")
+          .replace(/\u2013|\u2014/g,"-")
+          .trim()
+          .toLowerCase();
+      }
+
+      function hideBlock(el){
+        if (!el) return;
+        var block = el.closest ? el.closest("p,div,section,header,small") : el;
+        (block || el).style.display = "none";
+      }
+
+      function looksLikeLegend(el){
+        var t = norm(el.textContent);
+        if (!t) return false;
+        var hasOk = t.includes("ok") || t.includes("✓");
+        var hasDef = t.includes("defect") || t.includes("x") || t.includes("✗");
+        var hasNa = t.includes("n/a") || t.includes("na");
+        return (t.length < 240) && hasOk && hasDef && hasNa;
+      }
+
+      function applyPlantChecks(){
+        // Force heading text to "Plant Checks" if "Checks (Mon–Sun)" appears anywhere
+        var nodes = document.querySelectorAll("h1,h2,h3,div");
+        for (var i=0; i<nodes.length; i++){
+          var t = norm(nodes[i].textContent);
+          if (t.includes("checks") && t.includes("mon") && t.includes("sun")){
+            nodes[i].textContent = "Plant Checks";
+          }
+        }
+
+        // Hide helper sentence anywhere (even if injected)
+        var all = document.querySelectorAll("p,div,small,span");
+        for (var j=0; j<all.length; j++){
+          var tt = norm(all[j].textContent);
+          if (tt.includes("only the column for your selected date is editable")){
+            hideBlock(all[j]);
+            break;
+          }
+        }
+
+        // Hide legend anywhere (even if injected)
+        for (var k=0; k<all.length; k++){
+          if (looksLikeLegend(all[k])){
+            hideBlock(all[k]);
+            break;
+          }
+        }
+
+        // Also hide any known class hooks (if app.js uses them)
+        document.querySelectorAll(".checksHelp,.cycleLegend").forEach(function(el){
+          el.style.display = "none";
+        });
+      }
+
+      function applyCredit(){
+        var el = document.getElementById("buildTag");
+        if (!el) return;
+        var current = (el.textContent || "").trim();
+        if (current && !el.dataset.buildStored) {
+          el.dataset.buildStored = "1";
+          el.title = current; // keep original build as tooltip
+        }
+        el.textContent = "Followed by Aureliu Nica";
+      }
+
+      document.addEventListener("DOMContentLoaded", function(){
+        // Multiple passes to beat defer timing / mobile rendering
+        applyPlantChecks();
+        applyCredit();
+        setTimeout(function(){ applyPlantChecks(); applyCredit(); }, 80);
+        setTimeout(function(){ applyPlantChecks(); applyCredit(); }, 220);
+
+        // Watch for app.js injecting/replacing content after load
+        if (window.MutationObserver){
+          var obs = new MutationObserver(function(){
+            applyPlantChecks();
+            applyCredit();
+          });
+          obs.observe(document.body, { childList:true, subtree:true, characterData:true });
+          // stop after it settles to avoid overhead
+          setTimeout(function(){ try{ obs.disconnect(); }catch(e){} }, 6000);
+        }
+      });
+    })();
+  </script>
 
 </body>
 </html>
