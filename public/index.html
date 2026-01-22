@@ -1,3 +1,4 @@
+<!-- public/index.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -19,6 +20,8 @@
       --ok:#16a34a;
       --bad:#dc2626;
       --radius:16px;
+      --activeCol: rgba(255,214,0,.20);
+      --activeColHead: rgba(255,214,0,.35);
     }
     *{box-sizing:border-box}
     body{
@@ -27,6 +30,9 @@
       background:var(--bg);
       color:var(--text);
     }
+
+    .hidden{ display:none !important; }
+
     .wrap{
       max-width:860px;
       margin:18px auto 40px;
@@ -51,7 +57,7 @@
       margin-bottom:10px;
     }
 
-    /* Header: no absolute logos (prevents overlap) */
+    /* ===== Header ===== */
     .sheetHeader{
       padding:10px 10px 0;
       text-align:center;
@@ -61,49 +67,66 @@
       align-items:center;
       justify-content:space-between;
       gap:10px;
-      flex-wrap:wrap;
     }
-    .logoLeft{ width:92px; height:auto; flex:0 0 auto; }
-    .logoRight{ width:58px; height:auto; flex:0 0 auto; }
+    .logoLeft{
+      width:92px;
+      height:auto;
+      flex:0 0 auto;
+    }
+    .logoRight{
+      width:58px;
+      height:auto;
+      flex:0 0 auto;
+    }
     .headerText{
       flex:1 1 auto;
       min-width:0;
       text-align:center;
       padding:0 6px;
     }
+
+    /* (5) Improve hierarchy: reduce ref dominance slightly, keep title strong */
     .formRef{
-      font-weight:800;
-      font-size:26px;
+      font-weight:900;
+      font-size:22px;
       line-height:1.1;
       margin:2px 0 4px;
+      letter-spacing:-0.2px;
     }
     .sheetTitle{
-      font-weight:800;
-      font-size:20px;
+      font-weight:900;
+      font-size:22px;
       margin:0 0 10px;
       line-height:1.15;
+      letter-spacing:-0.2px;
     }
 
-    /* Meta row: must wrap on mobile */
+    /* ===== Meta row ===== */
     .metaRow{
       display:flex;
       justify-content:space-between;
       gap:10px;
-      font-weight:700;
+      font-weight:800;
       padding:4px 6px 10px;
       flex-wrap:wrap;
     }
     .metaRow > span{
       min-width:0;
-      flex:1 1 260px;
+      flex:1 1 220px;
       white-space:normal;
+    }
+
+    /* (2) Make missing machine no obvious */
+    #machineNoPreview.missing{
+      color:var(--bad);
+      font-weight:900;
     }
 
     .yellowBar{
       background:var(--yellow);
       border-radius:14px;
       padding:12px 14px;
-      font-weight:800;
+      font-weight:900;
       text-align:center;
       border:1px solid rgba(0,0,0,.15);
       margin:0 6px 14px;
@@ -122,7 +145,7 @@
       border-radius:14px;
       border:1px solid var(--line);
       background:var(--btnAlt);
-      font-weight:800;
+      font-weight:900;
       cursor:pointer;
     }
     .typeBtns button.active{
@@ -139,7 +162,7 @@
     }
     .field label{
       display:block;
-      font-weight:700;
+      font-weight:800;
       color:var(--muted);
       margin:4px 0 6px;
     }
@@ -155,26 +178,87 @@
     }
     .field textarea{ min-height:80px; resize:vertical; }
 
+    /* Small helper under the Date input */
+    .dayHint{
+      margin-top:6px;
+      font-size:12.5px;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.35;
+    }
+
     .checksTitle{
       font-size:34px;
-      font-weight:900;
+      font-weight:950;
       margin:18px 6px 4px;
       letter-spacing:-0.5px;
     }
     .checksHelp{
-      margin:0 6px 12px;
+      margin:0 6px 8px;
       color:var(--muted);
       line-height:1.4;
+      font-weight:800;
+    }
+
+    /* (3) Progress line */
+    .progressLine{
+      margin:0 6px 12px;
+      font-weight:900;
+      color:#111;
+    }
+    .progressLine .muted{
+      color:var(--muted);
+      font-weight:800;
+    }
+    .progressLine .bad{
+      color:var(--bad);
+      font-weight:900;
+    }
+
+    /* (Cycle clarity) Legend */
+    .cycleLegend{
+      margin:0 6px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-weight:900;
+      font-size:12.5px;
+    }
+    .legendBox{
+      width:34px;
+      height:30px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:#fff;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:950;
+      color:#111;
+    }
+    .legendArrow{
+      font-weight:950;
+      color:var(--muted);
     }
 
     .tableWrap{
       margin:0 6px 14px;
       border:1px solid var(--line);
       border-radius:14px;
-      overflow:hidden;
       background:#fff;
+
+      /* (4) allow sticky header to work nicely */
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
     }
-    table{ width:100%; border-collapse:collapse; }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:720px; /* keeps columns readable on small screens when table is shown */
+    }
     thead th{
       background:#fafafa;
       border-bottom:1px solid var(--line);
@@ -182,26 +266,56 @@
       font-size:13px;
       color:var(--muted);
       text-align:center;
-      font-weight:800;
+      font-weight:900;
+
+      /* (4) sticky table header */
+      position:sticky;
+      top:0;
+      z-index:2;
     }
-    thead th.itemHead{ text-align:left; padding-left:12px; }
+    thead th.itemHead{
+      text-align:left;
+      padding-left:12px;
+      z-index:3;
+    }
+    thead th.activeCol{
+      background:var(--activeColHead);
+      color:#111;
+    }
+
     tbody td{
       border-top:1px solid var(--line);
       padding:10px 8px;
       vertical-align:middle;
     }
-    td.item{ width:46%; font-size:14px; padding-left:12px; }
-    td.day{ text-align:center; width:7.7%; }
+    td.item{
+      width:46%;
+      font-size:14px;
+      padding-left:12px;
+    }
+    td.day{
+      text-align:center;
+      width:7.7%;
+    }
+    td.day.activeCol{
+      background:var(--activeCol);
+    }
+
+    /* (4) Larger tap targets */
     .markBtn{
-      width:38px;
-      height:34px;
-      border-radius:10px;
+      width:44px;
+      height:40px;
+      border-radius:12px;
       border:1px solid var(--line);
       background:#fff;
-      font-weight:900;
+      font-weight:950;
       cursor:pointer;
+      font-size:16px;
     }
-    .markBtn.disabled{ opacity:.35; cursor:not-allowed; }
+    .markBtn.disabled{
+      opacity:.35;
+      cursor:not-allowed;
+    }
 
     #mobileChecks{ display:none; }
     .mobileRow{
@@ -213,14 +327,19 @@
       border-top:1px solid var(--line);
       background:#fff;
     }
-    .mobileLabel{ font-size:14px; line-height:1.25; flex:1; padding-right:6px; }
+    .mobileLabel{
+      font-size:14px;
+      line-height:1.25;
+      flex:1;
+      padding-right:6px;
+    }
     .mobileBtn{
-      min-width:54px;
-      height:40px;
+      min-width:62px;
+      height:44px;
       border-radius:12px;
       border:1px solid var(--line);
       background:#fff;
-      font-weight:900;
+      font-weight:950;
       cursor:pointer;
       font-size:18px;
     }
@@ -239,7 +358,10 @@
       gap:10px;
       margin-bottom:10px;
     }
-    .sigTop .label{ font-weight:800; color:var(--muted); }
+    .sigTop .label{
+      font-weight:900;
+      color:var(--muted);
+    }
     #sig{
       width:100%;
       height:120px;
@@ -254,7 +376,7 @@
       border-radius:12px;
       border:1px solid var(--line);
       background:var(--btnAlt);
-      font-weight:800;
+      font-weight:900;
       cursor:pointer;
       white-space:nowrap;
     }
@@ -272,7 +394,7 @@
       border:1px solid rgba(0,0,0,.6);
       background:var(--btn);
       color:var(--btnText);
-      font-weight:900;
+      font-weight:950;
       cursor:pointer;
       font-size:16px;
     }
@@ -286,24 +408,131 @@
       color:var(--muted);
       background:#fff;
       text-align:center;
-      font-weight:800;
+      font-weight:900;
     }
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
+
+    /* ===== Toast tip (cycle clarity) ===== */
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%);
+      z-index:10000;
+      background:#111;
+      color:#fff;
+      padding:12px 14px;
+      border-radius:14px;
+      box-shadow:0 12px 30px rgba(0,0,0,.25);
+      font-weight:900;
+      max-width:min(560px, calc(100vw - 28px));
+      text-align:center;
+    }
+
+    /* ===== Overlays ===== */
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(17,17,17,.35);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:9999;
+    }
+    .overlayCard{
+      width:100%;
+      max-width:520px;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:0 18px 60px rgba(0,0,0,.22);
+      padding:18px;
+      text-align:center;
+    }
+    .overlayTitle{
+      font-weight:950;
+      font-size:22px;
+      margin:2px 0 6px;
+    }
+    .overlayText{
+      color:var(--muted);
+      margin:0 0 14px;
+      line-height:1.35;
+      font-weight:800;
+    }
+    .overlayBtns{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    .overlayBtns button{
+      padding:14px 14px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.6);
+      background:var(--btn);
+      color:var(--btnText);
+      font-weight:950;
+      cursor:pointer;
+      font-size:16px;
+    }
+    .overlayBtns button.alt{
+      background:var(--btnAlt);
+      color:var(--text);
+      border:1px solid var(--line);
+    }
+    .tickBadge{
+      width:66px;
+      height:66px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      margin:6px auto 8px;
+      background:rgba(22,163,74,.12);
+      border:2px solid rgba(22,163,74,.35);
+      color:var(--ok);
+      font-size:34px;
+      font-weight:950;
+    }
+    .successDetails{
+      margin:6px 0 12px;
+      font-weight:900;
+      color:var(--muted);
+    }
+    .funnyWrap{
+      display:flex;
+      justify-content:center;
+      margin:10px 0 14px;
+    }
+    .funnyWrap svg{
+      width:220px;
+      max-width:100%;
+      height:auto;
+    }
 
     @media (max-width: 760px){
       .logoLeft{ width:84px; }
       .logoRight{ width:54px; }
 
-      /* title goes below logos on phone */
-      .headerText{ flex:0 0 100%; order:3; padding-top:6px; }
+      .headerRow{ flex-wrap:wrap; }
+      .headerText{
+        flex:0 0 100%;
+        order:3;
+        padding-top:6px;
+      }
 
-      /* stack meta line */
-      .metaRow{ flex-direction:column; align-items:flex-start; gap:6px; }
+      .metaRow{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:6px;
+      }
       .metaRow > span{ flex:0 0 auto; }
 
-      .formRef{ font-size:24px; }
-      .sheetTitle{ font-size:18px; }
+      .formRef{ font-size:20px; }
+      .sheetTitle{ font-size:20px; }
       .checksTitle{ font-size:30px; }
 
       .tableWrap{ display:none; }
@@ -313,6 +542,7 @@
         border:1px solid var(--line);
         border-radius:14px;
         overflow:hidden;
+        background:#fff;
       }
     }
   </style>
@@ -322,7 +552,54 @@
 </head>
 
 <body>
-  <div class="wrap">
+
+  <!-- Type Gate Overlay -->
+  <div id="typeGate" class="overlay hidden">
+    <div class="overlayCard">
+      <div class="overlayTitle">Choose equipment type</div>
+      <div class="overlayText">To avoid mistakes, select the correct checklist before you start.</div>
+      <div class="overlayBtns">
+        <button type="button" data-type="excavator">Excavator</button>
+        <button type="button" data-type="crane">Crane</button>
+        <button type="button" data-type="dumper">Dumper</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Overlay -->
+  <div id="successScreen" class="overlay hidden">
+    <div class="overlayCard">
+      <div class="tickBadge">✓</div>
+      <div class="overlayTitle">Submitted</div>
+      <div id="successDetails" class="successDetails"></div>
+
+      <div class="funnyWrap" aria-hidden="true">
+        <svg viewBox="0 0 420 240" xmlns="http://www.w3.org/2000/svg">
+          <rect x="40" y="140" width="260" height="46" rx="12" fill="#111"/>
+          <rect x="70" y="108" width="140" height="44" rx="12" fill="#FFD600" stroke="#111" stroke-width="6"/>
+          <rect x="92" y="118" width="52" height="26" rx="8" fill="#fff" stroke="#111" stroke-width="6"/>
+          <circle cx="100" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
+          <circle cx="160" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
+          <circle cx="220" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
+          <circle cx="280" cy="196" r="20" fill="#fff" stroke="#111" stroke-width="8"/>
+          <path d="M230 112 C280 70, 320 66, 356 78" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
+          <path d="M356 78 L388 92" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
+          <path d="M388 92 C402 98, 404 112, 392 120 C372 134, 352 122, 360 104" fill="#FFD600" stroke="#111" stroke-width="8"/>
+          <text x="78" y="78" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="22" font-weight="900" fill="#111">
+            Nice one 👍
+          </text>
+        </svg>
+      </div>
+
+      <div class="overlayBtns">
+        <button id="successDoneBtn" class="alt" type="button">Back</button>
+        <button id="successNewBtn" type="button">New check</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="appRoot" class="wrap hidden">
     <div class="card">
       <div class="topbar">
         <div id="buildTag">BUILD:</div>
@@ -340,9 +617,11 @@
         </div>
       </div>
 
+      <!-- (1) Add Today preview + (2) highlight missing Machine No -->
       <div class="metaRow">
-        <span>Machine No: <span id="machineNoPreview">—</span></span>
+        <span>Machine No: <span id="machineNoPreview" class="missing">—</span></span>
         <span>Week commencing: <span id="weekCommencingPreview">—</span></span>
+        <span>Today: <span id="todayPreview">—</span></span>
       </div>
 
       <div class="yellowBar">
@@ -355,15 +634,15 @@
         <button id="btnDump" type="button">Dumper</button>
       </div>
 
-      <!-- Field order: Date -> Plant ID -> Hours -> Operator -> Site -->
       <div class="form">
         <div class="field">
           <label for="date">Date</label>
           <input id="date" type="date" />
+          <div id="dayHint" class="dayHint"></div>
         </div>
 
         <div class="field">
-          <label for="plantId">Machine / Plant ID</label>
+          <label for="plantId">Machine / Plant ID (required)</label>
           <input id="plantId" type="text" inputmode="text" autocapitalize="characters" />
         </div>
 
@@ -385,8 +664,22 @@
 
       <div class="checksTitle">Checks (Mon–Sun)</div>
       <p class="checksHelp">
-        Only the column for your selected date is editable. Click the small box to cycle ✓ / X / N/A.
+        Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
       </p>
+
+      <!-- (3) Progress -->
+      <div id="progressLine" class="progressLine"></div>
+
+      <!-- (Cycle clarity) Legend -->
+      <div class="cycleLegend" aria-hidden="true">
+        <span class="legendBox"></span>
+        <span class="legendArrow">→</span>
+        <span class="legendBox">✓</span>
+        <span class="legendArrow">→</span>
+        <span class="legendBox">X</span>
+        <span class="legendArrow">→</span>
+        <span class="legendBox">N/A</span>
+      </div>
 
       <div class="tableWrap">
         <table>
@@ -434,5 +727,9 @@
       <div id="status">Ready.</div>
     </div>
   </div>
+
+  <!-- Toast (cycle help / required plant id tip) -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
 </body>
 </html>
