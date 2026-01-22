@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13.3";
+  const BUILD = "v13.4";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -137,11 +137,7 @@
   let activeDay = 0;
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  // ===== UI enhancements (no HTML changes) =====
   const ENH_STYLE_ID = "plantChecksEnhancementsStyle";
-  const TIP_CYCLE_KEY = "plantchecks_tip_cycle_v1";
-  let toastTimer = null;
-
   const isoToday = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -167,13 +163,6 @@
     const dt = new Date(y, m - 1, d);
     const day = dt.getDay();
     return day === 0 ? 6 : day - 1;
-  };
-
-  const cycleStatus = (cur) => {
-    if (!cur) return "OK";
-    if (cur === "OK") return "DEFECT";
-    if (cur === "DEFECT") return "NA";
-    return null;
   };
 
   const markText = (status) => {
@@ -228,6 +217,15 @@
     return canvas.toDataURL("image/jpeg", quality);
   }
 
+  function cleanedPlantId() {
+    const v = ($("plantId")?.value || "");
+    return v.replace(/\s+/g, "").trim().toUpperCase();
+  }
+
+  function canEditChecks() {
+    return !!cleanedPlantId();
+  }
+
   function showAppRoot() {
     $("appRoot")?.classList.remove("hidden");
     $("typeGate")?.classList.add("hidden");
@@ -240,56 +238,95 @@
     const style = document.createElement("style");
     style.id = ENH_STYLE_ID;
     style.textContent = `
-      /* Sticky table header */
-      .tableWrap { overflow: visible !important; }
-      .tableWrap thead th{
+      /* Allow sticky elements (your .card had overflow:hidden) */
+      .card{ overflow: visible !important; }
+
+      /* Sticky checks helper bar */
+      #checksStickyBar{
         position: sticky;
         top: 0;
-        z-index: 5;
+        z-index: 30;
+        background: var(--card);
+        padding: 10px 6px 10px;
+        margin: 0 0 12px;
+        border-bottom: 1px solid var(--line);
       }
-
-      /* Active day highlight */
-      .tableWrap thead th.activeDay{
-        background: rgba(255,214,0,.55) !important;
+      #checksStickyBar .checksHelp{
+        margin:0 0 8px !important;
       }
-      .tableWrap tbody td.activeDay{
-        background: rgba(255,214,0,.12) !important;
-      }
-      .tableWrap tbody td.activeDay .markBtn{
-        border-color: rgba(0,0,0,.55) !important;
-      }
-
-      /* Bigger tap targets */
-      .markBtn{
-        width:44px !important;
-        height:38px !important;
-        border-radius:12px !important;
-      }
-      .mobileBtn{
-        min-width:64px !important;
-        height:44px !important;
-        border-radius:14px !important;
-      }
-
-      /* Progress line */
       #progressLine{
-        margin:0 6px 12px;
+        margin:0 0 8px !important;
         font-weight:900;
         color:var(--muted);
       }
       #progressLine .strong{ color:var(--text); }
 
-      /* Date "Today" pill */
-      #todayPill{
-        display:inline-block;
-        margin-left:8px;
-        font-size:12px;
+      #legendLine{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        flex-wrap:wrap;
+        color:var(--muted);
         font-weight:900;
-        padding:3px 8px;
-        border-radius:999px;
-        background: rgba(255,214,0,.55);
-        border: 1px solid rgba(0,0,0,.18);
-        vertical-align: middle;
+        font-size:13px;
+      }
+
+      /* Table header sticky */
+      .tableWrap{ overflow: visible !important; }
+      .tableWrap thead th{
+        position: sticky;
+        top: 0;
+        z-index: 15;
+      }
+
+      /* Active day highlight */
+      .tableWrap thead th.activeDay{ background: rgba(255,214,0,.55) !important; }
+      .tableWrap tbody td.activeDay{ background: rgba(255,214,0,.10) !important; }
+
+      /* Old single button (kept for non-active days display) */
+      .markBtn{
+        width:44px !important;
+        height:38px !important;
+        border-radius:12px !important;
+      }
+
+      /* New 3-option group */
+      .statusGroup{
+        display:flex;
+        justify-content:center;
+        gap:8px;
+      }
+      .statusBtn{
+        min-width:38px;
+        height:34px;
+        padding:0 10px;
+        border-radius:12px;
+        border:1px solid var(--line);
+        background:#fff;
+        font-weight:900;
+        cursor:pointer;
+        line-height:1;
+      }
+      .statusBtn.na{ min-width:52px; }
+      .statusBtn.active{
+        border-color: rgba(0,0,0,.60);
+        box-shadow: 0 0 0 3px rgba(255,214,0,.20);
+      }
+      .statusBtn.disabled{
+        opacity:.35;
+        cursor:not-allowed;
+      }
+
+      /* Mobile: 3 buttons on the right */
+      .mobileStatusGroup{
+        display:flex;
+        gap:8px;
+        align-items:center;
+        justify-content:flex-end;
+      }
+      .mobileStatusGroup .statusBtn{
+        height:40px;
+        border-radius:14px;
       }
 
       /* Require plant id visual */
@@ -297,89 +334,56 @@
         border-color:#dc2626 !important;
         box-shadow:0 0 0 3px rgba(220,38,38,.10);
       }
-
-      /* Toast */
-      .pcToast{
-        position:fixed;
-        left:50%;
-        transform:translateX(-50%);
-        bottom:16px;
-        z-index:99999;
-        background:#111;
-        color:#fff;
-        padding:10px 12px;
-        border-radius:14px;
-        font-weight:900;
-        font-size:13px;
-        box-shadow:0 12px 30px rgba(0,0,0,.24);
-        max-width:calc(100% - 24px);
-        text-align:center;
-      }
     `;
     document.head.appendChild(style);
-  }
-
-  function showToast(msg, ms = 2600) {
-    let el = document.getElementById("pcToast");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "pcToast";
-      el.className = "pcToast";
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.style.display = "block";
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      const t = document.getElementById("pcToast");
-      if (t) t.style.display = "none";
-    }, ms);
   }
 
   function ensureProgressLine() {
     if (document.getElementById("progressLine")) return;
     const help = document.querySelector(".checksHelp");
-    if (!help || !help.parentElement) return;
-
+    if (!help) return;
     const line = document.createElement("div");
     line.id = "progressLine";
     help.insertAdjacentElement("afterend", line);
   }
 
-  function ensureTodayPill() {
-    const label = document.querySelector('label[for="date"]');
-    if (!label) return;
-    let pill = document.getElementById("todayPill");
-    if (!pill) {
-      pill = document.createElement("span");
-      pill.id = "todayPill";
-      label.appendChild(pill);
-    }
+  function ensureLegendLine() {
+    if (document.getElementById("legendLine")) return;
+    const prog = document.getElementById("progressLine");
+    if (!prog) return;
+
+    const legend = document.createElement("div");
+    legend.id = "legendLine";
+    legend.innerHTML = `
+      <span>Today options:</span>
+      <span class="statusGroup" style="justify-content:flex-start;">
+        <button type="button" class="statusBtn" disabled>✓</button>
+        <button type="button" class="statusBtn" disabled>X</button>
+        <button type="button" class="statusBtn na" disabled>N/A</button>
+      </span>
+      <span>(tap to select / tap again to clear)</span>
+    `;
+    prog.insertAdjacentElement("afterend", legend);
   }
 
-  function cleanedPlantId() {
-    const v = ($("plantId")?.value || "");
-    return v.replace(/\s+/g, "").trim().toUpperCase();
-  }
-
-  function canEditChecks() {
-    return !!cleanedPlantId();
-  }
-
-  function updateHelpText() {
+  function ensureStickyBar() {
+    const title = document.querySelector(".checksTitle");
     const help = document.querySelector(".checksHelp");
-    if (!help) return;
-    help.textContent = "Only the column for your selected date is editable. Tap the same box to cycle ✓ → X → N/A → blank.";
-  }
+    if (!title || !help) return;
 
-  function updateTodayPill() {
-    ensureTodayPill();
-    const pill = document.getElementById("todayPill");
-    if (!pill) return;
+    let bar = document.getElementById("checksStickyBar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "checksStickyBar";
+      title.insertAdjacentElement("afterend", bar);
+    }
 
-    const dateISO = ($("date")?.value) || isoToday();
-    activeDay = getDayIndexMon0(dateISO);
-    pill.textContent = `Today: ${days[activeDay]}`;
+    // Move help + progress + legend into sticky bar
+    if (help.parentElement !== bar) bar.appendChild(help);
+    const prog = document.getElementById("progressLine");
+    if (prog && prog.parentElement !== bar) bar.appendChild(prog);
+    const leg = document.getElementById("legendLine");
+    if (leg && leg.parentElement !== bar) bar.appendChild(leg);
   }
 
   function progressForDay(dayIndex) {
@@ -395,7 +399,6 @@
   }
 
   function updateProgressLine() {
-    ensureProgressLine();
     const el = document.getElementById("progressLine");
     if (!el) return;
 
@@ -431,25 +434,69 @@
     pidEl.classList.toggle("req", !canEditChecks());
   }
 
-  function maybeWarnPlantId() {
-    const statusEl = $("status");
-    if (!statusEl) return;
-
-    if (!canEditChecks()) {
-      statusEl.innerHTML = `<span class="bad">✖ Enter Machine / Plant ID to enable checks</span>`;
-    } else if (String(statusEl.textContent || "").includes("Enter Machine / Plant ID")) {
-      statusEl.textContent = "Ready.";
-    }
+  function updateChecksHelpText() {
+    const help = document.querySelector(".checksHelp");
+    if (!help) return;
+    help.textContent =
+      "Only the column for your selected date is editable. Choose one option: ✓ OK, X Defect, N/A Not applicable (tap again to clear).";
+    help.classList.add("checksHelp");
   }
 
   function updateEnhancements() {
     injectEnhancementStyles();
-    updateHelpText();
-    updateTodayPill();
+    ensureProgressLine();
+    ensureLegendLine();
+    ensureStickyBar();
+
+    updateChecksHelpText();
     updateProgressLine();
     updateActiveDayHighlight();
     updatePlantIdRequiredState();
-    maybeWarnPlantId();
+
+    const statusEl = $("status");
+    if (statusEl && !canEditChecks()) {
+      statusEl.innerHTML = `<span class="bad">✖ Enter Machine / Plant ID to enable checks</span>`;
+    }
+  }
+
+  function setStatus(r, d, next) {
+    const cur = weekStatuses?.[r]?.[d] || null;
+
+    // tap same option again clears
+    const newStatus = (cur === next) ? null : next;
+    weekStatuses[r][d] = newStatus;
+
+    // If not DEFECT, wipe photos for that row/day
+    if (newStatus !== "DEFECT") photos[r][d] = [];
+  }
+
+  function makeStatusGroup(current, onPick, disabled, isMobileGroup = false) {
+    const wrap = document.createElement("div");
+    wrap.className = isMobileGroup ? "mobileStatusGroup" : "statusGroup";
+
+    const mkBtn = (label, status, extraClass = "") => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `statusBtn ${extraClass}`.trim();
+      b.textContent = label;
+      b.setAttribute("aria-label", status);
+
+      if (disabled) {
+        b.classList.add("disabled");
+        b.disabled = true;
+      } else {
+        b.addEventListener("click", () => onPick(status));
+      }
+
+      if (current === status) b.classList.add("active");
+      return b;
+    };
+
+    wrap.appendChild(mkBtn("✓", "OK"));
+    wrap.appendChild(mkBtn("X", "DEFECT"));
+    wrap.appendChild(mkBtn("N/A", "NA", "na"));
+
+    return wrap;
   }
 
   function setButtonsActive() {
@@ -588,7 +635,11 @@
 
       const todayStatus = weekStatuses?.[r]?.[activeDay] || null;
       if (todayStatus === "DEFECT") {
-        tdItem.appendChild(makePhotoControls(r, activeDay, () => renderTable()));
+        tdItem.appendChild(makePhotoControls(r, activeDay, () => {
+          renderTable();
+          if (isMobile()) renderMobileList();
+          updateEnhancements();
+        }));
       }
 
       tr.appendChild(tdItem);
@@ -597,40 +648,31 @@
         const td = document.createElement("td");
         td.className = "day";
 
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "markBtn";
-        btn.textContent = markText(weekStatuses?.[r]?.[d] || null);
-
         const isToday = d === activeDay;
 
-        if (!isToday || !allow) {
-          btn.classList.add("disabled");
-          btn.disabled = true;
-          if (isToday && !allow) btn.title = "Enter Machine / Plant ID to enable checks";
+        if (isToday) {
+          const current = weekStatuses?.[r]?.[d] || null;
+          const group = makeStatusGroup(
+            current,
+            (picked) => {
+              setStatus(r, d, picked);
+              renderTable();
+              if (isMobile()) renderMobileList();
+              updateEnhancements();
+            },
+            !allow
+          );
+          td.appendChild(group);
         } else {
-          btn.addEventListener("click", () => {
-            const cur = weekStatuses?.[r]?.[d] || null;
-            const next = cycleStatus(cur);
-            weekStatuses[r][d] = next;
-
-            // If not DEFECT, wipe photos for that row/day
-            if (next !== "DEFECT") photos[r][d] = [];
-
-            btn.textContent = markText(next);
-            renderTable();
-            if (isMobile()) renderMobileList();
-
-            updateEnhancements();
-
-            if (!localStorage.getItem(TIP_CYCLE_KEY)) {
-              showToast("Tip: tap the same box to cycle ✓ → X → N/A → blank");
-              localStorage.setItem(TIP_CYCLE_KEY, "1");
-            }
-          });
+          // Display-only for other days
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "markBtn disabled";
+          btn.disabled = true;
+          btn.textContent = markText(weekStatuses?.[r]?.[d] || null);
+          td.appendChild(btn);
         }
 
-        td.appendChild(btn);
         tr.appendChild(td);
       }
 
@@ -658,42 +700,30 @@
       lab.className = "mobileLabel";
       lab.textContent = label;
 
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "mobileBtn";
-      btn.textContent = markText(weekStatuses?.[r]?.[activeDay] || null);
+      const current = weekStatuses?.[r]?.[activeDay] || null;
 
-      if (!allow) {
-        btn.classList.add("disabled");
-        btn.disabled = true;
-        btn.title = "Enter Machine / Plant ID to enable checks";
-      } else {
-        btn.addEventListener("click", () => {
-          const cur = weekStatuses?.[r]?.[activeDay] || null;
-          const next = cycleStatus(cur);
-          weekStatuses[r][activeDay] = next;
-
-          if (next !== "DEFECT") photos[r][activeDay] = [];
-
-          btn.textContent = markText(next);
+      const group = makeStatusGroup(
+        current,
+        (picked) => {
+          setStatus(r, activeDay, picked);
           renderMobileList();
           if (!isMobile()) renderTable();
-
           updateEnhancements();
-
-          if (!localStorage.getItem(TIP_CYCLE_KEY)) {
-            showToast("Tip: tap the same box to cycle ✓ → X → N/A → blank");
-            localStorage.setItem(TIP_CYCLE_KEY, "1");
-          }
-        });
-      }
+        },
+        !allow,
+        true
+      );
 
       row.appendChild(lab);
-      row.appendChild(btn);
+      row.appendChild(group);
 
       const st = weekStatuses?.[r]?.[activeDay] || null;
       if (st === "DEFECT") {
-        row.appendChild(makePhotoControls(r, activeDay, () => renderMobileList()));
+        row.appendChild(makePhotoControls(r, activeDay, () => {
+          renderMobileList();
+          if (!isMobile()) renderTable();
+          updateEnhancements();
+        }));
       }
 
       wrap.appendChild(row);
@@ -978,7 +1008,6 @@
     const labels2 = payload.labels || [];
     const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
 
-    // ---------------- PAGE 1 (CHECKLIST) ----------------
     let y = margin;
 
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
@@ -1151,7 +1180,6 @@
     doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
     doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align: "center" });
 
-    // ---------------- PHOTO PAGES (UNLIMITED) ----------------
     const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
     if (pics.length) {
       const cols = 2;
@@ -1251,7 +1279,6 @@
     const weekCommencing = getWeekCommencingISO(dateISO);
     const dayIndex = getDayIndexMon0(dateISO);
 
-    // Collect DEFECT photos for TODAY only (unlimited)
     const defectPhotosForPdf = [];
     for (let r = 0; r < labels.length; r++) {
       const st = weekStatuses?.[r]?.[dayIndex] || null;
@@ -1307,7 +1334,6 @@
 
       if (btn) btn.disabled = false;
 
-      // Redirect to submitted page
       const url =
         `/submitted.html?t=${encodeURIComponent(TOKEN)}` +
         `&type=${encodeURIComponent(equipmentType)}` +
@@ -1396,7 +1422,7 @@
 
   // -------- Init --------
   (function init() {
-    showAppRoot();            // prevents blank screen
+    showAppRoot(); // prevents any blank screen
     injectEnhancementStyles();
 
     if ($("buildTag")) $("buildTag").textContent = `BUILD: ${BUILD}`;
