@@ -14,9 +14,11 @@
       --face:#fde047;
       --faceStroke:#f59e0b;
     }
+
     *{box-sizing:border-box}
     body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
     .wrap{ max-width:640px; margin:24px auto 40px; padding:0 14px; }
+
     .card{
       background:var(--card);
       border:1px solid var(--line);
@@ -28,7 +30,7 @@
       position:relative;
     }
 
-    /* Confetti overlay (stays behind content) */
+    /* Confetti overlay (only inside card) */
     #celebrateLayer{
       position:absolute;
       inset:0;
@@ -113,20 +115,26 @@
       border:1px solid var(--line);
     }
 
-    /* Dedicated lane BELOW the buttons (so it never overlaps them) */
+    /* ===== LANE IS NOW OUTSIDE THE CARD ===== */
+    .laneWrap{
+      margin-top:18px;              /* pushes it clearly below the card */
+      padding:0 6px;                /* small inset to match the card look */
+    }
     .plantLane{
-      margin-top:14px;
-      height:64px;
+      height:78px;
       position:relative;
       overflow:hidden;
-      border-top:1px solid var(--line);
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      box-shadow:0 2px 14px rgba(0,0,0,.04);
     }
 
     /* Excavator drive-by inside lane */
     .excavator{
       position:absolute;
-      left:-45%;
-      bottom:10px;
+      left:-55%;
+      bottom:12px;
       display:inline-flex;
       align-items:flex-end;
       gap:10px;
@@ -136,23 +144,23 @@
     }
     .excavator.run{
       opacity:1;
-      animation: excavatorRun 3.2s ease-in-out 0s 1 forwards;
+      animation: excavatorRun 3.4s ease-in-out 0s 1 forwards;
     }
 
     /* Slight “dig dip” mid-run */
     @keyframes excavatorRun{
-      0%   { left:-45%; transform: translateY(0); }
-      45%  { transform: translateY(0); }
-      55%  { transform: translateY(3px); } /* dip like a small dig */
-      62%  { transform: translateY(0); }
+      0%   { left:-55%; transform: translateY(0); }
+      50%  { transform: translateY(0); }
+      58%  { transform: translateY(4px); } /* dip like a small dig */
+      65%  { transform: translateY(0); }
       100% { left:120%; transform: translateY(0); opacity:0; }
     }
 
     .trackline{
-      width:210px;
+      width:220px;
       height:10px;
       border-radius:8px;
-      opacity:0.18;
+      opacity:0.16;
       background: repeating-linear-gradient(
         90deg,
         rgba(17,17,17,0.85) 0 14px,
@@ -174,11 +182,11 @@
       filter: drop-shadow(0 6px 10px rgba(0,0,0,0.12));
     }
 
-    /* Small “digging” dust puff (once per pass) */
+    /* Dig dust puff */
     .digDust{
       position:absolute;
-      right:8px;
-      bottom:34px;
+      right:12px;
+      bottom:36px;
       width:6px;
       height:6px;
       border-radius:50%;
@@ -193,7 +201,7 @@
     }
     .excavator.run .digDust{
       animation: dustPuff 700ms ease-out 1;
-      animation-delay: 1.65s; /* roughly mid-run */
+      animation-delay: 1.85s;
     }
     @keyframes dustPuff{
       0%   { opacity:0; transform: translateY(0) scale(0.6); }
@@ -213,8 +221,8 @@
 
 <body>
   <div class="wrap">
-    <div class="card">
 
+    <div class="card">
       <!-- Confetti overlay -->
       <div id="celebrateLayer" aria-hidden="true">
         <div id="confettiLayer"></div>
@@ -242,9 +250,11 @@
         <a class="secondary" id="newBtn" href="/selector.html">New check</a>
         <a id="backBtn" href="/index.html">Back to form</a>
       </div>
+    </div>
 
-      <!-- NEW: Excavator lane sits BELOW the buttons -->
-      <div class="plantLane" aria-hidden="true">
+    <!-- Lane moved BELOW the card, so it cannot overlap the buttons -->
+    <div class="laneWrap" aria-hidden="true">
+      <div class="plantLane">
         <div id="excavator" class="excavator">
           <span class="trackline"></span>
 
@@ -313,12 +323,11 @@
                   fill="#facc15" stroke="#111" stroke-width="4" stroke-linejoin="round"/>
           </svg>
 
-          <!-- Dust puff for the “dig” moment -->
           <span class="digDust"></span>
         </div>
       </div>
-
     </div>
+
   </div>
 
   <script>
