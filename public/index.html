@@ -121,8 +121,11 @@
       font-weight:900;
     }
 
-    /* CHANGE: hide Today line (keep in DOM for JS compatibility) */
+    /* CHANGE: remove Today from view (keep in DOM so app.js never breaks) */
     .todayMeta{ display:none !important; }
+
+    /* CHANGE: push week commencing to the right to remove the “gap” look */
+    .weekMeta{ text-align:right; }
 
     .yellowBar{
       background:var(--yellow);
@@ -202,7 +205,7 @@
       font-weight:800;
     }
 
-    /* Progress line */
+    /* (3) Progress line */
     .progressLine{
       margin:0 6px 12px;
       font-weight:900;
@@ -217,7 +220,7 @@
       font-weight:900;
     }
 
-    /* Legend */
+    /* (Cycle clarity) Legend */
     .cycleLegend{
       margin:0 6px 12px;
       display:flex;
@@ -246,6 +249,12 @@
       color:var(--muted);
     }
 
+    /* CHANGE: remove the highlighted “instruction + legend” block under Plant Checks */
+    .checksHelp,
+    .cycleLegend{
+      display:none !important;
+    }
+
     .tableWrap{
       margin:0 6px 14px;
       border:1px solid var(--line);
@@ -259,7 +268,7 @@
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:720px;
+      min-width:720px; /* keeps columns readable on small screens when table is shown */
     }
     thead th{
       background:#fafafa;
@@ -270,6 +279,7 @@
       text-align:center;
       font-weight:900;
 
+      /* sticky table header */
       position:sticky;
       top:0;
       z-index:2;
@@ -414,7 +424,7 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
-    /* ===== Toast tip ===== */
+    /* ===== Toast tip (cycle clarity) ===== */
     .toast{
       position:fixed;
       left:50%;
@@ -532,6 +542,9 @@
       }
       .metaRow > span{ flex:0 0 auto; }
 
+      /* On mobile, keep week meta left aligned for readability */
+      .weekMeta{ text-align:left; }
+
       .formRef{ font-size:20px; }
       .sheetTitle{ font-size:20px; }
       .checksTitle{ font-size:30px; }
@@ -618,10 +631,10 @@
         </div>
       </div>
 
-      <!-- CHANGE: Today removed from view -->
+      <!-- Today kept but hidden, Week commencing aligned right -->
       <div class="metaRow">
         <span>Machine No: <span id="machineNoPreview" class="missing">—</span></span>
-        <span>Week commencing: <span id="weekCommencingPreview">—</span></span>
+        <span class="weekMeta">Week commencing: <span id="weekCommencingPreview">—</span></span>
         <span class="todayMeta">Today: <span id="todayPreview">—</span></span>
       </div>
 
@@ -663,9 +676,9 @@
         </div>
       </div>
 
-      <!-- CHANGE: Heading text -->
       <div class="checksTitle">Plant Checks</div>
 
+      <!-- Kept in DOM but hidden by CSS (checksHelp + cycleLegend) -->
       <p class="checksHelp">
         Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
       </p>
