@@ -107,6 +107,15 @@
       border:1px solid var(--line);
       background:#fff;
     }
+    .gifFallback{
+      display:none;
+      border:1px dashed var(--line);
+      border-radius:14px;
+      padding:14px;
+      background:#fff;
+      font-weight:950;
+      color:#111;
+    }
 
     .actions{ display:flex; gap:12px; margin-top:10px; }
     .actions a{
@@ -148,13 +157,10 @@
       transform: translateY(0);
       will-change:left, transform, opacity;
     }
-
     .excavator.run{
       opacity:1;
       animation: excavatorRun 3.4s ease-in-out 0s 1 forwards;
     }
-
-    /* Small “dig dip” mid-run */
     @keyframes excavatorRun{
       0%   { left:-60%; transform: translateY(0); }
       50%  { transform: translateY(0); }
@@ -234,17 +240,22 @@
 
       <div class="meta" id="metaBox" style="display:none;"></div>
 
-      <!-- Good job GIF -->
+      <!-- Good job GIF (NO smile SVG anywhere in this file) -->
       <div class="art" role="img" aria-label="Good job">
         <img
+          id="goodJobGif"
           class="gifCard"
-          src="/assets/good-job.gif"
+          src="assets/good-job.gif?v=22"
           alt="Good job"
           width="420"
           height="240"
-          loading="lazy"
+          loading="eager"
           decoding="async"
+          onerror="this.style.display='none';document.getElementById('gifFallback').style.display='block';"
         />
+        <div id="gifFallback" class="gifFallback">
+          Good job. Checklist submitted and saved.
+        </div>
       </div>
 
       <div class="actions">
@@ -252,7 +263,7 @@
         <a id="backBtn" href="/index.html">Back to form</a>
       </div>
 
-      <!-- Excavator lane (below buttons) -->
+      <!-- Excavator lane -->
       <div class="plantLane" aria-hidden="true">
         <div id="excavator" class="excavator">
           <span class="trackline"></span>
@@ -328,7 +339,7 @@
         else backBtn.href = '/index.html?t=' + encodeURIComponent(t);
       }
 
-      // Start animations after first paint (helps mobile webviews)
+      // Start animations after first paint (mobile-friendly)
       setTimeout(runCelebration, 50);
 
       function runCelebration(){
@@ -347,11 +358,7 @@
       function launchConfetti(layer, card){
         layer.innerHTML = "";
 
-        const colors = [
-          "#16a34a", "#22c55e", "#facc15", "#f59e0b",
-          "#60a5fa", "#a78bfa", "#fb7185", "#111827"
-        ];
-
+        const colors = ["#16a34a","#22c55e","#facc15","#f59e0b","#60a5fa","#a78bfa","#fb7185","#111827"];
         const pieceCount = 90;
         const endY = (card.clientHeight + 120);
 
