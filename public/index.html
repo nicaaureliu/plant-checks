@@ -29,6 +29,9 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background:var(--bg);
       color:var(--text);
+
+      /* FIX: prevent any element from creating a wider-than-screen layout */
+      overflow-x:hidden;
     }
 
     .hidden{ display:none !important; }
@@ -37,6 +40,9 @@
       max-width:860px;
       margin:18px auto 40px;
       padding:0 14px;
+
+      /* FIX: ensure wrap always respects viewport width */
+      width:100%;
     }
     .card{
       background:var(--card);
@@ -45,6 +51,9 @@
       box-shadow: 0 2px 14px rgba(0,0,0,.05);
       padding:14px;
       overflow:hidden;
+
+      /* FIX: ensure card never exceeds wrap */
+      width:100%;
     }
 
     .topbar{
@@ -115,16 +124,12 @@
       white-space:normal;
     }
 
-    /* Make missing machine no obvious */
     #machineNoPreview.missing{
       color:var(--bad);
       font-weight:900;
     }
 
-    /* CHANGE: remove Today from view (keep in DOM so app.js never breaks) */
     .todayMeta{ display:none !important; }
-
-    /* CHANGE: push week commencing to the right to remove the “gap” look */
     .weekMeta{ text-align:right; }
 
     .yellowBar{
@@ -164,13 +169,23 @@
       grid-template-columns:1fr;
       gap:12px;
       padding:0 6px 8px;
+
+      /* FIX: stop grid children forcing overflow */
+      min-width:0;
     }
+
+    .field{
+      /* FIX: stop any child input from expanding outside */
+      min-width:0;
+    }
+
     .field label{
       display:block;
       font-weight:800;
       color:var(--muted);
       margin:4px 0 6px;
     }
+
     .field input, .field select, .field textarea{
       width:100%;
       max-width:100%;
@@ -180,10 +195,21 @@
       background:#fff;
       font-size:16px;
       outline:none;
+
+      /* FIX: prevents native controls from insisting on wider min sizes */
+      min-width:0;
+      display:block;
     }
+
+    /* FIX: specifically force the date control to stay inside card */
+    input[type="date"]{
+      width:100%;
+      max-width:100%;
+      min-width:0;
+    }
+
     .field textarea{ min-height:80px; resize:vertical; }
 
-    /* Small helper under the Date input */
     .dayHint{
       margin-top:6px;
       font-size:12.5px;
@@ -205,7 +231,6 @@
       font-weight:800;
     }
 
-    /* (3) Progress line */
     .progressLine{
       margin:0 6px 12px;
       font-weight:900;
@@ -220,7 +245,6 @@
       font-weight:900;
     }
 
-    /* (Cycle clarity) Legend */
     .cycleLegend{
       margin:0 6px 12px;
       display:flex;
@@ -249,7 +273,7 @@
       color:var(--muted);
     }
 
-    /* CHANGE: remove the highlighted “instruction + legend” block under Plant Checks */
+    /* Remove the highlighted instruction + legend under Plant Checks */
     .checksHelp,
     .cycleLegend{
       display:none !important;
@@ -260,15 +284,13 @@
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
-
-      /* allow sticky header to work nicely */
       overflow:auto;
       -webkit-overflow-scrolling:touch;
     }
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:720px; /* keeps columns readable on small screens when table is shown */
+      min-width:720px;
     }
     thead th{
       background:#fafafa;
@@ -278,8 +300,6 @@
       color:var(--muted);
       text-align:center;
       font-weight:900;
-
-      /* sticky table header */
       position:sticky;
       top:0;
       z-index:2;
@@ -312,7 +332,6 @@
       background:var(--activeCol);
     }
 
-    /* Larger tap targets */
     .markBtn{
       width:44px;
       height:40px;
@@ -424,7 +443,6 @@
     .ok{ color:var(--ok); }
     .bad{ color:var(--bad); }
 
-    /* ===== Toast tip (cycle clarity) ===== */
     .toast{
       position:fixed;
       left:50%;
@@ -441,7 +459,6 @@
       text-align:center;
     }
 
-    /* ===== Overlays ===== */
     .overlay{
       position:fixed;
       inset:0;
@@ -542,7 +559,6 @@
       }
       .metaRow > span{ flex:0 0 auto; }
 
-      /* On mobile, keep week meta left aligned for readability */
       .weekMeta{ text-align:left; }
 
       .formRef{ font-size:20px; }
@@ -631,7 +647,6 @@
         </div>
       </div>
 
-      <!-- Today kept but hidden, Week commencing aligned right -->
       <div class="metaRow">
         <span>Machine No: <span id="machineNoPreview" class="missing">—</span></span>
         <span class="weekMeta">Week commencing: <span id="weekCommencingPreview">—</span></span>
@@ -678,22 +693,7 @@
 
       <div class="checksTitle">Plant Checks</div>
 
-      <!-- Kept in DOM but hidden by CSS (checksHelp + cycleLegend) -->
-      <p class="checksHelp">
-        Only the column for your selected date is editable. Tap the box repeatedly to cycle: blank → ✓ → X → N/A → blank.
-      </p>
-
       <div id="progressLine" class="progressLine"></div>
-
-      <div class="cycleLegend" aria-hidden="true">
-        <span class="legendBox"></span>
-        <span class="legendArrow">→</span>
-        <span class="legendBox">✓</span>
-        <span class="legendArrow">→</span>
-        <span class="legendBox">X</span>
-        <span class="legendArrow">→</span>
-        <span class="legendBox">N/A</span>
-      </div>
 
       <div class="tableWrap">
         <table>
@@ -742,7 +742,6 @@
     </div>
   </div>
 
-  <!-- Toast (cycle help / required plant id tip) -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 </body>
