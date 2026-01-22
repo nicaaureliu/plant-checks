@@ -116,6 +116,7 @@
   const qs = new URLSearchParams(location.search);
   const TOKEN = qs.get("t") || "";
 
+  // Force through selector if type missing (prevents miscompletes)
   if (!qs.get("type") && TOKEN) {
     location.replace(`/selector.html?t=${encodeURIComponent(TOKEN)}`);
     return;
@@ -136,7 +137,9 @@
   let activeDay = 0;
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  const LS_CYCLE_TIP = "plantchecks_cycle_tip_seen_v1";
+  const ENH_STYLE_ID = "plantChecksEnhancementsStyle";
+  const TIP_CYCLE_KEY = "plantchecks_tip_cycle_v1";
+  let toastTimer = null;
 
   const isoToday = () => {
     const d = new Date();
@@ -181,26 +184,242 @@
 
   const isMobile = () => window.matchMedia("(max-width: 760px)").matches;
 
-  function cleanedPlantId() {
+  const cleanedPlantId = () => {
     const v = ($("plantId")?.value || "");
     return v.replace(/\s+/g, "").trim().toUpperCase();
+  };
+
+  const canEditChecks = () => {
+    return !!cleanedPlantId();
+  };
+
+  function injectEnhancementStyles() {
+    if (document.getElementById(ENH_STYLE_ID)) return;
+
+    const style = document.createElement("style");
+    style.id = ENH_STYLE_ID;
+    style.textContent = `
+      /* Active day highlight */
+      .tableWrap thead th.activeDay {
+        background: rgba(255,214,0,.55) !important;
+      }
+      .tableWrap tbody td.activeDay {
+        background: rgba(255,214,0,.12) !important;
+      }
+      .tableWrap tbody td.activeDay .markBtn {
+        border-color: rgba(0,0,0,.55) !important;
+      }
+
+      /* Sticky header (page scroll) */
+      .tableWrap { overflow: visible !important; }
+      .tableWrap thead th {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+
+      /* Bigger tap targets */
+      .markBtn{
+        width:44px !important;
+        height:38px !important;
+        border-radius:12px !important;
+      }
+      .mobileBtn{
+        min-width:64px !important;
+        height:44px !important;
+        border-radius:14px !important;
+      }
+
+      /* Progress line */
+      #progressLine{
+        margin:0 6px 12px;
+        font-weight:900;
+        color:var(--muted);
+      }
+      #progressLine .strong{ color:var(--text); }
+
+      /* Date "Today" pill */
+      #todayPill{
+        display:inline-block;
+        margin-left:8px;
+        font-size:12px;
+        font-weight:900;
+        padding:3px 8px;
+        border-radius:999px;
+        background: rgba(255,214,0,.55);
+        border: 1px solid rgba(0,0,0,.18);
+        vertical-align: middle;
+      }
+
+      /* Required plant id hint */
+      #plantId.req{
+        border-color:#dc2626 !important;
+        box-shadow: 0 0 0 3px rgba(220,38,38,.10);
+      }
+
+      /* Header hierarchy tweak */
+      .formRef{ font-size:22px !important; }
+      .sheetTitle{ font-size:20px !important; }
+
+      /* Toast */
+      .pcToast{
+        position:fixed;
+        left:50%;
+        transform:translateX(-50%);
+        bottom:16px;
+        z-index:99999;
+        background:#111;
+        color:#fff;
+        padding:10px 12px;
+        border-radius:14px;
+        font-weight:900;
+        font-size:13px;
+        box-shadow:0 12px 30px rgba(0,0,0,.24);
+        max-width:calc(100% - 24px);
+        text-align:center;
+      }
+    `;
+    document.head.appendChild(style);
   }
 
-  function showToast(msg, ms = 2200) {
-    const t = $("toast");
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.remove("hidden");
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => t.classList.add("hidden"), ms);
+  function showToast(msg, ms = 2600) {
+    let el = document.getElementById("pcToast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "pcToast";
+      el.className = "pcToast";
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = "block";
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      const t = document.getElementById("pcToast");
+      if (t) t.style.display = "none";
+    }, ms);
   }
 
-  function showCycleTipOnce() {
-    try {
-      if (localStorage.getItem(LS_CYCLE_TIP) === "1") return;
-      localStorage.setItem(LS_CYCLE_TIP, "1");
-    } catch {}
-    showToast("Tip: tap the box repeatedly to cycle ✓ → X → N/A → blank.");
+  function ensureProgressLine() {
+    if (document.getElementById("progressLine")) return;
+    const help = document.querySelector(".checksHelp");
+    if (!help || !help.parentElement) return;
+
+    const line = document.createElement("div");
+    line.id = "progressLine";
+    line.textContent = "";
+    help.insertAdjacentElement("afterend", line);
+  }
+
+  function updateHelpText() {
+    const help = document.querySelector(".checksHelp");
+    if (!help) return;
+
+    help.textContent =
+      "Only the column for your selected date is editable. Tap the same box to cycle ✓ → X → N/A → blank.";
+  }
+
+  function ensureTodayPill() {
+    const label = document.querySelector('label[for="date"]');
+    if (!label) return;
+
+    let pill = document.getElementById("todayPill");
+    if (!pill) {
+      pill = document.createElement("span");
+      pill.id = "todayPill";
+      pill.textContent = "";
+      label.appendChild(pill);
+    }
+  }
+
+  function updateTodayPill() {
+    ensureTodayPill();
+    const pill = document.getElementById("todayPill");
+    if (!pill) return;
+
+    const dateISO = ($("date")?.value) || isoToday();
+    activeDay = getDayIndexMon0(dateISO);
+    pill.textContent = `Today: ${days[activeDay]}`;
+  }
+
+  function updateActiveDayHighlight() {
+    const table = document.querySelector(".tableWrap table");
+    if (!table) return;
+
+    const ths = table.querySelectorAll("thead th");
+    ths.forEach((th, i) => {
+      // th[0] is Item; days start at 1
+      th.classList.toggle("activeDay", i === activeDay + 1);
+    });
+
+    const rows = table.querySelectorAll("tbody tr");
+    rows.forEach((tr) => {
+      const tds = tr.querySelectorAll("td");
+      tds.forEach((td, i) => {
+        td.classList.toggle("activeDay", i === activeDay + 1);
+      });
+    });
+  }
+
+  function progressForDay(dayIndex) {
+    const total = labels.length;
+    let done = 0;
+    let defects = 0;
+
+    for (let r = 0; r < labels.length; r++) {
+      const st = weekStatuses?.[r]?.[dayIndex] || null;
+      if (st) done++;
+      if (st === "DEFECT") defects++;
+    }
+
+    return { total, done, defects, remaining: Math.max(0, total - done) };
+  }
+
+  function updateProgressLine() {
+    ensureProgressLine();
+    const el = document.getElementById("progressLine");
+    if (!el) return;
+
+    const dateISO = ($("date")?.value) || isoToday();
+    activeDay = getDayIndexMon0(dateISO);
+
+    const p = progressForDay(activeDay);
+    const dayName = days[activeDay];
+
+    el.innerHTML =
+      `<span class="strong">${dayName}</span>: ` +
+      `<span class="strong">${p.done}</span>/${p.total} complete` +
+      ` • Defects: <span class="strong">${p.defects}</span>` +
+      ` • Remaining: <span class="strong">${p.remaining}</span>`;
+  }
+
+  function updatePlantIdRequiredState() {
+    const pidEl = $("plantId");
+    if (!pidEl) return;
+
+    const ok = canEditChecks();
+    pidEl.classList.toggle("req", !ok);
+  }
+
+  function maybeWarnPlantId() {
+    const statusEl = $("status");
+    if (!statusEl) return;
+
+    if (!canEditChecks()) {
+      statusEl.innerHTML = `<span class="bad">✖ Enter Machine / Plant ID to enable checks</span>`;
+    } else if (statusEl.textContent.includes("Enter Machine / Plant ID")) {
+      statusEl.textContent = "Ready.";
+    }
+  }
+
+  function updateEnhancements() {
+    injectEnhancementStyles();
+    updateHelpText();
+    updateTodayPill();
+    updateProgressLine();
+    updateActiveDayHighlight();
+    updatePlantIdRequiredState();
+    maybeWarnPlantId();
   }
 
   async function fetchJson(url, options = {}, timeoutMs = 15000) {
@@ -254,42 +473,6 @@
     c.classList.toggle("active", equipmentType === "dumper");
   }
 
-  function updateDayUI() {
-    const dateISO = ($("date")?.value) || isoToday();
-    activeDay = getDayIndexMon0(dateISO);
-    if ($("todayPreview")) $("todayPreview").textContent = days[activeDay] || "—";
-    if ($("dayHint")) {
-      $("dayHint").textContent =
-        `Selected day: ${days[activeDay]} — only this column is editable. Tap repeatedly: blank → ✓ → X → N/A → blank.`;
-    }
-  }
-
-  function updateProgressUI() {
-    const el = $("progressLine");
-    if (!el) return;
-
-    const pid = cleanedPlantId();
-    const total = labels.length;
-
-    let done = 0;
-    let defects = 0;
-
-    for (let i = 0; i < total; i++) {
-      const st = weekStatuses?.[i]?.[activeDay] || null;
-      if (st) done++;
-      if (st === "DEFECT") defects++;
-    }
-
-    if (!pid) {
-      el.innerHTML = `<span class="bad">Enter Machine / Plant ID to start checks.</span> <span class="muted">(Progress will show here)</span>`;
-      return;
-    }
-
-    el.innerHTML =
-      `Today (${days[activeDay]}): ${done}/${total} completed` +
-      ` <span class="muted">•</span> Defects: ${defects}`;
-  }
-
   function setHeaderTexts() {
     if ($("buildTag")) $("buildTag").textContent = `BUILD: ${BUILD}`;
     if ($("selectedType")) $("selectedType").textContent = `Selected: ${equipmentType.charAt(0).toUpperCase()}${equipmentType.slice(1)}`;
@@ -310,14 +493,7 @@
     if ($("weekCommencingPreview")) $("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
 
     const pid = cleanedPlantId();
-    const mn = $("machineNoPreview");
-    if (mn) {
-      mn.textContent = pid || "—";
-      mn.classList.toggle("missing", !pid);
-    }
-
-    updateDayUI();
-    updateProgressUI();
+    if ($("machineNoPreview")) $("machineNoPreview").textContent = pid || "—";
   }
 
   function fillRecipients() {
@@ -356,7 +532,7 @@
     addBtn.type = "button";
     addBtn.textContent = count ? `Photos (${count})` : "Add photo";
     addBtn.style.fontSize = "12px";
-    addBtn.style.fontWeight = "900";
+    addBtn.style.fontWeight = "800";
     addBtn.style.padding = "6px 10px";
     addBtn.style.borderRadius = "10px";
     addBtn.style.border = "1px solid #e5e7eb";
@@ -388,7 +564,7 @@
       clearBtn.type = "button";
       clearBtn.textContent = "Clear photos";
       clearBtn.style.fontSize = "12px";
-      clearBtn.style.fontWeight = "900";
+      clearBtn.style.fontWeight = "800";
       clearBtn.style.padding = "6px 10px";
       clearBtn.style.borderRadius = "10px";
       clearBtn.style.border = "1px solid #e5e7eb";
@@ -403,16 +579,6 @@
     return wrap;
   }
 
-  function highlightActiveHeader() {
-    const ths = document.querySelectorAll("table thead th");
-    if (!ths || !ths.length) return;
-
-    ths.forEach((th) => th.classList.remove("activeCol"));
-
-    const idx = activeDay + 1; // 0 is "Item"
-    if (ths[idx]) ths[idx].classList.add("activeCol");
-  }
-
   function renderTable() {
     const dateISO = ($("date")?.value) || isoToday();
     activeDay = getDayIndexMon0(dateISO);
@@ -421,10 +587,7 @@
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    highlightActiveHeader();
-
-    const pid = cleanedPlantId();
-    const allowChecks = !!pid;
+    const allow = canEditChecks();
 
     labels.forEach((label, r) => {
       const tr = document.createElement("tr");
@@ -446,33 +609,38 @@
       for (let d = 0; d < 7; d++) {
         const td = document.createElement("td");
         td.className = "day";
-        if (d === activeDay) td.classList.add("activeCol");
 
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "markBtn";
         btn.textContent = markText(weekStatuses?.[r]?.[d] || null);
 
-        if (d !== activeDay) {
+        const isToday = d === activeDay;
+
+        if (!isToday || !allow) {
           btn.classList.add("disabled");
           btn.disabled = true;
-        } else if (!allowChecks) {
-          btn.classList.add("disabled");
-          btn.disabled = true;
+          if (isToday && !allow) btn.title = "Enter Machine / Plant ID to enable checks";
         } else {
           btn.addEventListener("click", () => {
-            showCycleTipOnce();
-
             const cur = weekStatuses?.[r]?.[d] || null;
             const next = cycleStatus(cur);
             weekStatuses[r][d] = next;
 
+            // If not DEFECT, wipe photos for that row/day
             if (next !== "DEFECT") photos[r][d] = [];
 
             btn.textContent = markText(next);
             renderTable();
             if (isMobile()) renderMobileList();
-            updateProgressUI();
+
+            updateProgressLine();
+            updateActiveDayHighlight();
+
+            if (!localStorage.getItem(TIP_CYCLE_KEY)) {
+              showToast("Tip: tap the same box to cycle ✓ → X → N/A → blank");
+              localStorage.setItem(TIP_CYCLE_KEY, "1");
+            }
           });
         }
 
@@ -483,7 +651,8 @@
       tbody.appendChild(tr);
     });
 
-    updateProgressUI();
+    updateActiveDayHighlight();
+    updateProgressLine();
   }
 
   function renderMobileList() {
@@ -494,8 +663,7 @@
     if (!wrap) return;
     wrap.innerHTML = "";
 
-    const pid = cleanedPlantId();
-    const allowChecks = !!pid;
+    const allow = canEditChecks();
 
     labels.forEach((label, r) => {
       const row = document.createElement("div");
@@ -510,14 +678,12 @@
       btn.className = "mobileBtn";
       btn.textContent = markText(weekStatuses?.[r]?.[activeDay] || null);
 
-      if (!allowChecks) {
+      if (!allow) {
+        btn.classList.add("disabled");
         btn.disabled = true;
-        btn.style.opacity = "0.45";
-        btn.style.cursor = "not-allowed";
+        btn.title = "Enter Machine / Plant ID to enable checks";
       } else {
         btn.addEventListener("click", () => {
-          showCycleTipOnce();
-
           const cur = weekStatuses?.[r]?.[activeDay] || null;
           const next = cycleStatus(cur);
           weekStatuses[r][activeDay] = next;
@@ -527,7 +693,13 @@
           btn.textContent = markText(next);
           renderMobileList();
           if (!isMobile()) renderTable();
-          updateProgressUI();
+
+          updateProgressLine();
+
+          if (!localStorage.getItem(TIP_CYCLE_KEY)) {
+            showToast("Tip: tap the same box to cycle ✓ → X → N/A → blank");
+            localStorage.setItem(TIP_CYCLE_KEY, "1");
+          }
         });
       }
 
@@ -542,7 +714,7 @@
       wrap.appendChild(row);
     });
 
-    updateProgressUI();
+    updateProgressLine();
   }
 
   function renderChecks() {
@@ -643,8 +815,8 @@
       weekDaily = Array(7).fill(null);
       photos = labels.map(() => Array(7).fill(null).map(() => []));
       renderChecks();
-      updateProgressUI();
       if (status) status.innerHTML = TOKEN ? "Ready." : `<span class="bad">✖ Missing token (t=...)</span>`;
+      updateEnhancements();
       return;
     }
 
@@ -660,8 +832,8 @@
         weekDaily = Array(7).fill(null);
         photos = labels.map(() => Array(7).fill(null).map(() => []));
         renderChecks();
-        updateProgressUI();
         if (status) status.innerHTML = `<span class="bad">✖ Week load failed (${resp.status})</span>`;
+        updateEnhancements();
         return;
       }
 
@@ -671,8 +843,10 @@
         weekStatuses = rec.statuses;
         weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
 
+        // Photos are PDF-only; always start blank on load
         photos = labels.map(() => Array(7).fill(null).map(() => []));
 
+        // Carry week-level site into daily defaults if present
         if (rec.site) {
           for (let i = 0; i < 7; i++) {
             if (!weekDaily[i]) weekDaily[i] = {};
@@ -682,16 +856,16 @@
 
         renderChecks();
         applyDailyToInputs();
-        updateProgressUI();
         if (status) status.textContent = "Ready.";
+        updateEnhancements();
       } else {
         labels = [...CHECKLISTS[equipmentType]];
         weekStatuses = labels.map(() => Array(7).fill(null));
         weekDaily = Array(7).fill(null);
         photos = labels.map(() => Array(7).fill(null).map(() => []));
         renderChecks();
-        updateProgressUI();
         if (status) status.textContent = "Ready.";
+        updateEnhancements();
       }
     } catch {
       labels = [...CHECKLISTS[equipmentType]];
@@ -699,12 +873,12 @@
       weekDaily = Array(7).fill(null);
       photos = labels.map(() => Array(7).fill(null).map(() => []));
       renderChecks();
-      updateProgressUI();
       if (status) status.innerHTML = `<span class="bad">✖ Load error</span>`;
+      updateEnhancements();
     }
   }
 
-  // -------- PDF: unchanged (kept exactly as your working version) --------
+  // -------- PDF: checklist page + unlimited photo pages (canvas crop; no shrink) --------
   async function makePdfBase64(payload, defectPhotos) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
@@ -754,6 +928,7 @@
       return { w: imgW * s, h: imgH * s };
     }
 
+    // Crop-to-box in browser so jsPDF always gets a perfect fill image
     async function cropToBoxDataUrl(dataUrl, targetWpx, targetHpx, quality = 0.84) {
       const img = new Image();
       img.decoding = "async";
@@ -819,6 +994,7 @@
     const labels2 = payload.labels || [];
     const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
 
+    // ---------------- PAGE 1 (CHECKLIST) ----------------
     let y = margin;
 
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
@@ -899,4 +1075,365 @@
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
-    doc.setFillColor(255, 214,
+    doc.setFillColor(255, 214, 0);
+    doc.rect(margin, y, itemColW, headH, "F");
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
+    doc.rect(margin, y, tableW, headH);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    for (let i = 0; i < 7; i++) {
+      const cx = margin + itemColW + dayColW * i + dayColW / 2;
+      doc.text(days[i], cx, y + 11, { align: "center" });
+    }
+    y += headH;
+
+    for (let r = 0; r < totalRows; r++) {
+      doc.rect(margin, y, tableW, rowH);
+
+      doc.line(margin + itemColW, y, margin + itemColW, y + rowH);
+      for (let i = 1; i < 7; i++) {
+        const xx = margin + itemColW + dayColW * i;
+        doc.line(xx, y, xx, y + rowH);
+      }
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(fontItem);
+      const label = ellipsize(labels2[r] || "", itemColW - 10, fontItem);
+      doc.text(label, margin + 6, y + rowH * 0.72);
+
+      for (let d = 0; d < 7; d++) {
+        const status = weekStatuses2?.[r]?.[d] || null;
+        if (!status) continue;
+        const cx = margin + itemColW + dayColW * d + dayColW / 2;
+        const cy = y + rowH / 2 + 1;
+        drawMark(status, cx, cy);
+      }
+
+      y += rowH;
+    }
+
+    y += 8;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
+    y += 10;
+
+    doc.text("Defects identified:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, defectsH);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    if (payload.defectsText) doc.text(String(payload.defectsText), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += defectsH + 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
+    y += 12;
+
+    doc.text("Action taken:", margin, y);
+    y += 6;
+    doc.rect(margin, y, tableW, actionH);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    if (payload.actionTaken) doc.text(String(payload.actionTaken), margin + 6, y + 14, { maxWidth: tableW - 12 });
+    y += actionH + 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Signature:", margin, y);
+    y += 6;
+
+    doc.rect(margin, y, tableW, sigH);
+
+    if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
+      try {
+        const pad = 4;
+        const innerW = tableW - pad * 2;
+        const innerH = sigH - pad * 2;
+        const s = await getImageSize(payload.signatureDataUrl);
+        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
+        const imgX = margin + pad + (innerW - fitted.w) / 2;
+        const imgY = y + pad + (innerH - fitted.h) / 2;
+        doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text(`Submitted: ${new Date().toISOString()}`, margin, pageH - 16);
+    doc.text(`BUILD: ${BUILD}`, pageW / 2, pageH - 16, { align: "center" });
+
+    // ---------------- PHOTO PAGES (UNLIMITED) ----------------
+    const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
+    if (pics.length) {
+      const cols = 2;
+      const rows = 3;
+
+      const gapX = 10;
+      const gapY = 18;
+
+      const boxW = (pageW - margin * 2 - gapX) / 2;
+      const boxH = 190;
+      const imgH = 150;
+
+      let idx = 0;
+      while (idx < pics.length) {
+        doc.addPage();
+        let yy = margin;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Defect Photos", margin, yy);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(
+          `Machine: ${payload.plantId || ""}   Date: ${dateUK}   Type: ${payload.equipmentType || ""}`,
+          margin,
+          yy + 16
+        );
+
+        yy += 34;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (idx >= pics.length) break;
+
+            const p = pics[idx];
+            const x = margin + c * (boxW + gapX);
+            const yTop = yy + r * (boxH + gapY);
+
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.7);
+            doc.rect(x, yTop, boxW, boxH);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            const cap = `Row ${p.rowIndex + 1}: ${p.label || ""}`;
+            doc.text(ellipsize(cap, boxW - 8, 8), x + 4, yTop + 12);
+
+            const boxX2 = x + 2;
+            const boxY2 = yTop + 18;
+            const boxW2 = boxW - 4;
+            const boxH2 = imgH;
+
+            doc.rect(boxX2, boxY2, boxW2, boxH2);
+
+            try {
+              await addImageFillBox(String(p.dataUrl), boxX2, boxY2, boxW2, boxH2);
+            } catch {
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8);
+              doc.text("Photo could not be embedded.", x + 4, boxY2 + 22);
+            }
+
+            idx++;
+          }
+        }
+      }
+    }
+
+    const dataUri = doc.output("datauristring");
+    const parts = String(dataUri).split(",");
+    if (parts.length < 2) throw new Error("PDF export failed (bad data URI)");
+    return parts[1];
+  }
+
+  // -------- Submit --------
+  async function submit() {
+    const statusEl = $("status");
+    const btn = $("submitBtn");
+
+    let plantId = ($("plantId")?.value || "");
+    plantId = plantId.replace(/\s+/g, "").toUpperCase();
+    if ($("plantId")) $("plantId").value = plantId;
+
+    const dateISO = ($("date")?.value) || "";
+    const site = ($("site")?.value || "").trim();
+    const operator = ($("operator")?.value || "").trim();
+    const hours = ($("hours")?.value || "").trim();
+
+    const reportedToEmail = $("reportedTo")?.value || "";
+    const reportedToName = (RECIPIENTS.find(r => r.email === reportedToEmail)?.name) || "";
+
+    if (!TOKEN) { if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Missing token (t=...)</span>`; return; }
+    if (!plantId || !dateISO) { if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Plant ID and Date are required</span>`; return; }
+    if (!reportedToEmail) { if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Please select ‘Reported to’</span>`; return; }
+
+    const weekCommencing = getWeekCommencingISO(dateISO);
+    const dayIndex = getDayIndexMon0(dateISO);
+
+    // Collect DEFECT photos for TODAY only (unlimited)
+    const defectPhotosForPdf = [];
+    for (let r = 0; r < labels.length; r++) {
+      const st = weekStatuses?.[r]?.[dayIndex] || null;
+      if (st !== "DEFECT") continue;
+
+      const arr = photos?.[r]?.[dayIndex] || [];
+      for (const p of arr) {
+        if (typeof p === "string" && p.startsWith("data:image/")) {
+          defectPhotosForPdf.push({ rowIndex: r, label: labels[r], dataUrl: p });
+        }
+      }
+    }
+
+    const payload = {
+      formRef: $("formRef")?.textContent || "",
+      sheetTitle: $("sheetTitle")?.textContent || "",
+      equipmentType,
+      site,
+      date: dateISO,
+      plantId,
+      operator,
+      hours,
+      weekCommencing,
+      dayIndex,
+      labels,
+      weekStatuses,
+      defectsText: ($("defectsText")?.value || "").trim(),
+      reportedToName,
+      reportedToEmail,
+      actionTaken: ($("actionTaken")?.value || "").trim(),
+      signatureDataUrl: signatureDataUrl()
+    };
+
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = "Building PDF…";
+
+    try {
+      const pdfBase64 = await makePdfBase64(payload, defectPhotosForPdf);
+
+      if (statusEl) statusEl.textContent = "Submitting…";
+
+      const { resp, data } = await fetchJson("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: TOKEN, payload, pdfBase64 })
+      }, 30000);
+
+      if (!resp.ok) {
+        if (statusEl) statusEl.innerHTML = `<span class="bad">✖ Submit failed (${resp.status}): ${data.error || "Unknown"}</span>`;
+        if (btn) btn.disabled = false;
+        return;
+      }
+
+      if (btn) btn.disabled = false;
+
+      // Redirect to submitted page
+      const url =
+        `/submitted.html?t=${encodeURIComponent(TOKEN)}` +
+        `&type=${encodeURIComponent(equipmentType)}` +
+        `&plantId=${encodeURIComponent(plantId)}` +
+        `&date=${encodeURIComponent(dateISO)}`;
+
+      location.href = url;
+      return;
+
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML = `<span class="bad">✖ ${e?.message || "Error"}</span>`;
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // -------- Wire events --------
+  function wireEvents() {
+    if (!LOCK_TYPE) {
+      $("btnExc")?.addEventListener("click", async () => {
+        equipmentType = "excavator";
+        labels = [...CHECKLISTS[equipmentType]];
+        weekStatuses = labels.map(() => Array(7).fill(null));
+        weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
+        setButtonsActive();
+        setHeaderTexts();
+        renderChecks();
+        updateEnhancements();
+        await loadWeekFromKV();
+      });
+
+      $("btnCrane")?.addEventListener("click", async () => {
+        equipmentType = "crane";
+        labels = [...CHECKLISTS[equipmentType]];
+        weekStatuses = labels.map(() => Array(7).fill(null));
+        weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
+        setButtonsActive();
+        setHeaderTexts();
+        renderChecks();
+        updateEnhancements();
+        await loadWeekFromKV();
+      });
+
+      $("btnDump")?.addEventListener("click", async () => {
+        equipmentType = "dumper";
+        labels = [...CHECKLISTS[equipmentType]];
+        weekStatuses = labels.map(() => Array(7).fill(null));
+        weekDaily = Array(7).fill(null);
+        photos = labels.map(() => Array(7).fill(null).map(() => []));
+        setButtonsActive();
+        setHeaderTexts();
+        renderChecks();
+        updateEnhancements();
+        await loadWeekFromKV();
+      });
+    }
+
+    $("date")?.addEventListener("change", () => {
+      setHeaderTexts();
+      renderChecks();
+      updateEnhancements();
+      loadWeekFromKV();
+    });
+
+    $("plantId")?.addEventListener("input", () => {
+      const cleaned = ($("plantId").value || "").replace(/\s+/g, "").toUpperCase();
+      if ($("plantId").value !== cleaned) $("plantId").value = cleaned;
+
+      setHeaderTexts();
+      updatePlantIdRequiredState();
+      maybeWarnPlantId();
+
+      // Enable checks as soon as Plant ID is set
+      renderChecks();
+      updateEnhancements();
+    });
+
+    $("plantId")?.addEventListener("blur", () => {
+      updatePlantIdRequiredState();
+      maybeWarnPlantId();
+      loadWeekFromKV();
+    });
+
+    window.addEventListener("resize", () => {
+      renderChecks();
+      updateEnhancements();
+    });
+
+    $("submitBtn")?.addEventListener("click", submit);
+  }
+
+  // -------- Init --------
+  (function init() {
+    injectEnhancementStyles();
+
+    if ($("buildTag")) $("buildTag").textContent = `BUILD: ${BUILD}`;
+
+    fillRecipients();
+    initSignature();
+    wireEvents();
+
+    if ($("date") && !$("date").value) $("date").value = isoToday();
+
+    setButtonsActive();
+    if (LOCK_TYPE) lockTypeUI();
+
+    setHeaderTexts();
+    renderChecks();
+    updateEnhancements();
+    loadWeekFromKV();
+  })();
+})();
