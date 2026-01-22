@@ -10,9 +10,10 @@
     :root{
       --bg:#f6f7f9;
       --card:#fff;
-      --text:#111;
+      --text:#111827;
       --muted:#6b7280;
       --line:#e5e7eb;
+      --line2:#d1d5db;
       --yellow:#ffd600;
       --radius:18px;
     }
@@ -34,7 +35,7 @@
       background:var(--card);
       border:1px solid var(--line);
       border-radius:var(--radius);
-      box-shadow:0 2px 14px rgba(0,0,0,.05);
+      box-shadow:0 10px 30px rgba(17,24,39,.06); /* softer, less “dirty” */
       padding:16px;
       overflow:hidden;
     }
@@ -45,7 +46,7 @@
       border:1px solid var(--line);
       border-radius:18px;
       padding:14px 16px;
-      box-shadow:0 2px 14px rgba(0,0,0,.05);
+      box-shadow:0 8px 22px rgba(17,24,39,.06); /* softer */
     }
 
     .logosRow{
@@ -78,7 +79,7 @@
       justify-content:center;
       gap:8px;
       background:var(--yellow);
-      border:1px solid rgba(0,0,0,.2);
+      border:1px solid rgba(0,0,0,.18);
       border-radius:999px;
       padding:10px 14px;
       font-weight:900;
@@ -99,44 +100,38 @@
       padding:18px 14px;
       cursor:pointer;
 
-      border:1.5px solid rgba(17,17,17,.78);
+      /* KEY FIX: lighter border */
+      border:1px solid var(--line2);
       background:#fff;
-      color:#111;
+      color:var(--text);
       text-decoration:none;
 
       display:grid;
       gap:10px;
       text-align:center;
 
-      box-shadow:0 10px 22px rgba(0,0,0,.08);
-      transition:transform .08s ease, box-shadow .14s ease, background .14s ease, color .14s ease, border-color .14s ease;
+      /* KEY FIX: softer shadow */
+      box-shadow:0 10px 22px rgba(17,24,39,.08);
+      transition:transform .10s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
       -webkit-tap-highlight-color: transparent;
       user-select:none;
     }
 
+    /* Hover/press: keep professional (don’t go full black) */
     @media (hover: hover) and (pointer: fine){
       .btn:hover{
-        background:#111;
-        color:#fff;
-        transform:translateY(-1px);
-        border-color:#111;
-        box-shadow:0 14px 28px rgba(0,0,0,.12);
-      }
-      .btn:hover .meta{
-        color:rgba(255,255,255,.85);
+        transform:translateY(-2px);
+        border-color:#cbd5e1;
+        box-shadow:0 16px 34px rgba(17,24,39,.12);
+        background:#ffffff;
       }
     }
 
     @media (hover: none) and (pointer: coarse){
       .btn:active{
-        background:#111;
-        color:#fff;
-        border-color:#111;
         transform:scale(0.99);
-        box-shadow:0 8px 18px rgba(0,0,0,.12);
-      }
-      .btn:active .meta{
-        color:rgba(255,255,255,.85);
+        border-color:#cbd5e1;
+        box-shadow:0 12px 26px rgba(17,24,39,.12);
       }
     }
 
@@ -158,14 +153,7 @@
       object-fit:contain;
       display:block;
       image-rendering:auto;
-    }
-
-    /* If your icons are black, invert them to white on hover/press */
-    @media (hover: hover) and (pointer: fine){
-      .btn:hover .iconImg{ filter: invert(1); }
-    }
-    @media (hover: none) and (pointer: coarse){
-      .btn:active .iconImg{ filter: invert(1); }
+      opacity:0.92; /* slightly softer than pure black */
     }
 
     .name{
@@ -177,7 +165,7 @@
     .meta{
       font-size:11px;
       font-weight:900;
-      color:rgba(0,0,0,.55);
+      color:rgba(17,24,39,.55);
       justify-self:center;
       letter-spacing:.1px;
     }
