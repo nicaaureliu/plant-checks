@@ -9,10 +9,6 @@
     :root{
       --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#6b7280; --line:#e5e7eb;
       --ok:#16a34a; --btn:#111; --btnText:#fff; --radius:16px;
-
-      /* Smiley face */
-      --face:#fde047;
-      --faceStroke:#f59e0b;
     }
     *{box-sizing:border-box}
     body{
@@ -99,7 +95,18 @@
     .meta div{ margin:4px 0; color:var(--muted); font-weight:900; }
     .meta span{ color:#111; font-weight:950; }
 
-    .art{ margin:8px auto 18px; max-width:420px; }
+    .art{
+      margin:10px auto 18px;
+      max-width:420px;
+    }
+    .gifCard{
+      width:100%;
+      height:auto;
+      display:block;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
 
     .actions{ display:flex; gap:12px; margin-top:10px; }
     .actions a{
@@ -227,15 +234,17 @@
 
       <div class="meta" id="metaBox" style="display:none;"></div>
 
-      <!-- Big smile (yellow) -->
-      <div class="art" aria-hidden="true">
-        <svg viewBox="0 0 520 280" width="100%" height="auto">
-          <rect x="12" y="12" width="496" height="256" rx="22" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2"/>
-          <circle cx="260" cy="140" r="92" style="fill: var(--face); stroke: var(--faceStroke);" stroke-width="2"/>
-          <circle cx="225" cy="125" r="8.5" fill="#111"/>
-          <circle cx="295" cy="125" r="8.5" fill="#111"/>
-          <path d="M212 160 Q260 205 308 160" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
-        </svg>
+      <!-- Good job GIF -->
+      <div class="art" role="img" aria-label="Good job">
+        <img
+          class="gifCard"
+          src="/assets/good-job.gif"
+          alt="Good job"
+          width="420"
+          height="240"
+          loading="lazy"
+          decoding="async"
+        />
       </div>
 
       <div class="actions">
@@ -319,8 +328,8 @@
         else backBtn.href = '/index.html?t=' + encodeURIComponent(t);
       }
 
-      // Run celebration on load (mobile-friendly)
-      runCelebration();
+      // Start animations after first paint (helps mobile webviews)
+      setTimeout(runCelebration, 50);
 
       function runCelebration(){
         const confettiLayer = document.getElementById("confettiLayer");
@@ -330,7 +339,7 @@
         const ex = document.getElementById("excavator");
         if (ex) {
           ex.classList.remove("run");
-          void ex.offsetWidth; // restart animation reliably
+          void ex.offsetWidth;
           ex.classList.add("run");
         }
       }
