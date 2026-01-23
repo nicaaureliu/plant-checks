@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13.10";
+  const BUILD = "v13.11";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -313,7 +313,7 @@
     if ($("machineNoPreview")) $("machineNoPreview").textContent = pid ? (hrs ? `${pid} • ${hrs}h` : pid) : "—";
 
     const help = document.querySelector(".checksHelp");
-    if (help) help.textContent = "Only the column for your selected date is editable. Select ✓ OK, X Defect, or N/A.";
+    if (help) help.textContent = "Only the column for your selected date is editable.";
   }
 
   function fillRecipients() {
@@ -950,30 +950,29 @@
       { align: "center", baseline: "middle" }
     );
 
-    // Meta row positioned evenly between the two yellow bars (instruction bar and table header)
+    // Meta row evenly between the two yellow bars
     const metaPad = 6;
     const metaRowH = 14;
     y += barH + metaPad;
 
-    const metaY = y + 10; // baseline
+    const metaY = y + 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(0);
 
-    // Site left aligned to left edge, operator right aligned to right edge, date centered
     doc.text(`Site: ${payload.site || ""}`, margin, metaY);
     doc.text(`Date: ${dateUK}`, pageW / 2, metaY, { align: "center" });
     doc.text(`Operator: ${payload.operator || ""}`, pageW - margin, metaY, { align: "right" });
 
     y += metaRowH + metaPad;
 
-    // Table sizing
-    const dayColW = 20;
+    // Table sizing (tweak so Mon–Sun starts a bit more left / less empty yellow space)
+    const dayColW = 22; // was 20
     const itemColW = tableW - (dayColW * 7);
     const headH = 16;
 
-    // Footer planning (Defects + Action + Reported/Checks/Signature at the end)
-    const gapAfterTable = 10;
+    // Footer planning
+    const gapAfterTable = 18; // was 10 (more space before "Defects identified")
 
     const defectsH = 46;
     const actionH = 46;
@@ -1040,7 +1039,7 @@
 
     y += headH;
 
-    // Body rows with striping + defect highlight for selected day
+    // Body rows
     for (let r = 0; r < totalRows; r++) {
       const isStripe = (r % 2) === 1;
       const isDefectToday = hasDefectInRowForDay(weekStatuses2, r, dayIndex);
@@ -1145,7 +1144,7 @@
 
     y += actionH + afterActionGap;
 
-    // Reported to + Checks carried out by + Signature (moved under Action taken)
+    // Reported to + Checks carried out by + Signature
     const underline = (x1, yBase, w) => {
       doc.setDrawColor(0);
       doc.setLineWidth(0.6);
@@ -1153,7 +1152,7 @@
       doc.setLineWidth(0.7);
     };
 
-    // Line 1: Reported to (name bold + underlined)
+    // Line 1: Reported to
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(0);
@@ -1171,13 +1170,15 @@
 
     y += reportedLineH + betweenLines;
 
-    // Line 2: Checks carried out by (name underlined) + Signature (next to label, no underline/line)
+    // Line 2: Checks carried out by + Signature
     const chkLabel = "Checks carried out by:";
     const chkName = String(payload.operator || "").trim();
     const sigLabel = "Signature:";
     const sigGap = 4;
-    const sigBoxW = 180;
-    const sigBoxH = 18;
+
+    // signature "box" is invisible, but we still use a max area to fit into
+    const sigBoxW = 150; // was 180 (reduces the “stretched” look)
+    const sigBoxH = 16;  // was 18
 
     doc.setFont("helvetica", "bold");
     doc.text(chkLabel, margin, y);
@@ -1188,7 +1189,7 @@
     const chkNameW = doc.getTextWidth(chkName || "—");
     underline(margin + chkLabelW, y, chkNameW);
 
-    // Signature block positioned to the right but pulled closer if space allows
+    // Signature placement
     doc.setFont("helvetica", "bold");
     const sigLabelW = doc.getTextWidth(sigLabel);
     const sigSegmentW = sigLabelW + sigGap + sigBoxW;
@@ -1201,7 +1202,10 @@
     doc.text(sigLabel, sigX, y);
 
     const sigImgX = sigX + sigLabelW + sigGap;
-    const sigImgY = y - sigBoxH + 6; // visually higher (no underline)
+
+    // raise a touch so it sits nicer on the line
+    const sigImgY = y - sigBoxH + 5;
+
     if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
       try {
         const s = await getImageSize(payload.signatureDataUrl);
