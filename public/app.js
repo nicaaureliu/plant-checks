@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13.6";
+  const BUILD = "v13.7";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -313,7 +313,8 @@
     if ($("weekCommencingPreview")) $("weekCommencingPreview").textContent = isoToUK(getWeekCommencingISO(dateISO));
 
     const pid = cleanedPlantId();
-    if ($("machineNoPreview")) $("machineNoPreview").textContent = pid || "—";
+    const hrs = ($("hours")?.value || "").trim();
+    if ($("machineNoPreview")) $("machineNoPreview").textContent = pid ? (hrs ? `${pid} • ${hrs}h` : pid) : "—";
 
     const help = document.querySelector(".checksHelp");
     if (help) {
@@ -877,20 +878,22 @@
     const totalPages = 1 + photoPages;
 
     // ---------------- PAGE 1 ----------------
-    let y = margin;
+    const headerTopY = margin;
+    let y = headerTopY;
 
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
     const tp = await fetchAsDataUrl("/assets/tp.png");
 
+    // Slightly smaller TP, and locked to the corner so it never clashes with week text
     const leftBoxW = 150, leftBoxH = 40;
-    const rightBoxW = 56, rightBoxH = 56;
+    const rightBoxW = 50, rightBoxH = 50;
 
     // Logos
     if (atl) {
       try {
         const s = await getImageSize(atl);
         const fitted = fitIntoBox(s.w, s.h, leftBoxW, leftBoxH);
-        doc.addImage(atl, "PNG", margin, y + 6, fitted.w, fitted.h);
+        doc.addImage(atl, "PNG", margin, headerTopY + 6, fitted.w, fitted.h);
       } catch {}
     }
 
@@ -898,7 +901,7 @@
       try {
         const s = await getImageSize(tp);
         const fitted = fitIntoBox(s.w, s.h, rightBoxW, rightBoxH);
-        doc.addImage(tp, "PNG", pageW - margin - fitted.w, y + 2, fitted.w, fitted.h);
+        doc.addImage(tp, "PNG", pageW - margin - fitted.w, headerTopY + 6, fitted.w, fitted.h);
       } catch {}
     }
 
@@ -906,58 +909,90 @@
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text(payload.formRef || "QPFPL5.2", pageW / 2, y + 24, { align: "center" });
+    doc.text(payload.formRef || "QPFPL5.2", pageW / 2, headerTopY + 24, { align: "center" });
 
     doc.setFontSize(10);
-    doc.text(payload.sheetTitle || "", pageW / 2, y + 40, { align: "center" });
+    doc.text(payload.sheetTitle || "", pageW / 2, headerTopY + 40, { align: "center" });
 
-    // Tighter spacing
-    y += 62;
+    // Clear separation under header (prevents logo collisions with week/machine line)
+    y = headerTopY + 68;
 
-    // Machine / Week line
-    doc.setFontSize(9);
+    // Machine / Hours (same line, machine number more visible) + Week commencing
+    const plant = String(payload.plantId || "").trim();
+    const hours = String(payload.hours || "").trim();
+
     doc.setFont("helvetica", "bold");
-    doc.text(`Machine No: ${payload.plantId || ""}`, margin, y);
-    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align: "right" });
+    doc.setFontSize(9);
+
+    const leftStartX = margin;
+    const rightEdgeX = pageW - margin;
+
+    // Week commencing on the right
+    doc.text(`Week commencing: ${weekUK}`, rightEdgeX, y, { align: "right" });
+
+    // Build the left block with a bigger Plant ID
+    const machineLabel = "Machine No:";
+    const hoursLabel = "Hours:";
+    doc.setFontSize(9);
+    doc.text(machineLabel, leftStartX, y);
+
+    let x = leftStartX + doc.getTextWidth(machineLabel) + 5;
+
+    doc.setFontSize(11);
+    doc.text(plant || "—", x, y);
+
+    x = x + doc.getTextWidth(plant || "—") + 12;
+
+    doc.setFontSize(9);
+    doc.text(`${hoursLabel} ${hours || ""}`, x, y);
+
     y += 12;
 
-    // Yellow bar
+    // Yellow instruction bar (text vertically centered)
+    const barH = 18;
     doc.setFillColor(255, 214, 0);
-    doc.rect(margin, y, tableW, 18, "F");
+    doc.rect(margin, y, tableW, barH, "F");
     doc.setTextColor(0);
     doc.setFontSize(8.8);
     doc.setFont("helvetica", "bold");
-    doc.text("All checks must be carried out in line with Specific Manufacturer’s instructions", pageW / 2, y + 12.5, { align: "center" });
-    y += 26;
+    doc.text(
+      "All checks must be carried out in line with Specific Manufacturer’s instructions",
+      pageW / 2,
+      y + barH / 2,
+      { align: "center", baseline: "middle" }
+    );
+    y += barH + 8;
 
-    // Meta row
+    // Meta row (removed Machine hours from here because it's now beside Machine No)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    const colW = tableW / 4;
+    const colW = tableW / 3;
     doc.text(`Site: ${payload.site || ""}`, margin + colW * 0.5, y, { align: "center" });
     doc.text(`Date: ${dateUK}`, margin + colW * 1.5, y, { align: "center" });
     doc.text(`Operator: ${payload.operator || ""}`, margin + colW * 2.5, y, { align: "center" });
-    doc.text(`Machine hours: ${payload.hours || ""}`, margin + colW * 3.5, y, { align: "center" });
     y += 14;
 
     // Table sizing (wider item col, consistent day cols)
-    const dayColW = 18; // consistent and readable
+    const dayColW = 18;
     const itemColW = tableW - (dayColW * 7);
     const headH = 16;
 
-    // Bigger boxes
-    const defectsH = 34;
-    const actionH = 36;
-    const sigH = 44;
+    // Bottom layout (more air; signature moved inline and made smaller)
+    const sigBoxW = 220;
+    const sigBoxH = 24;
+    const defectsH = 38;
+    const actionH = 38;
+    const bottomAir = 26;          // requested "air" at bottom
+    const footerReserve = 26;      // keep footer safe
 
-    // Reserve footer space
     const footerTotal =
-      8 +
-      10 + 6 + defectsH + 10 +
-      10 +
-      10 + 6 + actionH + 10 +
-      10 + 6 + sigH + 18 +   // signature section
-      18;                     // bottom padding
+      12 +               // checks line baseline
+      (sigBoxH + 10) +   // signature box + gap
+      10 + 6 + defectsH + 12 +     // defects label + box + gap
+      12 +                           // reported to line
+      10 + 6 + actionH +            // action label + box
+      bottomAir +
+      footerReserve;
 
     const availForTable = (pageH - margin) - y - headH - footerTotal;
     const totalRows = Math.max(1, labels2.length);
@@ -966,27 +1001,40 @@
     rowH = Math.max(10, Math.min(16, rowH));
     const fontItem = rowH <= 11 ? 6.7 : 7.6;
 
-    // Table header
+    // Table header (add borders per day Mon-Sun)
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
+    // Left header cell (yellow)
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, itemColW, headH, "F");
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + itemColW, y, tableW - itemColW, headH, "F");
 
+    // Day header block (white)
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin + itemColW, y, dayColW * 7, headH, "F");
+
+    // Outer border
     doc.rect(margin, y, tableW, headH);
+
+    // Stronger border around the whole day block
+    doc.setLineWidth(1.0);
+    doc.rect(margin + itemColW, y, dayColW * 7, headH);
+    doc.setLineWidth(0.7);
+
+    // Vertical dividers in header (Mon-Sun cell borders)
+    doc.line(margin + itemColW, y, margin + itemColW, y + headH);
+    for (let i = 1; i < 7; i++) {
+      const xx = margin + itemColW + dayColW * i;
+      doc.line(xx, y, xx, y + headH);
+    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-
-    // "Item" label
     doc.setTextColor(0);
-    doc.text("Item", margin + 6, y + 11);
 
     for (let i = 0; i < 7; i++) {
       const cx = margin + itemColW + dayColW * i + dayColW / 2;
-      doc.text(days[i], cx, y + 11, { align: "center" });
+      doc.text(days[i], cx, y + headH / 2 + 0.5, { align: "center", baseline: "middle" });
     }
     y += headH;
 
@@ -997,10 +1045,10 @@
 
       // background fill
       if (isDefectToday) {
-        doc.setFillColor(255, 235, 235); // light red
+        doc.setFillColor(255, 235, 235);
         doc.rect(margin, y, tableW, rowH, "F");
       } else if (isStripe) {
-        doc.setFillColor(247, 247, 247); // light grey
+        doc.setFillColor(247, 247, 247);
         doc.rect(margin, y, tableW, rowH, "F");
       }
 
@@ -1053,19 +1101,54 @@
       y += rowH;
     }
 
-    y += 10;
+    y += 12;
 
-    // Footer fields
+    // Checks carried out by + Signature inline (small box, as requested)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(0);
-    doc.text(`Checks carried out by: ${payload.operator || ""}`, margin, y);
-    y += 10;
+
+    const sigLabel = "Signature:";
+    const sigLabelW = doc.getTextWidth(sigLabel);
+
+    const sigBoxX = pageW - margin - sigBoxW;
+    const sigLabelX = sigBoxX - 6 - sigLabelW;
+
+    const checksTextFull = `Checks carried out by: ${payload.operator || ""}`;
+    const maxChecksW = Math.max(80, sigLabelX - margin - 10);
+    const checksText = ellipsize(checksTextFull, maxChecksW, 9);
+
+    doc.text(checksText, margin, y);
+    doc.text(sigLabel, sigLabelX, y);
+
+    const sigBoxY = y - sigBoxH + 8;
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.7);
+    doc.rect(sigBoxX, sigBoxY, sigBoxW, sigBoxH);
+
+    if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
+      try {
+        const pad = 3;
+        const innerW = sigBoxW - pad * 2;
+        const innerH = sigBoxH - pad * 2;
+        const s = await getImageSize(payload.signatureDataUrl);
+        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
+        const imgX = sigBoxX + pad + (innerW - fitted.w) / 2;
+        const imgY = sigBoxY + pad + (innerH - fitted.h) / 2;
+        doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
+      } catch {}
+    }
+
+    y = sigBoxY + sigBoxH + 14;
 
     // Defects box
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
     doc.text("Defects identified:", margin, y);
     y += 6;
+
     doc.setDrawColor(0);
+    doc.setLineWidth(0.7);
     doc.rect(margin, y, tableW, defectsH);
 
     doc.setFont("helvetica", "normal");
@@ -1074,7 +1157,7 @@
     const defectLines = splitToFit(defectsTxt, tableW - 12, Math.max(1, Math.floor((defectsH - 10) / 10)), 8.5);
     doc.text(defectLines, margin + 6, y + 14);
 
-    y += defectsH + 10;
+    y += defectsH + 12;
 
     // Reported to
     doc.setFont("helvetica", "bold");
@@ -1085,6 +1168,7 @@
     // Action box
     doc.text("Action taken:", margin, y);
     y += 6;
+
     doc.rect(margin, y, tableW, actionH);
 
     doc.setFont("helvetica", "normal");
@@ -1092,29 +1176,6 @@
     const actionTxt = normalizeNone(payload.actionTaken);
     const actionLines = splitToFit(actionTxt, tableW - 12, Math.max(1, Math.floor((actionH - 10) / 10)), 8.5);
     doc.text(actionLines, margin + 6, y + 14);
-
-    y += actionH + 10;
-
-    // Signature
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Signature:", margin, y);
-    y += 6;
-
-    doc.rect(margin, y, tableW, sigH);
-
-    if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
-      try {
-        const pad = 5;
-        const innerW = tableW - pad * 2;
-        const innerH = sigH - pad * 2;
-        const s = await getImageSize(payload.signatureDataUrl);
-        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
-        const imgX = margin + pad + (innerW - fitted.w) / 2;
-        const imgY = y + pad + (innerH - fitted.h) / 2;
-        doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
-      } catch {}
-    }
 
     // Footer page 1
     footer(1, totalPages);
@@ -1353,6 +1414,9 @@
     });
 
     $("plantId")?.addEventListener("blur", loadWeekFromKV);
+
+    // keep header preview in sync (machine no + hours)
+    $("hours")?.addEventListener("input", setHeaderTexts);
 
     window.addEventListener("resize", () => renderChecks());
 
