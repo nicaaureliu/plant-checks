@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13.7";
+  const BUILD = "v13.8";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -346,8 +346,6 @@
 
   function setStatus(r, d, next) {
     const cur = weekStatuses?.[r]?.[d] || null;
-
-    // Tap same option again => clear
     const newStatus = (cur === next) ? null : next;
     weekStatuses[r][d] = newStatus;
 
@@ -871,7 +869,6 @@
     const weekStatuses2 = payload.weekStatuses || labels2.map(() => Array(7).fill(null));
     const dayIndex = Number.isFinite(payload.dayIndex) ? payload.dayIndex : 0;
 
-    // pre-calc page count (1 + photo pages)
     const pics = Array.isArray(defectPhotos) ? defectPhotos : [];
     const picsPerPage = 6;
     const photoPages = pics.length ? Math.ceil(pics.length / picsPerPage) : 0;
@@ -884,7 +881,6 @@
     const atl = await fetchAsDataUrl("/assets/atl-logo.png");
     const tp = await fetchAsDataUrl("/assets/tp.png");
 
-    // Slightly smaller TP, and locked to the corner so it never clashes with week text
     const leftBoxW = 150, leftBoxH = 40;
     const rightBoxW = 50, rightBoxH = 50;
 
@@ -914,10 +910,10 @@
     doc.setFontSize(10);
     doc.text(payload.sheetTitle || "", pageW / 2, headerTopY + 40, { align: "center" });
 
-    // Clear separation under header (prevents logo collisions with week/machine line)
+    // Clear separation under header
     y = headerTopY + 68;
 
-    // Machine / Hours (same line, machine number more visible) + Week commencing
+    // Machine / Hours (same line) + Week commencing
     const plant = String(payload.plantId || "").trim();
     const hours = String(payload.hours || "").trim();
 
@@ -927,28 +923,25 @@
     const leftStartX = margin;
     const rightEdgeX = pageW - margin;
 
-    // Week commencing on the right
     doc.text(`Week commencing: ${weekUK}`, rightEdgeX, y, { align: "right" });
 
-    // Build the left block with a bigger Plant ID
     const machineLabel = "Machine No:";
-    const hoursLabel = "Hours:";
-    doc.setFontSize(9);
     doc.text(machineLabel, leftStartX, y);
 
     let x = leftStartX + doc.getTextWidth(machineLabel) + 5;
 
-    doc.setFontSize(11);
+    // Make machine number more visible
+    doc.setFontSize(12);
     doc.text(plant || "—", x, y);
 
     x = x + doc.getTextWidth(plant || "—") + 12;
 
     doc.setFontSize(9);
-    doc.text(`${hoursLabel} ${hours || ""}`, x, y);
+    doc.text(`Hours: ${hours || ""}`, x, y);
 
     y += 12;
 
-    // Yellow instruction bar (text vertically centered)
+    // Yellow instruction bar (perfect vertical centring)
     const barH = 18;
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, tableW, barH, "F");
@@ -963,7 +956,7 @@
     );
     y += barH + 8;
 
-    // Meta row (removed Machine hours from here because it's now beside Machine No)
+    // Meta row
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     const colW = tableW / 3;
@@ -972,25 +965,26 @@
     doc.text(`Operator: ${payload.operator || ""}`, margin + colW * 2.5, y, { align: "center" });
     y += 14;
 
-    // Table sizing (wider item col, consistent day cols)
-    const dayColW = 18;
+    // Table sizing
+    // Slightly wider day columns so headings do not visually “run together”
+    const dayColW = 20;
     const itemColW = tableW - (dayColW * 7);
     const headH = 16;
 
-    // Bottom layout (more air; signature moved inline and made smaller)
+    // Bottom layout balance (less empty space; larger text boxes)
     const sigBoxW = 220;
-    const sigBoxH = 24;
-    const defectsH = 38;
-    const actionH = 38;
-    const bottomAir = 26;          // requested "air" at bottom
-    const footerReserve = 26;      // keep footer safe
+    const sigBoxH = 26;
+    const defectsH = 46;
+    const actionH = 46;
+    const bottomAir = 10;
+    const footerReserve = 26;
 
     const footerTotal =
-      12 +               // checks line baseline
-      (sigBoxH + 10) +   // signature box + gap
-      10 + 6 + defectsH + 12 +     // defects label + box + gap
-      12 +                           // reported to line
-      10 + 6 + actionH +            // action label + box
+      12 +               // checks/sign line baseline
+      (sigBoxH + 14) +   // signature box + gap
+      10 + 6 + defectsH + 12 +
+      12 +
+      10 + 6 + actionH +
       bottomAir +
       footerReserve;
 
@@ -1001,49 +995,53 @@
     rowH = Math.max(10, Math.min(16, rowH));
     const fontItem = rowH <= 11 ? 6.7 : 7.6;
 
-    // Table header (add borders per day Mon-Sun)
+    // Table header
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
-    // Left header cell (yellow)
+    // Left header cell (yellow) + label (fixes “blank yellow strip”)
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, itemColW, headH, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(0);
+    doc.text("Checks", margin + 6, y + headH / 2, { baseline: "middle" });
 
     // Day header block (white)
     doc.setFillColor(255, 255, 255);
     doc.rect(margin + itemColW, y, dayColW * 7, headH, "F");
 
-    // Outer border
+    // Outer border around full header
+    doc.setLineWidth(0.7);
     doc.rect(margin, y, tableW, headH);
 
-    // Stronger border around the whole day block
-    doc.setLineWidth(1.0);
+    // Stronger border around the entire Mon–Sun block
+    doc.setLineWidth(1.25);
     doc.rect(margin + itemColW, y, dayColW * 7, headH);
     doc.setLineWidth(0.7);
 
-    // Vertical dividers in header (Mon-Sun cell borders)
+    // Vertical dividers (header)
     doc.line(margin + itemColW, y, margin + itemColW, y + headH);
     for (let i = 1; i < 7; i++) {
       const xx = margin + itemColW + dayColW * i;
       doc.line(xx, y, xx, y + headH);
     }
 
+    // Day headings centred inside each day cell
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(0);
-
+    doc.setFontSize(7.4);
     for (let i = 0; i < 7; i++) {
       const cx = margin + itemColW + dayColW * i + dayColW / 2;
-      doc.text(days[i], cx, y + headH / 2 + 0.5, { align: "center", baseline: "middle" });
+      doc.text(days[i], cx, y + headH / 2 + 0.3, { align: "center", baseline: "middle" });
     }
     y += headH;
 
-    // Body rows with striping + defect highlight for selected day
+    // Body rows
     for (let r = 0; r < totalRows; r++) {
       const isStripe = (r % 2) === 1;
       const isDefectToday = hasDefectInRowForDay(weekStatuses2, r, dayIndex);
 
-      // background fill
       if (isDefectToday) {
         doc.setFillColor(255, 235, 235);
         doc.rect(margin, y, tableW, rowH, "F");
@@ -1052,7 +1050,6 @@
         doc.rect(margin, y, tableW, rowH, "F");
       }
 
-      // borders
       doc.setDrawColor(0);
       doc.setLineWidth(0.7);
       doc.rect(margin, y, tableW, rowH);
@@ -1101,9 +1098,10 @@
       y += rowH;
     }
 
-    y += 12;
+    // More breathing room between table and signature line
+    y += 18;
 
-    // Checks carried out by + Signature inline (small box, as requested)
+    // Checks carried out by + Signature inline
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(0);
@@ -1118,13 +1116,15 @@
     const maxChecksW = Math.max(80, sigLabelX - margin - 10);
     const checksText = ellipsize(checksTextFull, maxChecksW, 9);
 
-    doc.text(checksText, margin, y);
-    doc.text(sigLabel, sigLabelX, y);
+    const lineY = y;
+    doc.text(checksText, margin, lineY);
+    doc.text(sigLabel, sigLabelX, lineY);
 
-    const sigBoxY = y - sigBoxH + 8;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.7);
+    // Signature box slightly lower and with a thinner border
+    const sigBoxY = lineY - sigBoxH + 7;
+    doc.setLineWidth(0.5);
     doc.rect(sigBoxX, sigBoxY, sigBoxW, sigBoxH);
+    doc.setLineWidth(0.7);
 
     if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
       try {
@@ -1139,9 +1139,9 @@
       } catch {}
     }
 
-    y = sigBoxY + sigBoxH + 14;
+    y = sigBoxY + sigBoxH + 16;
 
-    // Defects box
+    // Defects box (bigger)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Defects identified:", margin, y);
@@ -1165,7 +1165,7 @@
     doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
     y += 12;
 
-    // Action box
+    // Action box (bigger)
     doc.text("Action taken:", margin, y);
     y += 6;
 
