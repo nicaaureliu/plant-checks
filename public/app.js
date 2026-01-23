@@ -1,6 +1,6 @@
 /* public/app.js */
 (() => {
-  const BUILD = "v13.8";
+  const BUILD = "v13.9";
   const $ = (id) => document.getElementById(id);
 
   const RECIPIENTS = [
@@ -234,7 +234,6 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      /* Make selected option stand out; other two go grey but remain clickable */
       .statusGroup, .mobileStatusGroup{
         display:flex;
         justify-content:center;
@@ -263,19 +262,16 @@
         transform: translateY(-1px);
       }
 
-      /* Grey out the other options when one is selected */
       .statusBtn.inactive{
         opacity:.35;
         background: #f3f4f6;
       }
 
-      /* Disabled state (used for non-active days) */
       .statusBtn.disabled{
         opacity:.30;
         cursor:not-allowed;
       }
 
-      /* Old single button (display-only for other days) */
       .markBtn{
         width:44px !important;
         height:38px !important;
@@ -317,9 +313,7 @@
     if ($("machineNoPreview")) $("machineNoPreview").textContent = pid ? (hrs ? `${pid} • ${hrs}h` : pid) : "—";
 
     const help = document.querySelector(".checksHelp");
-    if (help) {
-      help.textContent = "Only the column for your selected date is editable. Select ✓ OK, X Defect, or N/A.";
-    }
+    if (help) help.textContent = "Only the column for your selected date is editable. Select ✓ OK, X Defect, or N/A.";
   }
 
   function fillRecipients() {
@@ -348,8 +342,6 @@
     const cur = weekStatuses?.[r]?.[d] || null;
     const newStatus = (cur === next) ? null : next;
     weekStatuses[r][d] = newStatus;
-
-    // If not DEFECT, wipe photos for that row/day
     if (newStatus !== "DEFECT") photos[r][d] = [];
   }
 
@@ -369,7 +361,6 @@
       } else {
         b.addEventListener("click", () => onPick(status));
       }
-
       return b;
     };
 
@@ -687,7 +678,6 @@
         weekStatuses = rec.statuses;
         weekDaily = Array.isArray(rec.daily) ? rec.daily : Array(7).fill(null);
 
-        // Photos are PDF-only; always start blank on load
         photos = labels.map(() => Array(7).fill(null).map(() => []));
 
         if (rec.site) {
@@ -884,7 +874,6 @@
     const leftBoxW = 150, leftBoxH = 40;
     const rightBoxW = 50, rightBoxH = 50;
 
-    // Logos
     if (atl) {
       try {
         const s = await getImageSize(atl);
@@ -901,7 +890,6 @@
       } catch {}
     }
 
-    // Title
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
@@ -910,30 +898,24 @@
     doc.setFontSize(10);
     doc.text(payload.sheetTitle || "", pageW / 2, headerTopY + 40, { align: "center" });
 
-    // Clear separation under header
     y = headerTopY + 68;
 
-    // Machine / Hours (same line) + Week commencing
+    // Machine / Hours + Week commencing
     const plant = String(payload.plantId || "").trim();
     const hours = String(payload.hours || "").trim();
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
 
-    const leftStartX = margin;
-    const rightEdgeX = pageW - margin;
-
-    doc.text(`Week commencing: ${weekUK}`, rightEdgeX, y, { align: "right" });
+    doc.text(`Week commencing: ${weekUK}`, pageW - margin, y, { align: "right" });
 
     const machineLabel = "Machine No:";
-    doc.text(machineLabel, leftStartX, y);
+    doc.text(machineLabel, margin, y);
 
-    let x = leftStartX + doc.getTextWidth(machineLabel) + 5;
+    let x = margin + doc.getTextWidth(machineLabel) + 5;
 
-    // Make machine number more visible
     doc.setFontSize(12);
     doc.text(plant || "—", x, y);
-
     x = x + doc.getTextWidth(plant || "—") + 12;
 
     doc.setFontSize(9);
@@ -941,7 +923,7 @@
 
     y += 12;
 
-    // Yellow instruction bar (perfect vertical centring)
+    // Yellow instruction bar (vertically centered)
     const barH = 18;
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, tableW, barH, "F");
@@ -966,25 +948,31 @@
     y += 14;
 
     // Table sizing
-    // Slightly wider day columns so headings do not visually “run together”
     const dayColW = 20;
     const itemColW = tableW - (dayColW * 7);
     const headH = 16;
 
-    // Bottom layout balance (less empty space; larger text boxes)
-    const sigBoxW = 220;
-    const sigBoxH = 26;
+    // Footer planning (Reported-to directly under table; signature inline w/o box)
     const defectsH = 46;
     const actionH = 46;
+
+    const gapAfterTable = 10;
+    const reportedLineH = 12;
+    const gapAfterReported = 10;
+    const checksSigLineH = 12;
+    const gapAfterChecks = 12;
+
+    const footerReserve = 26; // footer text
     const bottomAir = 10;
-    const footerReserve = 26;
 
     const footerTotal =
-      12 +               // checks/sign line baseline
-      (sigBoxH + 14) +   // signature box + gap
-      10 + 6 + defectsH + 12 +
-      12 +
-      10 + 6 + actionH +
+      gapAfterTable +
+      reportedLineH +
+      gapAfterReported +
+      checksSigLineH +
+      gapAfterChecks +
+      (10 + 6 + defectsH + 12) +
+      (10 + 6 + actionH) +
       bottomAir +
       footerReserve;
 
@@ -995,11 +983,14 @@
     rowH = Math.max(10, Math.min(16, rowH));
     const fontItem = rowH <= 11 ? 6.7 : 7.6;
 
-    // Table header
+    // Store table start for full-height day-block border
+    const tableTopY = y;
+
+    // Header row
     doc.setDrawColor(0);
     doc.setLineWidth(0.7);
 
-    // Left header cell (yellow) + label (fixes “blank yellow strip”)
+    // Left header cell (yellow) + label
     doc.setFillColor(255, 214, 0);
     doc.rect(margin, y, itemColW, headH, "F");
 
@@ -1012,23 +1003,18 @@
     doc.setFillColor(255, 255, 255);
     doc.rect(margin + itemColW, y, dayColW * 7, headH, "F");
 
-    // Outer border around full header
+    // Outer border for header row
     doc.setLineWidth(0.7);
     doc.rect(margin, y, tableW, headH);
 
-    // Stronger border around the entire Mon–Sun block
-    doc.setLineWidth(1.25);
-    doc.rect(margin + itemColW, y, dayColW * 7, headH);
-    doc.setLineWidth(0.7);
-
-    // Vertical dividers (header)
+    // Header vertical dividers
     doc.line(margin + itemColW, y, margin + itemColW, y + headH);
     for (let i = 1; i < 7; i++) {
       const xx = margin + itemColW + dayColW * i;
       doc.line(xx, y, xx, y + headH);
     }
 
-    // Day headings centred inside each day cell
+    // Day headings centered
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.4);
     for (let i = 0; i < 7; i++) {
@@ -1037,7 +1023,7 @@
     }
     y += headH;
 
-    // Body rows
+    // Body
     for (let r = 0; r < totalRows; r++) {
       const isStripe = (r % 2) === 1;
       const isDefectToday = hasDefectInRowForDay(weekStatuses2, r, dayIndex);
@@ -1061,11 +1047,10 @@
         doc.line(xx, y, xx, y + rowH);
       }
 
-      // label text
+      // label
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontItem);
       doc.setTextColor(0);
-
       const label = ellipsize(labels2[r] || "", itemColW - 44, fontItem);
       doc.text(label, margin + 6, y + rowH * 0.72);
 
@@ -1098,50 +1083,75 @@
       y += rowH;
     }
 
-    // More breathing room between table and signature line
-    y += 18;
+    // Draw a thicker outer border around the entire Mon–Sun block (header + all rows)
+    const tableBottomY = y;
+    doc.setDrawColor(0);
+    doc.setLineWidth(1.25);
+    doc.rect(margin + itemColW, tableTopY, dayColW * 7, tableBottomY - tableTopY);
+    doc.setLineWidth(0.7);
 
-    // Checks carried out by + Signature inline
+    // ---- Footer section ----
+    y += gapAfterTable;
+
+    // Reported to: directly under the checks table
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(0);
+    doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
+    y += gapAfterReported;
 
-    const sigLabel = "Signature:";
-    const sigLabelW = doc.getTextWidth(sigLabel);
-
-    const sigBoxX = pageW - margin - sigBoxW;
-    const sigLabelX = sigBoxX - 6 - sigLabelW;
+    // Checks carried out by + Signature inline (NO BOX)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
 
     const checksTextFull = `Checks carried out by: ${payload.operator || ""}`;
-    const maxChecksW = Math.max(80, sigLabelX - margin - 10);
+    const sigLabel = "Signature:";
+    const sigGap = 4;               // closer to text
+    const sigLineLen = 220;
+    const sigAreaH = 18;
+
+    // Start by reserving the signature segment on the right, then try to pull it left next to checks text
+    const sigLabelW = doc.getTextWidth(sigLabel);
+    const sigSegmentW = sigLabelW + sigGap + sigLineLen;
+    const rightEdge = pageW - margin;
+
+    // First, ellipsize checks to ensure it never overlaps
+    let signatureLabelX = rightEdge - sigSegmentW;
+    const maxChecksW = Math.max(90, signatureLabelX - margin - 12);
     const checksText = ellipsize(checksTextFull, maxChecksW, 9);
 
-    const lineY = y;
-    doc.text(checksText, margin, lineY);
-    doc.text(sigLabel, sigLabelX, lineY);
+    // If there is spare room, move signature segment left to sit closer to the checks text
+    const checksTextW = doc.getTextWidth(checksText);
+    const preferredSigX = margin + checksTextW + 18;
+    if (preferredSigX + sigSegmentW <= rightEdge) signatureLabelX = preferredSigX;
 
-    // Signature box slightly lower and with a thinner border
-    const sigBoxY = lineY - sigBoxH + 7;
+    const lineY = y;
+
+    doc.text(checksText, margin, lineY);
+    doc.text(sigLabel, signatureLabelX, lineY);
+
+    const sigLineStartX = signatureLabelX + sigLabelW + sigGap;
+    const sigLineY = lineY + 3;
+
+    // signature line (thin)
     doc.setLineWidth(0.5);
-    doc.rect(sigBoxX, sigBoxY, sigBoxW, sigBoxH);
+    doc.line(sigLineStartX, sigLineY, sigLineStartX + sigLineLen, sigLineY);
     doc.setLineWidth(0.7);
 
+    // signature image placed above the line (no box)
     if (payload.signatureDataUrl && payload.signatureDataUrl.startsWith("data:image")) {
       try {
-        const pad = 3;
-        const innerW = sigBoxW - pad * 2;
-        const innerH = sigBoxH - pad * 2;
         const s = await getImageSize(payload.signatureDataUrl);
-        const fitted = fitIntoBox(s.w, s.h, innerW, innerH);
-        const imgX = sigBoxX + pad + (innerW - fitted.w) / 2;
-        const imgY = sigBoxY + pad + (innerH - fitted.h) / 2;
+        const fitted = fitIntoBox(s.w, s.h, sigLineLen, sigAreaH);
+        const imgX = sigLineStartX + (sigLineLen - fitted.w) / 2;
+        const imgY = (sigLineY - sigAreaH) + (sigAreaH - fitted.h) / 2 + 1;
         doc.addImage(payload.signatureDataUrl, "PNG", imgX, imgY, fitted.w, fitted.h);
       } catch {}
     }
 
-    y = sigBoxY + sigBoxH + 16;
+    y += checksSigLineH + gapAfterChecks;
 
-    // Defects box (bigger)
+    // Defects box
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Defects identified:", margin, y);
@@ -1159,13 +1169,9 @@
 
     y += defectsH + 12;
 
-    // Reported to
+    // Action box
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text(`Reported to: ${payload.reportedToName || ""}`, margin, y);
-    y += 12;
-
-    // Action box (bigger)
     doc.text("Action taken:", margin, y);
     y += 6;
 
