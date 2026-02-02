@@ -62,6 +62,22 @@
       margin-bottom:10px;
     }
 
+    /* ===== Bigger equipment icons (home tiles) =====
+       This targets only the excavator/crane/dumper icons by alt/src,
+       so it won't affect ATL/TP logos.
+    */
+    img[alt="Excavator"],
+    img[alt="Crane"],
+    img[alt="Dumper"],
+    img[src*="excavator"],
+    img[src*="crane"],
+    img[src*="dumper"]{
+      width:64px !important;
+      height:64px !important;
+      object-fit:contain !important;
+      display:block;
+    }
+
     /* ===== Header ===== */
     .sheetHeader{
       padding:10px 10px 0;
