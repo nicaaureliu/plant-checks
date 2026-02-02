@@ -80,6 +80,19 @@ function getDefectSummaryForDay(payload, dayIndex) {
   return { defectsCount, defectLabels, hasDefect: defectsCount > 0 };
 }
 
+function isValidEmail(email) {
+  const e = String(email || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+function parseEmailList(listStr) {
+  return String(listStr || "")
+    .split(/[;,]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(isValidEmail);
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -159,7 +172,7 @@ export async function onRequestPost(context) {
       reportedToName: payload.reportedToName || "",
       reportedToEmail: payload.reportedToEmail || "",
       defectsCount,
-      defectItems: defectLabels, // helpful for later reporting / dashboards
+      defectItems: defectLabels,
       submittedAt: new Date().toISOString(),
     };
 
@@ -189,17 +202,31 @@ export async function onRequestPost(context) {
       return Response.json({ error: "No recipient email (reportedToEmail missing)" }, { status: 400 });
     }
 
-    // Yard (only if there is a DEFECT today)
-    const YARD_EMAIL = "wshop@activetunnelling.com";
-    const YARD_NAME = "TP Yard";
-    const includeYard = hasDefect;
+    // Yard recipients (ONLY if DEFECT today)
+    // You can override as an env var later:
+    // DEFECT_YARD_EMAILS="a@...,b@...,c@..."
+    const DEFAULT_YARD_EMAILS =
+      "kdoherty@activetunnelling.com,DJBucknall@trenchlessplant.com,wshop@activetunnelling.com";
+    const yardEmails = parseEmailList(env.DEFECT_YARD_EMAILS || DEFAULT_YARD_EMAILS);
+
+    // Optional: extra non-yard people (only if DEFECT today)
+    // DEFECT_NOTIFY_EMAILS="someone@...,someone2@..."
+    const extraDefectEmails = parseEmailList(env.DEFECT_NOTIFY_EMAILS);
 
     // Build recipient list (dedupe)
     const recipientsMap = new Map();
+
+    // Always send to the selected "Reported to" person
     recipientsMap.set(safeEmailKey(toEmail), { Email: toEmail, Name: toName });
 
-    if (includeYard) {
-      recipientsMap.set(safeEmailKey(YARD_EMAIL), { Email: YARD_EMAIL, Name: YARD_NAME });
+    // Only add yard + extras if DEFECT today
+    if (hasDefect) {
+      for (const em of yardEmails) {
+        recipientsMap.set(safeEmailKey(em), { Email: em, Name: em });
+      }
+      for (const em of extraDefectEmails) {
+        recipientsMap.set(safeEmailKey(em), { Email: em, Name: em });
+      }
     }
 
     const toList = Array.from(recipientsMap.values());
@@ -210,7 +237,8 @@ export async function onRequestPost(context) {
     // Text email
     const defectLines =
       defectLabels.length
-        ? defectLabels.slice(0, 25).map((x, i) => `  - ${x}`).join("\n") + (defectLabels.length > 25 ? `\n  (+${defectLabels.length - 25} more)` : "")
+        ? defectLabels.slice(0, 25).map(x => `  - ${x}`).join("\n") +
+          (defectLabels.length > 25 ? `\n  (+${defectLabels.length - 25} more)` : "")
         : "  - None";
 
     const textLines = [
@@ -234,10 +262,14 @@ export async function onRequestPost(context) {
       "PDF attached."
     ];
 
-    // HTML email (reads much better on mobile)
+    // HTML email
     const htmlDefectItems =
       defectLabels.length
-        ? `<ul style="margin:8px 0 0 18px;padding:0;">${defectLabels.slice(0, 25).map(x => `<li>${escapeHtml(x)}</li>`).join("")}${defectLabels.length > 25 ? `<li>(+${defectLabels.length - 25} more)</li>` : ""}</ul>`
+        ? `<ul style="margin:8px 0 0 18px;padding:0;">${
+            defectLabels.slice(0, 25).map(x => `<li>${escapeHtml(x)}</li>`).join("")
+          }${
+            defectLabels.length > 25 ? `<li>(+${defectLabels.length - 25} more)</li>` : ""
+          }</ul>`
         : `<div style="margin-top:8px;">None</div>`;
 
     const htmlBody = `
@@ -310,7 +342,13 @@ export async function onRequestPost(context) {
       return Response.json({ error: "Email send failed", details }, { status: 502 });
     }
 
-    return Response.json({ ok: true, includeYard, defectsCount, defectItems: defectLabels });
+    return Response.json({
+      ok: true,
+      hasDefect,
+      defectsCount,
+      defectItems: defectLabels,
+      yardRecipientsUsed: hasDefect ? yardEmails : [],
+    });
   } catch (e) {
     return Response.json({ error: e?.message || "Server error" }, { status: 500 });
   }
