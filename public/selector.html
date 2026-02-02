@@ -145,20 +145,21 @@
       outline-offset:4px;
     }
 
-    /* ✅ Bigger icons + more breathing space (no squeeze) */
+    /* ✅ Bigger icons + more breathing space (NO squeeze, NO overrides) */
     .icon{
       display:flex;
       justify-content:center;
       align-items:center;
-      height:86px;          /* was 64px */
+      height:96px !important;     /* was 64px */
     }
 
     .iconImg{
-      width:78px;           /* was 64px */
-      height:78px;          /* was 64px */
-      object-fit:contain;
+      width:92px !important;      /* was 64px */
+      height:92px !important;     /* was 64px */
+      object-fit:contain !important;
       display:block;
       image-rendering:auto;
+      transform: scale(1.08);     /* helps if PNG has big transparent padding */
     }
 
     /* If your icons are black, invert them to white on hover/press */
@@ -203,9 +204,8 @@
       h1{ font-size:20px; }
       .headerText{ padding-top:8px; }
 
-      /* keep icons chunky but not oversized on small screens */
-      .icon{ height:78px; }
-      .iconImg{ width:70px; height:70px; }
+      .icon{ height:90px !important; }
+      .iconImg{ width:84px !important; height:84px !important; }
     }
   </style>
 </head>
