@@ -145,16 +145,17 @@
       outline-offset:4px;
     }
 
+    /* ✅ Bigger icons + more breathing space (no squeeze) */
     .icon{
       display:flex;
       justify-content:center;
       align-items:center;
-      height:64px;
+      height:86px;          /* was 64px */
     }
 
     .iconImg{
-      width:64px;
-      height:64px;
+      width:78px;           /* was 64px */
+      height:78px;          /* was 64px */
       object-fit:contain;
       display:block;
       image-rendering:auto;
@@ -201,6 +202,10 @@
       .logoRight{ width:52px; }
       h1{ font-size:20px; }
       .headerText{ padding-top:8px; }
+
+      /* keep icons chunky but not oversized on small screens */
+      .icon{ height:78px; }
+      .iconImg{ width:70px; height:70px; }
     }
   </style>
 </head>
